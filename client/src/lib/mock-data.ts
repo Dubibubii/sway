@@ -1,3 +1,10 @@
+
+import bitcoinImg from '@assets/generated_images/bitcoin_neon_chart_futuristic.png';
+import fedImg from '@assets/generated_images/federal_reserve_building_ominous.png';
+import gtaImg from '@assets/generated_images/gta_vi_vice_city_vibe.png';
+import marsImg from '@assets/generated_images/spacex_rocket_on_mars.png';
+import swiftImg from '@assets/generated_images/rock_concert_stage_lights.png';
+
 export interface Market {
   id: string;
   question: string;
@@ -18,7 +25,7 @@ export const MOCK_MARKETS: Market[] = [
     yesPrice: 0.32,
     noPrice: 0.68,
     endDate: "Dec 31, 2024",
-    imageUrl: "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?q=80&w=1000&auto=format&fit=crop"
+    imageUrl: bitcoinImg
   },
   {
     id: "2",
@@ -28,7 +35,7 @@ export const MOCK_MARKETS: Market[] = [
     yesPrice: 0.15,
     noPrice: 0.85,
     endDate: "Mar 20, 2024",
-    imageUrl: "https://images.unsplash.com/photo-1611974765270-ca1258634369?q=80&w=1000&auto=format&fit=crop"
+    imageUrl: fedImg
   },
   {
     id: "3",
@@ -38,7 +45,7 @@ export const MOCK_MARKETS: Market[] = [
     yesPrice: 0.88,
     noPrice: 0.12,
     endDate: "Dec 31, 2025",
-    imageUrl: "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=1000&auto=format&fit=crop"
+    imageUrl: gtaImg
   },
   {
     id: "4",
@@ -48,7 +55,7 @@ export const MOCK_MARKETS: Market[] = [
     yesPrice: 0.12,
     noPrice: 0.88,
     endDate: "Jan 1, 2030",
-    imageUrl: "https://images.unsplash.com/photo-1517976487492-5750f3195933?q=80&w=1000&auto=format&fit=crop"
+    imageUrl: marsImg
   },
   {
     id: "5",
@@ -58,6 +65,6 @@ export const MOCK_MARKETS: Market[] = [
     yesPrice: 0.05,
     noPrice: 0.95,
     endDate: "Dec 31, 2024",
-    imageUrl: "https://images.unsplash.com/photo-1514525253440-b393452e8d26?q=80&w=1000&auto=format&fit=crop"
+    imageUrl: swiftImg
   }
 ];
