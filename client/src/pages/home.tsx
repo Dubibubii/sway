@@ -17,6 +17,7 @@ interface DisplayMarket {
   yesPrice: number;
   noPrice: number;
   endDate: string;
+  imageUrl?: string;
 }
 
 function formatMarket(m: Market): DisplayMarket {
@@ -28,6 +29,7 @@ function formatMarket(m: Market): DisplayMarket {
     yesPrice: m.yesPrice,
     noPrice: m.noPrice,
     endDate: new Date(m.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    imageUrl: m.imageUrl,
   };
 }
 

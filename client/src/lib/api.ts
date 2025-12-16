@@ -36,6 +36,7 @@ export interface Market {
   volume: number;
   endDate: string;
   status: string;
+  imageUrl?: string;
 }
 
 export interface Trade {
