@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -5,12 +6,18 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 export default function Profile() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
+  const [unifiedWager, setUnifiedWager] = useState(true);
+
+  const handleUnifiedChange = (val: number[]) => {
+    updateWager('yes', val[0]);
+    updateWager('no', val[0]);
+  };
 
   return (
     <Layout>
@@ -67,59 +74,99 @@ export default function Profile() {
 
         {/* Trading Settings */}
         <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Trading Preferences</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Trading Preferences</h3>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="unified-wager" className="text-xs text-muted-foreground">Use same amount for both</Label>
+              <Switch 
+                id="unified-wager" 
+                checked={unifiedWager} 
+                onCheckedChange={setUnifiedWager}
+              />
+            </div>
+          </div>
           
-          <Card className="glass-panel border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Swipe Right (YES)</span>
-                <div className="text-right">
-                  <span className="text-primary font-mono text-xl block">${settings.yesWager}</span>
-                  {settings.connected && (
-                    <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
-                      {Math.floor(12450 / settings.yesWager)} bets left
-                    </span>
-                  )}
-                </div>
-              </CardTitle>
-              <CardDescription>Default wager amount for YES trades</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Slider 
-                value={[settings.yesWager]} 
-                onValueChange={(val) => updateWager('yes', val[0])} 
-                max={100} 
-                step={1}
-                className="py-4"
-              />
-            </CardContent>
-          </Card>
+          {unifiedWager ? (
+            <Card className="glass-panel border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Default Wager</span>
+                  <div className="text-right">
+                    <span className="text-white font-mono text-xl block">${settings.yesWager}</span>
+                    {settings.connected && (
+                      <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
+                        {Math.floor(12450 / settings.yesWager)} bets left
+                      </span>
+                    )}
+                  </div>
+                </CardTitle>
+                <CardDescription>Single wager amount for all trades</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Slider 
+                  value={[settings.yesWager]} 
+                  onValueChange={handleUnifiedChange} 
+                  max={100} 
+                  step={1}
+                  className="py-4"
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card className="glass-panel border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Swipe Right (YES)</span>
+                    <div className="text-right">
+                      <span className="text-primary font-mono text-xl block">${settings.yesWager}</span>
+                      {settings.connected && (
+                        <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
+                          {Math.floor(12450 / settings.yesWager)} bets left
+                        </span>
+                      )}
+                    </div>
+                  </CardTitle>
+                  <CardDescription>Default wager amount for YES trades</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Slider 
+                    value={[settings.yesWager]} 
+                    onValueChange={(val) => updateWager('yes', val[0])} 
+                    max={100} 
+                    step={1}
+                    className="py-4"
+                  />
+                </CardContent>
+              </Card>
 
-          <Card className="glass-panel border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Swipe Left (NO)</span>
-                <div className="text-right">
-                  <span className="text-destructive font-mono text-xl block">${settings.noWager}</span>
-                  {settings.connected && (
-                    <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
-                      {Math.floor(12450 / settings.noWager)} bets left
-                    </span>
-                  )}
-                </div>
-              </CardTitle>
-              <CardDescription>Default wager amount for NO trades</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Slider 
-                value={[settings.noWager]} 
-                onValueChange={(val) => updateWager('no', val[0])} 
-                max={100} 
-                step={1}
-                className="py-4" 
-              />
-            </CardContent>
-          </Card>
+              <Card className="glass-panel border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Swipe Left (NO)</span>
+                    <div className="text-right">
+                      <span className="text-destructive font-mono text-xl block">${settings.noWager}</span>
+                      {settings.connected && (
+                        <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
+                          {Math.floor(12450 / settings.noWager)} bets left
+                        </span>
+                      )}
+                    </div>
+                  </CardTitle>
+                  <CardDescription>Default wager amount for NO trades</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Slider 
+                    value={[settings.noWager]} 
+                    onValueChange={(val) => updateWager('no', val[0])} 
+                    max={100} 
+                    step={1}
+                    className="py-4" 
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Wallet Section */}
