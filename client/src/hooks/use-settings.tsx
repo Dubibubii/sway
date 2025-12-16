@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 
 interface Settings {
   yesWager: number;
@@ -15,33 +16,42 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export function useSettings() {
-  const [settings, setSettings] = useState<Settings>(() => {
+  const { login, logout, user, authenticated, ready } = usePrivy();
+
+  const [wagers, setWagers] = useState<{yesWager: number, noWager: number}>(() => {
     const stored = localStorage.getItem('pulse_settings');
-    return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+    const parsed = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+    return {
+      yesWager: parsed.yesWager || DEFAULT_SETTINGS.yesWager,
+      noWager: parsed.noWager || DEFAULT_SETTINGS.noWager
+    };
   });
 
   useEffect(() => {
-    localStorage.setItem('pulse_settings', JSON.stringify(settings));
-  }, [settings]);
+    const settingsToStore = {
+      ...wagers,
+      connected: authenticated,
+      walletAddress: user?.wallet?.address || null
+    };
+    localStorage.setItem('pulse_settings', JSON.stringify(settingsToStore));
+  }, [wagers, authenticated, user]);
 
   const updateWager = (type: 'yes' | 'no', amount: number) => {
-    setSettings(prev => ({ ...prev, [`${type}Wager`]: amount }));
+    setWagers(prev => ({ ...prev, [`${type}Wager`]: amount }));
   };
 
   const connectWallet = () => {
-    setSettings(prev => ({
-      ...prev,
-      connected: true,
-      walletAddress: '0x71C...9A21'
-    }));
+    login();
   };
 
   const disconnectWallet = () => {
-    setSettings(prev => ({
-      ...prev,
-      connected: false,
-      walletAddress: null
-    }));
+    logout();
+  };
+
+  const settings: Settings = {
+    ...wagers,
+    connected: authenticated,
+    walletAddress: user?.wallet?.address || null
   };
 
   return {
