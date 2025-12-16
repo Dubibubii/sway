@@ -73,7 +73,14 @@ export default function Profile() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Swipe Right (YES)</span>
-                <span className="text-primary font-mono text-xl">${settings.yesWager}</span>
+                <div className="text-right">
+                  <span className="text-primary font-mono text-xl block">${settings.yesWager}</span>
+                  {settings.connected && (
+                    <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
+                      {Math.floor(12450 / settings.yesWager)} bets left
+                    </span>
+                  )}
+                </div>
               </CardTitle>
               <CardDescription>Default wager amount for YES trades</CardDescription>
             </CardHeader>
@@ -92,7 +99,14 @@ export default function Profile() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Swipe Left (NO)</span>
-                <span className="text-destructive font-mono text-xl">${settings.noWager}</span>
+                <div className="text-right">
+                  <span className="text-destructive font-mono text-xl block">${settings.noWager}</span>
+                  {settings.connected && (
+                    <span className="text-[10px] text-muted-foreground font-normal tracking-wide uppercase">
+                      {Math.floor(12450 / settings.noWager)} bets left
+                    </span>
+                  )}
+                </div>
               </CardTitle>
               <CardDescription>Default wager amount for NO trades</CardDescription>
             </CardHeader>
