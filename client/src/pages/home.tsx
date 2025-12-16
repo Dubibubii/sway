@@ -37,6 +37,8 @@ export default function Home() {
   const skipBorder = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0)", "rgba(59, 130, 246, 1)"]);
 
   const handleSwipe = (id: string, direction: 'left' | 'right' | 'down') => {
+    const market = markets.find(m => m.id === id);
+
     // Remove card from stack (visually handled by Framer Motion, but we need to update state)
     setTimeout(() => {
       setMarkets(prev => prev.filter(m => m.id !== id));
@@ -45,17 +47,25 @@ export default function Home() {
       y.set(0);
     }, 200);
 
+    if (!market) return;
+
     if (direction === 'right') {
+      const shares = settings.yesWager / (market.yesPrice / 100);
+      const payout = shares.toFixed(2);
+      
       toast({
         title: "Trade Executed: YES",
-        description: `Bought YES for $${settings.yesWager} @ 32¢`,
-        className: "bg-primary border-primary text-primary-foreground"
+        description: `Bought YES for $${settings.yesWager} @ ${market.yesPrice}¢ (Est. Payout: $${payout})`,
+        className: "bg-primary/90 border-primary/50 text-primary-foreground backdrop-blur-md"
       });
     } else if (direction === 'left') {
+      const shares = settings.noWager / (market.noPrice / 100);
+      const payout = shares.toFixed(2);
+
       toast({
         title: "Trade Executed: NO",
-        description: `Bought NO for $${settings.noWager} @ 68¢`,
-        variant: "destructive"
+        description: `Bought NO for $${settings.noWager} @ ${market.noPrice}¢ (Est. Payout: $${payout})`,
+        className: "bg-destructive/90 border-destructive/50 text-destructive-foreground backdrop-blur-md"
       });
     }
   };
