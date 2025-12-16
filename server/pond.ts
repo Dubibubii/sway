@@ -414,7 +414,17 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   const techBefore = markets.filter(m => m.category === 'Tech');
   console.log('Tech markets before binary filter:', techBefore.length, techBefore.map(m => ({ title: m.title, id: m.id })));
   
-  const binaryMarkets = markets.filter(m => isBinaryMarket(m.title));
+  const activeMarkets = markets.filter(m => {
+    const yesPercent = m.yesPrice * 100;
+    const noPercent = m.noPrice * 100;
+    if (yesPercent >= 97 || yesPercent <= 3) return false;
+    if (noPercent >= 97 || noPercent <= 3) return false;
+    return true;
+  });
+  
+  console.log(`Filtered out ${markets.length - activeMarkets.length} extreme probability markets`);
+  
+  const binaryMarkets = activeMarkets.filter(m => isBinaryMarket(m.title));
   
   const techAfterBinary = binaryMarkets.filter(m => m.category === 'Tech');
   console.log('Tech markets after binary filter:', techAfterBinary.length);
