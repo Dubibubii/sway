@@ -22,6 +22,7 @@ const AppWithProviders = () => {
                 theme: 'dark',
                 accentColor: '#10b981',
                 showWalletLoginFirst: true,
+                walletList: ['phantom', 'solflare', 'backpack', 'jupiter', 'detected_solana_wallets'],
               },
               loginMethods: ['wallet', 'email', 'google'],
             }}
