@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Info } from 'lucide-react';
 
+import { useSettings } from '@/hooks/use-settings';
+
 interface SwipeCardProps {
   market: Market;
   onSwipe: (direction: 'left' | 'right' | 'down') => void;
@@ -13,6 +15,7 @@ interface SwipeCardProps {
 }
 
 export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardProps) {
+  const { settings } = useSettings();
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
@@ -119,17 +122,23 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
 
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center">
-              <span className="text-xs font-medium text-emerald-200 uppercase tracking-wider">Yes Price</span>
-              <div className="flex items-center gap-1">
-                <TrendingUp size={16} className="text-emerald-400" />
-                <span className="text-2xl font-bold text-white">{market.yesPrice * 100}¢</span>
+              <span className="text-xs font-medium text-emerald-200 uppercase tracking-wider">Yes Chance</span>
+              <div className="flex flex-col items-center gap-0">
+                <div className="flex items-center gap-1">
+                   <TrendingUp size={20} className="text-emerald-400" />
+                   <span className="text-3xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
+                </div>
+                <span className="text-xs font-medium text-emerald-200/80">Payout: ${(settings.yesWager / market.yesPrice).toFixed(2)}</span>
               </div>
             </div>
             <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-3 border border-destructive/30 flex flex-col items-center">
-              <span className="text-xs font-medium text-rose-200 uppercase tracking-wider">No Price</span>
-              <div className="flex items-center gap-1">
-                <TrendingDown size={16} className="text-rose-400" />
-                <span className="text-2xl font-bold text-white">{market.noPrice * 100}¢</span>
+              <span className="text-xs font-medium text-rose-200 uppercase tracking-wider">No Chance</span>
+              <div className="flex flex-col items-center gap-0">
+                <div className="flex items-center gap-1">
+                   <TrendingDown size={20} className="text-rose-400" />
+                   <span className="text-3xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
+                </div>
+                <span className="text-xs font-medium text-rose-200/80">Payout: ${(settings.noWager / market.noPrice).toFixed(2)}</span>
               </div>
             </div>
           </div>
