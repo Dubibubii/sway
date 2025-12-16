@@ -8,6 +8,7 @@ interface Settings {
   privyId: string | null;
   accessToken: string | null;
   userId: string | null;
+  interests: string[];
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -18,11 +19,13 @@ const DEFAULT_SETTINGS: Settings = {
   privyId: null,
   accessToken: null,
   userId: null,
+  interests: [],
 };
 
 interface SettingsContextType {
   settings: Settings;
   updateWager: (type: 'yes' | 'no', amount: number) => void;
+  updateInterests: (interests: string[]) => void;
   connectWallet: (privyId: string, walletAddress: string, accessToken?: string) => Promise<void>;
   disconnectWallet: () => void;
   setAuthState: React.Dispatch<React.SetStateAction<{
@@ -31,6 +34,7 @@ interface SettingsContextType {
     privyId: string | null;
     accessToken: string | null;
     userId: string | null;
+    interests: string[];
   }>>;
 }
 
@@ -56,12 +60,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     privyId: string | null;
     accessToken: string | null;
     userId: string | null;
+    interests: string[];
   }>({
     connected: false,
     walletAddress: null,
     privyId: null,
     accessToken: null,
     userId: null,
+    interests: [],
   });
 
   useEffect(() => {
@@ -96,6 +102,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         privyId,
         accessToken: accessToken || null,
         userId: userData.user?.id || userData.id || null,
+        interests: userData.user?.interests || [],
       });
     } catch (error) {
       console.error('Failed to sync user:', error);
@@ -105,7 +112,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         privyId,
         accessToken: accessToken || null,
         userId: null,
+        interests: [],
       });
+    }
+  };
+
+  const updateInterests = async (interests: string[]) => {
+    setAuthState(prev => ({ ...prev, interests }));
+    if (authState.accessToken && authState.userId) {
+      try {
+        await fetch('/api/users/settings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authState.accessToken}`,
+          },
+          body: JSON.stringify({ interests }),
+        });
+      } catch (error) {
+        console.error('Failed to save interests:', error);
+      }
     }
   };
 
@@ -116,6 +142,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       privyId: null,
       accessToken: null,
       userId: null,
+      interests: [],
     });
   };
 
@@ -128,6 +155,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     <SettingsContext.Provider value={{
       settings,
       updateWager,
+      updateInterests,
       connectWallet,
       disconnectWallet,
       setAuthState

@@ -12,10 +12,10 @@ import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
 function ProfileContent() {
-  const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
+  const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
   const { login, logout, authenticated, user, getAccessToken, ready } = usePrivySafe();
   const [unifiedWager, setUnifiedWager] = useState(true);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(["Crypto", "Tech"]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
 
   useEffect(() => {
     if (!PRIVY_ENABLED) return;
@@ -29,17 +29,23 @@ function ProfileContent() {
     syncPrivyUser();
   }, [ready, authenticated, user]);
 
+  useEffect(() => {
+    if (settings.interests.length > 0) {
+      setSelectedInterests(settings.interests);
+    }
+  }, [settings.interests]);
+
   const INTERESTS = [
-    "Crypto", "Politics", "Sports", "Pop Culture", 
-    "Tech", "Science", "Economics", "Climate", "AI"
+    "Crypto", "Politics", "Sports", "Economics", 
+    "Tech", "AI", "Weather", "General"
   ];
 
   const toggleInterest = (interest: string) => {
-    setSelectedInterests(prev => 
-      prev.includes(interest) 
-        ? prev.filter(i => i !== interest)
-        : [...prev, interest]
-    );
+    const newInterests = selectedInterests.includes(interest) 
+      ? selectedInterests.filter(i => i !== interest)
+      : [...selectedInterests, interest];
+    setSelectedInterests(newInterests);
+    updateInterests(newInterests);
   };
 
   const handleUnifiedChange = (val: number[]) => {

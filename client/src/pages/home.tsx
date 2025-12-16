@@ -46,9 +46,21 @@ export default function Home() {
   
   useEffect(() => {
     if (marketsData?.markets) {
-      setDisplayedMarkets(marketsData.markets.map(formatMarket));
+      let filteredMarkets = marketsData.markets;
+      
+      if (settings.interests.length > 0) {
+        filteredMarkets = marketsData.markets.filter(m => 
+          settings.interests.includes(m.category)
+        );
+      }
+      
+      if (filteredMarkets.length === 0) {
+        filteredMarkets = marketsData.markets;
+      }
+      
+      setDisplayedMarkets(filteredMarkets.map(formatMarket));
     }
-  }, [marketsData]);
+  }, [marketsData, settings.interests]);
   
   const tradeMutation = useMutation({
     mutationFn: async (trade: { market: DisplayMarket; direction: 'YES' | 'NO'; wagerAmount: number }) => {
