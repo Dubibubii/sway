@@ -6,8 +6,8 @@ import { TrendingUp, TrendingDown, Clock, CheckCircle2 } from 'lucide-react';
 export default function Activity() {
   return (
     <Layout>
-      <div className="min-h-screen bg-background p-6 pb-24 overflow-y-auto">
-        <h1 className="text-3xl font-display font-bold mb-6 mt-4">Activity</h1>
+      <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
+        <h1 className="text-3xl font-display font-bold mb-6">Activity</h1>
 
         <div className="space-y-4">
            {/* Active Positions */}

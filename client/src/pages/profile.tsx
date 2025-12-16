@@ -14,8 +14,8 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-background p-6 pb-24 overflow-y-auto">
-        <div className="flex items-center justify-between mb-8 mt-4">
+      <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
+        <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
           <Button variant="ghost" size="icon">
             <SettingsIcon size={24} />
