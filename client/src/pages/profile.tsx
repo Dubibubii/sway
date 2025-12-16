@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
@@ -32,9 +32,19 @@ export default function Profile() {
             <div>
               <h2 className="text-xl font-bold">Crypto Trader</h2>
               {settings.connected ? (
-                 <div className="flex items-center gap-2 text-primary text-sm font-mono mt-1">
-                   <div className="w-2 h-2 rounded-full bg-primary" />
-                   {settings.walletAddress}
+                 <div className="space-y-3">
+                   <div className="flex items-center gap-2 text-primary text-sm font-mono mt-1">
+                     <div className="w-2 h-2 rounded-full bg-primary" />
+                     {settings.walletAddress}
+                   </div>
+                   <div className="flex gap-2">
+                     <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
+                       <ArrowDown size={12} /> Deposit
+                     </Button>
+                     <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 border-white/10 hover:bg-white/5">
+                       <ArrowUp size={12} /> Withdraw
+                     </Button>
+                   </div>
                  </div>
               ) : (
                 <div className="text-muted-foreground text-sm mt-1">Wallet not connected</div>
