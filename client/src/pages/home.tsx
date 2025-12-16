@@ -4,10 +4,12 @@ import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown, Loader2 } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, type Market } from '@/lib/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { usePrivy } from '@privy-io/react-auth';
 
 interface DisplayMarket {
   id: string;
@@ -35,6 +37,8 @@ function formatMarket(m: Market): DisplayMarket {
 
 export default function Home() {
   const queryClient = useQueryClient();
+  const { login, authenticated, ready } = usePrivy();
+  const [showWalletPrompt, setShowWalletPrompt] = useState(false);
   
   const { data: marketsData, isLoading, refetch } = useQuery({
     queryKey: ['markets'],
@@ -43,6 +47,15 @@ export default function Home() {
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
   const { settings } = useSettings();
+  
+  useEffect(() => {
+    if (ready && !authenticated) {
+      const timer = setTimeout(() => {
+        setShowWalletPrompt(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [ready, authenticated]);
   
   useEffect(() => {
     if (marketsData?.markets) {
@@ -202,8 +215,49 @@ export default function Home() {
     refetch();
   };
 
+  const handleConnectWallet = () => {
+    setShowWalletPrompt(false);
+    login();
+  };
+
   return (
     <Layout>
+      <Dialog open={showWalletPrompt && !authenticated} onOpenChange={setShowWalletPrompt}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-zinc-800">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center">
+                <Wallet size={40} className="text-white" />
+              </div>
+            </div>
+            <DialogTitle className="text-center text-2xl font-bold text-white">
+              Connect Your Wallet
+            </DialogTitle>
+            <DialogDescription className="text-center text-zinc-400 mt-2">
+              To start trading on prediction markets, you need to connect your Solana wallet. Swipe right to bet YES, left to bet NO!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <Button 
+              onClick={handleConnectWallet}
+              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-semibold py-6 text-lg"
+              data-testid="button-connect-wallet-modal"
+            >
+              <Wallet className="mr-2" size={20} />
+              Connect Wallet
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setShowWalletPrompt(false)}
+              className="text-zinc-500 hover:text-zinc-300"
+              data-testid="button-browse-markets"
+            >
+              Browse Markets First
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="h-[100dvh] flex flex-col items-center p-0 relative bg-background overflow-hidden">
         
         {/* Deck */}
