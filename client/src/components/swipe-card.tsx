@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'framer-motion';
+import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
 import { Market } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -8,12 +8,18 @@ interface SwipeCardProps {
   market: Market;
   onSwipe: (direction: 'left' | 'right' | 'down') => void;
   active: boolean;
+  dragX?: MotionValue<number>;
+  dragY?: MotionValue<number>;
 }
 
-export function SwipeCard({ market, onSwipe, active }: SwipeCardProps) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardProps) {
+  const localX = useMotionValue(0);
+  const localY = useMotionValue(0);
   const controls = useAnimation();
+
+  // Use passed motion values if active, otherwise local (though inactive cards don't drag)
+  const x = dragX || localX;
+  const y = dragY || localY;
 
   // Rotation based on x position
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
