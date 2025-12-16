@@ -243,4 +243,50 @@ function getMockMarkets(): SimplifiedMarket[] {
   ];
 }
 
+export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
+  const seenEventTickers = new Map<string, SimplifiedMarket>();
+  
+  for (const market of markets) {
+    const parentKey = market.eventTicker || market.id;
+    
+    if (!seenEventTickers.has(parentKey)) {
+      seenEventTickers.set(parentKey, market);
+    } else {
+      const existing = seenEventTickers.get(parentKey)!;
+      if (market.volume > existing.volume) {
+        seenEventTickers.set(parentKey, market);
+      }
+    }
+  }
+  
+  const uniqueMarkets = Array.from(seenEventTickers.values());
+  
+  for (let i = uniqueMarkets.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [uniqueMarkets[i], uniqueMarkets[j]] = [uniqueMarkets[j], uniqueMarkets[i]];
+  }
+  
+  const categories = new Map<string, SimplifiedMarket[]>();
+  for (const market of uniqueMarkets) {
+    const cat = market.category;
+    if (!categories.has(cat)) {
+      categories.set(cat, []);
+    }
+    categories.get(cat)!.push(market);
+  }
+  
+  const diversified: SimplifiedMarket[] = [];
+  const categoryQueues = Array.from(categories.values());
+  
+  while (categoryQueues.some(q => q.length > 0)) {
+    for (const queue of categoryQueues) {
+      if (queue.length > 0) {
+        diversified.push(queue.shift()!);
+      }
+    }
+  }
+  
+  return diversified;
+}
+
 export { getMockMarkets };
