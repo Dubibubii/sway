@@ -55,9 +55,15 @@ export async function registerRoutes(
       const category = req.query.category as string;
       let markets: SimplifiedMarket[];
       
-      markets = await getEvents(100);
+      markets = await getEvents(500);
       
       markets = diversifyMarketFeed(markets);
+      
+      const categoryBreakdownAfter: Record<string, number> = {};
+      for (const m of markets) {
+        categoryBreakdownAfter[m.category] = (categoryBreakdownAfter[m.category] || 0) + 1;
+      }
+      console.log('After diversification:', categoryBreakdownAfter);
       
       if (category && category !== 'all') {
         markets = markets.filter(m => 
