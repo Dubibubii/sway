@@ -111,24 +111,46 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ privyId, walletAddress }),
       });
       const userData = await response.json();
-      setAuthState({
-        connected: true,
-        walletAddress,
-        privyId,
-        accessToken: accessToken || null,
-        userId: userData.user?.id || userData.id || null,
-        interests: userData.user?.interests || [],
+      const serverInterests = userData.user?.interests || [];
+      
+      setAuthState(prev => {
+        const localInterests = prev.interests;
+        const mergedInterests = localInterests.length > 0 ? localInterests : serverInterests;
+        
+        if (localInterests.length > 0 && serverInterests.length === 0) {
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'x-privy-user-id': privyId,
+          };
+          if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+          }
+          fetch('/api/users/settings', {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ interests: localInterests }),
+          }).catch(err => console.error('Failed to sync interests:', err));
+        }
+        
+        return {
+          connected: true,
+          walletAddress,
+          privyId,
+          accessToken: accessToken || null,
+          userId: userData.user?.id || userData.id || null,
+          interests: mergedInterests,
+        };
       });
     } catch (error) {
       console.error('Failed to sync user:', error);
-      setAuthState({
+      setAuthState(prev => ({
         connected: true,
         walletAddress,
         privyId,
         accessToken: accessToken || null,
         userId: null,
-        interests: [],
-      });
+        interests: prev.interests,
+      }));
     }
   };
 
@@ -159,14 +181,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnectWallet = () => {
-    setAuthState({
+    setAuthState(prev => ({
       connected: false,
       walletAddress: null,
       privyId: null,
       accessToken: null,
       userId: null,
-      interests: [],
-    });
+      interests: prev.interests,
+    }));
   };
 
   const settings: Settings = {
