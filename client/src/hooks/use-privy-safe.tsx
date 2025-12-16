@@ -1,5 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { createContext, useContext, ReactNode, lazy, Suspense } from 'react';
 
 export const PRIVY_ENABLED = !!import.meta.env.VITE_PRIVY_APP_ID;
 
@@ -16,7 +15,7 @@ export interface PrivySafeContextType {
   ready: boolean;
 }
 
-const PrivySafeContext = createContext<PrivySafeContextType>({
+export const PrivySafeContext = createContext<PrivySafeContextType>({
   login: () => {},
   logout: () => {},
   authenticated: false,
@@ -24,29 +23,6 @@ const PrivySafeContext = createContext<PrivySafeContextType>({
   getAccessToken: async () => null,
   ready: true,
 });
-
-function PrivyAdapter({ children }: { children: ReactNode }) {
-  const privy = usePrivy();
-  
-  const value: PrivySafeContextType = {
-    login: privy.login,
-    logout: privy.logout,
-    authenticated: privy.authenticated,
-    user: privy.user ? {
-      id: privy.user.id,
-      wallet: privy.user.wallet ? { address: privy.user.wallet.address } : undefined,
-      email: privy.user.email ? { address: privy.user.email.address } : undefined,
-    } : null,
-    getAccessToken: privy.getAccessToken,
-    ready: privy.ready,
-  };
-  
-  return (
-    <PrivySafeContext.Provider value={value}>
-      {children}
-    </PrivySafeContext.Provider>
-  );
-}
 
 function DemoProvider({ children }: { children: ReactNode }) {
   const value: PrivySafeContextType = {
@@ -67,7 +43,12 @@ function DemoProvider({ children }: { children: ReactNode }) {
 
 export function PrivySafeProvider({ children }: { children: ReactNode }) {
   if (PRIVY_ENABLED) {
-    return <PrivyAdapter>{children}</PrivyAdapter>;
+    const PrivyAdapter = lazy(() => import('./privy-adapter'));
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f]" />}>
+        <PrivyAdapter>{children}</PrivyAdapter>
+      </Suspense>
+    );
   }
   return <DemoProvider>{children}</DemoProvider>;
 }
