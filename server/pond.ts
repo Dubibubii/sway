@@ -168,6 +168,10 @@ function formatCategory(ticker: string): string {
     'KXNHL': 'Sports',
     'KXMLB': 'Sports',
     'KXSOCCER': 'Sports',
+    'KXEURO': 'Sports',
+    'KXPREMIER': 'Sports',
+    'KXEFL': 'Sports',
+    'KXMEN': 'Sports',
     'KXCRYPTO': 'Crypto',
     'KXBTC': 'Crypto',
     'KXETH': 'Crypto',
@@ -175,12 +179,27 @@ function formatCategory(ticker: string): string {
     'KXFED': 'Economics',
     'KXCPI': 'Economics',
     'KXGDP': 'Economics',
-    'KXPRESIDENTIAL': 'Politics',
+    'KXRATE': 'Economics',
+    'KXNASDAQ': 'Economics',
+    'KXPRES': 'Politics',
     'KXSENATE': 'Politics',
     'KXHOUSE': 'Politics',
+    'KXTRUMP': 'Politics',
+    'KXPOWEL': 'Politics',
+    'LEAVE': 'Politics',
     'KXTECH': 'Tech',
+    'ROBOTAXI': 'Tech',
+    'KXTAKEOVE': 'Tech',
+    'KXACQU': 'Tech',
     'KXAI': 'AI',
     'KXWEATHER': 'Weather',
+    'KXOSCAR': 'General',
+    'KXRANK': 'General',
+    'COSTCO': 'General',
+    'KXREDIS': 'Politics',
+    'KXTEAMS': 'Sports',
+    'KXPORT': 'Politics',
+    'KXNEXT': 'Politics',
   };
   
   for (const [prefix, category] of Object.entries(categoryMap)) {
@@ -189,7 +208,7 @@ function formatCategory(ticker: string): string {
     }
   }
   
-  return ticker.length > 10 ? 'General' : ticker;
+  return 'General';
 }
 
 function getMockMarkets(): SimplifiedMarket[] {

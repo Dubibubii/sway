@@ -53,10 +53,7 @@ export default function Home() {
         filteredMarkets = marketsData.markets.filter(m => 
           normalizedInterests.includes(m.category.toLowerCase())
         );
-      }
-      
-      if (filteredMarkets.length === 0) {
-        filteredMarkets = marketsData.markets;
+        console.log('Filtering by interests:', settings.interests, 'Found:', filteredMarkets.length, 'markets');
       }
       
       setDisplayedMarkets(filteredMarkets.map(formatMarket));
