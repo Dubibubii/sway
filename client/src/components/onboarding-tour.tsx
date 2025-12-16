@@ -49,7 +49,7 @@ const steps = [
   {
     id: 'settings',
     title: 'Customize Your Experience',
-    description: 'Set your wager amounts and filter markets by your interests in Settings.',
+    description: 'Set your wager amounts and filter markets by your interests in the profile page.',
     icon: Settings,
     iconColor: 'from-indigo-500 to-violet-500',
   },
