@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -29,9 +29,21 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
   const { settings } = useSettings();
   const { toast } = useToast();
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
+
+  // Preload the image
+  useEffect(() => {
+    if (market.imageUrl) {
+      setImageLoaded(false);
+      const img = new Image();
+      img.onload = () => setImageLoaded(true);
+      img.onerror = () => setImageLoaded(false);
+      img.src = market.imageUrl;
+    }
+  }, [market.imageUrl]);
 
   // Use passed motion values if active, otherwise local (though inactive cards don't drag)
   const x = dragX || localX;
@@ -142,7 +154,8 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
             <img 
               src={market.imageUrl} 
               alt={market.question}
-              className="absolute inset-0 w-full h-full object-cover z-10"
+              className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              onLoad={() => setImageLoaded(true)}
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
