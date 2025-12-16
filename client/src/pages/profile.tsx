@@ -1,20 +1,18 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
-import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Sun, Moon } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 export default function Profile() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
   const [unifiedWager, setUnifiedWager] = useState(true);
-  const { theme, setTheme } = useTheme();
 
   const handleUnifiedChange = (val: number[]) => {
     updateWager('yes', val[0]);
@@ -26,14 +24,9 @@ export default function Profile() {
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="dark-mode" className="text-sm font-medium">Dark Mode</Label>
-            <Switch 
-              id="dark-mode"
-              checked={theme === 'dark'}
-              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-            />
-          </div>
+          <Button variant="ghost" size="icon">
+            <SettingsIcon size={24} />
+          </Button>
         </div>
 
         {/* User Card */}
