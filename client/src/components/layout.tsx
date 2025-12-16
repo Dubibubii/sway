@@ -31,14 +31,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="relative">
               <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
             </div>
-            <div className="flex gap-1 -mt-0.5">
+            <div className="flex gap-1.5 mt-0.5">
                <div className="flex flex-col items-center">
-                  <div className="h-0.5 w-3 bg-emerald-500 rounded-full" />
-                  <span className="text-[8px] font-mono font-bold leading-none mt-0.5 text-emerald-500">${settings.yesWager}</span>
+                  <div className="h-0.5 w-4 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="text-[10px] font-mono font-black leading-none mt-0.5 text-emerald-400 drop-shadow-sm">${settings.yesWager}</span>
                </div>
                <div className="flex flex-col items-center">
-                  <div className="h-0.5 w-3 bg-rose-500 rounded-full" />
-                  <span className="text-[8px] font-mono font-bold leading-none mt-0.5 text-rose-500">${settings.noWager}</span>
+                  <div className="h-0.5 w-4 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                  <span className="text-[10px] font-mono font-black leading-none mt-0.5 text-rose-400 drop-shadow-sm">${settings.noWager}</span>
                </div>
             </div>
           </a>
