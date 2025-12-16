@@ -54,18 +54,56 @@ export default function Home() {
       const payout = shares.toFixed(2);
       
       toast({
-        title: "Trade Executed: YES",
-        description: `Bought YES for $${settings.yesWager} @ ${market.yesPrice}¢ (Est. Payout: $${payout})`,
-        className: "bg-primary/90 border-primary/50 text-primary-foreground backdrop-blur-md"
+        title: (
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-500/20 p-1 rounded-full">
+              <Check size={14} className="text-emerald-500" />
+            </div>
+            <span className="text-emerald-500 font-bold uppercase tracking-wider text-xs">Long Position Opened</span>
+          </div>
+        ),
+        description: (
+          <div className="mt-2 space-y-2">
+            <div className="flex justify-between items-baseline">
+              <span className="text-3xl font-black tracking-tighter text-white">YES</span>
+              <span className="text-sm font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">@{market.yesPrice}¢</span>
+            </div>
+            <div className="h-px bg-white/10 w-full" />
+            <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <span>Wager: <span className="text-zinc-200">${settings.yesWager}</span></span>
+              <span>Est. Payout: <span className="text-emerald-400 font-mono">${payout}</span></span>
+            </div>
+          </div>
+        ),
+        className: "bg-zinc-950/90 border-emerald-500/20 text-white backdrop-blur-xl shadow-2xl shadow-emerald-500/10 p-4"
       });
     } else if (direction === 'left') {
       const shares = settings.noWager / (market.noPrice / 100);
       const payout = shares.toFixed(2);
 
       toast({
-        title: "Trade Executed: NO",
-        description: `Bought NO for $${settings.noWager} @ ${market.noPrice}¢ (Est. Payout: $${payout})`,
-        className: "bg-destructive/90 border-destructive/50 text-destructive-foreground backdrop-blur-md"
+        title: (
+          <div className="flex items-center gap-2">
+            <div className="bg-rose-500/20 p-1 rounded-full">
+              <X size={14} className="text-rose-500" />
+            </div>
+            <span className="text-rose-500 font-bold uppercase tracking-wider text-xs">Short Position Opened</span>
+          </div>
+        ),
+        description: (
+          <div className="mt-2 space-y-2">
+            <div className="flex justify-between items-baseline">
+              <span className="text-3xl font-black tracking-tighter text-white">NO</span>
+              <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{market.noPrice}¢</span>
+            </div>
+            <div className="h-px bg-white/10 w-full" />
+            <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <span>Wager: <span className="text-zinc-200">${settings.noWager}</span></span>
+              <span>Est. Payout: <span className="text-rose-400 font-mono">${payout}</span></span>
+            </div>
+          </div>
+        ),
+        className: "bg-zinc-950/90 border-rose-500/20 text-white backdrop-blur-xl shadow-2xl shadow-rose-500/10 p-4"
       });
     }
   };
