@@ -61,13 +61,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     accessToken: string | null;
     userId: string | null;
     interests: string[];
-  }>({
-    connected: false,
-    walletAddress: null,
-    privyId: null,
-    accessToken: null,
-    userId: null,
-    interests: [],
+  }>(() => {
+    try {
+      const stored = localStorage.getItem('pulse_settings');
+      const parsed = stored ? JSON.parse(stored) : {};
+      return {
+        connected: parsed.connected || false,
+        walletAddress: parsed.walletAddress || null,
+        privyId: parsed.privyId || null,
+        accessToken: parsed.accessToken || null,
+        userId: parsed.userId || null,
+        interests: Array.isArray(parsed.interests) ? parsed.interests : [],
+      };
+    } catch {
+      return {
+        connected: false,
+        walletAddress: null,
+        privyId: null,
+        accessToken: null,
+        userId: null,
+        interests: [],
+      };
+    }
   });
 
   useEffect(() => {
@@ -119,16 +134,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateInterests = async (interests: string[]) => {
     setAuthState(prev => ({ ...prev, interests }));
-    if (authState.accessToken && authState.userId) {
+    if (authState.privyId) {
       try {
-        await fetch('/api/users/settings', {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'x-privy-user-id': authState.privyId,
+        };
+        if (authState.accessToken) {
+          headers['Authorization'] = `Bearer ${authState.accessToken}`;
+        }
+        const response = await fetch('/api/users/settings', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authState.accessToken}`,
-          },
+          headers,
           body: JSON.stringify({ interests }),
         });
+        const data = await response.json();
+        if (data.user?.interests) {
+          setAuthState(prev => ({ ...prev, interests: data.user.interests }));
+        }
       } catch (error) {
         console.error('Failed to save interests:', error);
       }

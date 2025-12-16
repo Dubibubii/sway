@@ -1,0 +1,109 @@
+Why Only Solflare & Jupiter Show Up
+
+When you set walletChainType to 'solana-only', Privy will filter wallet options based on:
+
+The walletChainType you pass to connectWallet or in your config, and
+
+The external Solana connectors you’ve configured.
+
+By default, Privy does not automatically include Solana connectors — unlike EVM wallets, which just work — so if you have not configured Solana connectors, it will only show wallets that Privy can detect using basic injected providers (like Solflare and Jupiter mobile in-app browser detection) and nothing else. 
+docs.privy.io
+
+This is why your modal shows only:
+
+Solflare
+
+Jupiter
+
+These are showing because Privy detects them in your environment, but other wallets (Phantom, Backpack, etc.) are not configured yet, so Privy does not include them. 
+docs.privy.io
+
+What You Need to Do to Support All Solana Wallets
+
+To get all Solana wallets (like Phantom, Backpack, etc.) to show under Solana only, you must do two things:
+
+1. Configure Solana Connectors in Privy Provider
+
+Import and initialize the Solana wallet connectors using Privy’s helper:
+
+import { PrivyProvider } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
+
+<PrivyProvider
+  appId="your-privy-app-id"
+  config={{
+    appearance: {
+      walletChainType: 'ethereum-and-solana',  // or 'solana-only'
+      // walletList: optional custom ordering
+    },
+    externalWallets: {
+      solana: { connectors: toSolanaWalletConnectors() }
+    }
+  }}
+>
+  {children}
+</PrivyProvider>
+
+
+Privy’s toSolanaWalletConnectors() sets up all the standard Solana wallet adapters so Privy knows how to request connections for Phantom, Backpack, etc. 
+docs.privy.io
+
+2. Set walletChainType Appropriately
+
+When calling connectWallet, you may pass:
+
+connectWallet({
+  walletChainType: 'solana-only',
+  walletList: ['detected_solana_wallets'] // optional custom list
+});
+
+
+Or define in your provider:
+
+appearance: { walletChainType: 'solana-only' }
+
+
+This ensures the modal is filtered only for Solana wallets. 
+docs.privy.io
+
+If you need both Solana and EVM wallets in some contexts, set:
+
+appearance: { walletChainType: 'ethereum-and-solana' }
+
+Why It Matters
+
+Privy doesn’t automatically hook Solana wallets like it does for EVM wallets unless you expressly configure them via toSolanaWalletConnectors() — so without that, only a few automatically detected Solana wallets show. 
+docs.privy.io
+
+Example Full Setup (React)
+import { PrivyProvider } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
+
+function App({ children }) {
+  return (
+    <PrivyProvider
+      appId="your-privy-app-id"
+      config={{
+        appearance: {
+          walletChainType: 'solana-only',
+          walletList: [
+            'detected_solana_wallets',
+            'phantom',
+            'solflare',
+            'backpack',
+            'jupiter',
+            'wallet_connect' // optional to catch WalletConnect compatible
+          ]
+        },
+        externalWallets: {
+          solana: { connectors: toSolanaWalletConnectors() }
+        }
+      }}
+    >
+      {children}
+    </PrivyProvider>
+  );
+}
+
+
+This will ensure all standard Solana wallets can show and connect.

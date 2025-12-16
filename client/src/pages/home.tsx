@@ -49,8 +49,9 @@ export default function Home() {
       let filteredMarkets = marketsData.markets;
       
       if (settings.interests.length > 0) {
+        const normalizedInterests = settings.interests.map(i => i.toLowerCase());
         filteredMarkets = marketsData.markets.filter(m => 
-          settings.interests.includes(m.category)
+          normalizedInterests.includes(m.category.toLowerCase())
         );
       }
       
