@@ -44,7 +44,10 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
 
   const fundWalletWrapper = async (address: string) => {
     try {
-      await privyFundWallet({ address });
+      await privyFundWallet({ 
+        address,
+        defaultFundingMethod: 'manual'
+      });
     } catch (error) {
       console.error('Failed to open funding modal:', error);
     }
