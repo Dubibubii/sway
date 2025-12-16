@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState, ReactNode } from "react";
 import App from "./App";
 import "./index.css";
 import { PrivySafeProvider, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
@@ -10,37 +10,56 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
 );
 
+function PrivyWrapperComponent({ children }: { children: ReactNode }) {
+  const [PrivyProvider, setPrivyProvider] = useState<any>(null);
+  const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
+
+  useEffect(() => {
+    Promise.all([
+      import("@privy-io/react-auth"),
+      import("@privy-io/react-auth/solana")
+    ]).then(([privyMod, solanaMod]) => {
+      setPrivyProvider(() => privyMod.PrivyProvider);
+      setSolanaConnectors(() => solanaMod.toSolanaWalletConnectors());
+    });
+  }, []);
+
+  if (!PrivyProvider || !solanaConnectors) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <PrivyProvider
+      appId={PRIVY_APP_ID}
+      config={{
+        appearance: {
+          theme: 'dark',
+          accentColor: '#10b981',
+          showWalletLoginFirst: true,
+          walletChainType: 'solana-only',
+          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack', 'jupiter'],
+        },
+        loginMethods: ['wallet', 'email', 'google'],
+        externalWallets: {
+          solana: {
+            connectors: solanaConnectors,
+          },
+        },
+      }}
+    >
+      {children}
+    </PrivyProvider>
+  );
+}
+
 const AppWithProviders = () => {
   if (PRIVY_ENABLED && PRIVY_APP_ID) {
-    const PrivyWrapper = lazy(() =>
-      import("@privy-io/react-auth").then((mod) => ({
-        default: ({ children }: { children: React.ReactNode }) => (
-          <mod.PrivyProvider
-            appId={PRIVY_APP_ID}
-            config={{
-              appearance: {
-                theme: 'dark',
-                accentColor: '#10b981',
-                showWalletLoginFirst: true,
-                walletList: ['phantom', 'solflare', 'backpack', 'jupiter', 'detected_solana_wallets'],
-              },
-              loginMethods: ['wallet', 'email', 'google'],
-            }}
-          >
-            {children}
-          </mod.PrivyProvider>
-        ),
-      }))
-    );
-    
     return (
-      <Suspense fallback={<LoadingScreen />}>
-        <PrivyWrapper>
-          <PrivySafeProvider>
-            <App />
-          </PrivySafeProvider>
-        </PrivyWrapper>
-      </Suspense>
+      <PrivyWrapperComponent>
+        <PrivySafeProvider>
+          <App />
+        </PrivySafeProvider>
+      </PrivyWrapperComponent>
     );
   }
   
