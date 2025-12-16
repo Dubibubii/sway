@@ -13,6 +13,20 @@ import { Separator } from '@/components/ui/separator';
 export default function Profile() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
   const [unifiedWager, setUnifiedWager] = useState(true);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(["Crypto", "Tech"]);
+
+  const INTERESTS = [
+    "Crypto", "Politics", "Sports", "Pop Culture", 
+    "Tech", "Science", "Economics", "Climate", "AI"
+  ];
+
+  const toggleInterest = (interest: string) => {
+    setSelectedInterests(prev => 
+      prev.includes(interest) 
+        ? prev.filter(i => i !== interest)
+        : [...prev, interest]
+    );
+  };
 
   const handleUnifiedChange = (val: number[]) => {
     updateWager('yes', val[0]);
@@ -167,6 +181,28 @@ export default function Profile() {
               </Card>
             </>
           )}
+        </div>
+
+        {/* Interests Section */}
+        <div className="space-y-6 mt-8">
+          <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Interests</h3>
+          <div className="flex flex-wrap gap-2">
+            {INTERESTS.map((interest) => (
+              <div
+                key={interest}
+                onClick={() => toggleInterest(interest)}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium cursor-pointer transition-all duration-200 border select-none
+                  ${selectedInterests.includes(interest) 
+                    ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:text-white'
+                  }
+                `}
+              >
+                {interest}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Wallet Section */}
