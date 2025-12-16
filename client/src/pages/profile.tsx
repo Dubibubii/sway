@@ -88,32 +88,6 @@ export default function Profile() {
 
         {/* Wallet Section */}
         <div className="space-y-6 mt-8">
-           <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Wallet & Security</h3>
-           
-           <Card className="bg-card/30 border-white/5">
-             <CardContent className="pt-6 space-y-4">
-                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                     <div className="p-2 rounded-full bg-blue-500/10 text-blue-400">
-                        <CreditCard size={20} />
-                     </div>
-                     <span className="font-medium">Auto-Topup</span>
-                   </div>
-                   <Switch />
-                </div>
-                <Separator className="bg-white/5" />
-                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                     <div className="p-2 rounded-full bg-green-500/10 text-green-400">
-                        <Shield size={20} />
-                     </div>
-                     <span className="font-medium">Biometric Confirm</span>
-                   </div>
-                   <Switch defaultChecked />
-                </div>
-             </CardContent>
-           </Card>
-
            {settings.connected ? (
              <Button variant="destructive" className="w-full" onClick={disconnectWallet}>
                <LogOut className="mr-2" size={18} /> Disconnect Wallet
