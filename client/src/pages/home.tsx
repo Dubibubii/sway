@@ -42,19 +42,6 @@ export default function Home() {
     <Layout>
       <div className="h-[100dvh] flex flex-col items-center justify-center p-4 relative bg-background">
         
-        {/* Header */}
-        <div className="absolute top-6 left-0 w-full px-6 flex justify-between items-center z-50">
-           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-               <div className="w-4 h-4 bg-primary rounded-full animate-pulse" />
-             </div>
-             <span className="font-display font-bold text-xl tracking-tight">Pulse</span>
-           </div>
-           <div className="bg-card/40 backdrop-blur-md rounded-full px-4 py-1 border border-white/5">
-              <span className="text-xs font-mono text-muted-foreground">ETH: $3,420</span>
-           </div>
-        </div>
-
         {/* Deck */}
         <div className="flex-1 w-full max-w-sm relative mt-16 mb-24 z-10">
           <AnimatePresence>
