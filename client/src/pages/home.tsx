@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, type Market } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
+import { OnboardingTour } from '@/components/onboarding-tour';
 
 interface DisplayMarket {
   id: string;
@@ -46,7 +47,8 @@ export default function Home() {
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
-  const { settings } = useSettings();
+  const { settings, completeOnboarding } = useSettings();
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   useEffect(() => {
     if (ready && !authenticated) {
@@ -56,6 +58,20 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, [ready, authenticated]);
+
+  useEffect(() => {
+    if (authenticated && !settings.onboardingCompleted) {
+      const timer = setTimeout(() => {
+        setShowOnboarding(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [authenticated, settings.onboardingCompleted]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    completeOnboarding();
+  };
   
   useEffect(() => {
     if (marketsData?.markets) {
@@ -257,6 +273,12 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AnimatePresence>
+        {showOnboarding && (
+          <OnboardingTour onComplete={handleOnboardingComplete} />
+        )}
+      </AnimatePresence>
 
       <div className="h-[100dvh] flex flex-col items-center p-0 relative bg-background overflow-hidden">
         
