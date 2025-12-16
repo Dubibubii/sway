@@ -38,10 +38,21 @@ export default function Activity() {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  const totalValue = activePositions.reduce((acc, pos) => {
+    const costBasis = (pos.shares * pos.avgPrice) / 100;
+    return acc + costBasis + pos.pnl;
+  }, 0);
+
   return (
     <Layout>
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
-        <h1 className="text-3xl font-display font-bold mb-6">Activity</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-display font-bold">Activity</h1>
+          <div className="text-right">
+             <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Portfolio Value</div>
+             <div className="text-xl font-mono font-bold text-emerald-400">${totalValue.toFixed(2)}</div>
+          </div>
+        </div>
 
         <div className="space-y-4">
            {/* Active Positions */}
