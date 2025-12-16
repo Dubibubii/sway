@@ -2,6 +2,11 @@ import { createContext, useContext, ReactNode, lazy, Suspense } from 'react';
 
 export const PRIVY_ENABLED = !!import.meta.env.VITE_PRIVY_APP_ID;
 
+export interface EmbeddedWallet {
+  address: string;
+  walletClientType: string;
+}
+
 export interface PrivySafeContextType {
   login: () => void;
   logout: () => void;
@@ -13,6 +18,8 @@ export interface PrivySafeContextType {
   } | null;
   getAccessToken: () => Promise<string | null>;
   ready: boolean;
+  embeddedWallet: EmbeddedWallet | null;
+  createWallet: () => Promise<void>;
 }
 
 export const PrivySafeContext = createContext<PrivySafeContextType>({
@@ -22,6 +29,8 @@ export const PrivySafeContext = createContext<PrivySafeContextType>({
   user: null,
   getAccessToken: async () => null,
   ready: true,
+  embeddedWallet: null,
+  createWallet: async () => {},
 });
 
 function DemoProvider({ children }: { children: ReactNode }) {
@@ -32,6 +41,8 @@ function DemoProvider({ children }: { children: ReactNode }) {
     user: null,
     getAccessToken: async () => null,
     ready: true,
+    embeddedWallet: null,
+    createWallet: async () => {},
   };
   
   return (

@@ -13,9 +13,10 @@ import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
 function ProfileContent() {
   const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
-  const { login, logout, authenticated, user, getAccessToken, ready } = usePrivySafe();
+  const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, createWallet } = usePrivySafe();
   const [unifiedWager, setUnifiedWager] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   useEffect(() => {
     if (!PRIVY_ENABLED) return;
@@ -72,7 +73,45 @@ function ProfileContent() {
             </Avatar>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg sm:text-xl font-bold truncate">Crypto Trader</h2>
-              {settings.connected ? (
+              {authenticated && embeddedWallet ? (
+                 <div className="space-y-2 sm:space-y-3">
+                   <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
+                     <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase">Pulse Wallet</div>
+                   </div>
+                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate" data-testid="text-embedded-wallet-address">
+                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                     {embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}
+                   </div>
+                   <div className="flex gap-2">
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" data-testid="button-deposit">
+                       <ArrowDown size={12} /> Deposit
+                     </Button>
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" data-testid="button-withdraw">
+                       <ArrowUp size={12} /> Withdraw
+                     </Button>
+                   </div>
+                 </div>
+              ) : authenticated && !embeddedWallet ? (
+                <div className="space-y-2 sm:space-y-3 mt-2">
+                  <div className="text-muted-foreground text-sm">No Pulse wallet yet</div>
+                  <Button 
+                    size="sm" 
+                    onClick={async () => {
+                      setIsCreatingWallet(true);
+                      try {
+                        await createWallet();
+                      } finally {
+                        setIsCreatingWallet(false);
+                      }
+                    }}
+                    disabled={isCreatingWallet}
+                    className="h-8 px-3 text-xs gap-1.5 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
+                    data-testid="button-create-wallet"
+                  >
+                    <Wallet size={14} /> {isCreatingWallet ? 'Creating...' : 'Create Pulse Wallet'}
+                  </Button>
+                </div>
+              ) : settings.connected ? (
                  <div className="space-y-2 sm:space-y-3">
                    <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono mt-1 truncate">
                      <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
@@ -92,17 +131,17 @@ function ProfileContent() {
               )}
             </div>
 
-            {settings.connected && (
+            {(authenticated && embeddedWallet) || settings.connected ? (
                <div className="text-right pl-2 shrink-0">
                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
-                 <div className="text-lg sm:text-xl font-display font-bold text-white">
-                   $12,450
+                 <div className="text-lg sm:text-xl font-display font-bold text-white" data-testid="text-wallet-balance">
+                   $0.00
                  </div>
-                 <div className="text-xs font-mono text-emerald-400 flex items-center justify-end gap-1">
-                   <TrendingUp size={12} /> +2.4%
+                 <div className="text-xs font-mono text-zinc-500 flex items-center justify-end gap-1">
+                   0 SOL
                  </div>
                </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
 

@@ -40,6 +40,10 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack', 'magic_eden', 'jupiter'],
         },
         loginMethods: ['wallet', 'email', 'google'],
+        embeddedWallets: {
+          createOnLogin: 'all-users',
+          showWalletUIs: true,
+        },
         externalWallets: {
           solana: {
             connectors: solanaConnectors,
