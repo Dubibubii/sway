@@ -26,16 +26,14 @@ export default function Profile() {
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="rounded-full"
-          >
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dark-mode" className="text-sm font-medium">Dark Mode</Label>
+            <Switch 
+              id="dark-mode"
+              checked={theme === 'dark'}
+              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            />
+          </div>
         </div>
 
         {/* User Card */}
