@@ -32,12 +32,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <a className={`flex items-center gap-3 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
             <div className="flex gap-1.5">
-               <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.3)]">
-                  <span className="text-[10px] font-mono font-bold text-emerald-400 leading-none">${settings.yesWager}</span>
-               </div>
-               <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)]">
-                  <span className="text-[10px] font-mono font-bold text-rose-400 leading-none">${settings.noWager}</span>
-               </div>
+               {settings.yesWager === settings.noWager ? (
+                 <div className="w-auto min-w-[20px] px-1 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                    <span className="text-[10px] font-mono font-bold text-white leading-none">${settings.yesWager}</span>
+                 </div>
+               ) : (
+                 <>
+                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 leading-none">${settings.yesWager}</span>
+                   </div>
+                   <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)]">
+                      <span className="text-[10px] font-mono font-bold text-rose-400 leading-none">${settings.noWager}</span>
+                   </div>
+                 </>
+               )}
             </div>
           </a>
         </Link>
