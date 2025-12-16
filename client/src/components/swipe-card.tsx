@@ -86,13 +86,19 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
         
         {/* Image Background */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
-          <div className="absolute inset-0 bg-black/40 z-0" />
-          <img 
-            src={market.imageUrl} 
-            alt="Market" 
-            className="w-full h-full object-cover"
-          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-black z-0" />
+          {market.imageUrl && (
+            <img 
+              src={market.imageUrl} 
+              alt={market.question}
+              className="absolute inset-0 w-full h-full object-cover z-10"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
+          <div className="absolute inset-0 bg-black/30 z-20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-30" />
         </div>
 
         {/* Overlays */}
