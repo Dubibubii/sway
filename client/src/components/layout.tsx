@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { Home, User, Activity } from "lucide-react";
+import { useSettings } from "@/hooks/use-settings";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { settings } = useSettings();
 
   const isActive = (path: string) => location === path;
 
@@ -26,7 +28,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </Link>
         <Link href="/profile">
           <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
+            <div className="relative">
+              <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
+            </div>
+            <div className="flex gap-1 -mt-0.5">
+               <div className="flex flex-col items-center">
+                  <div className="h-0.5 w-3 bg-emerald-500 rounded-full" />
+                  <span className="text-[8px] font-mono font-bold leading-none mt-0.5 text-emerald-500">${settings.yesWager}</span>
+               </div>
+               <div className="flex flex-col items-center">
+                  <div className="h-0.5 w-3 bg-rose-500 rounded-full" />
+                  <span className="text-[8px] font-mono font-bold leading-none mt-0.5 text-rose-500">${settings.noWager}</span>
+               </div>
+            </div>
           </a>
         </Link>
       </nav>
