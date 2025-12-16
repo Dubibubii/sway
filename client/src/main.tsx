@@ -10,8 +10,10 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
 );
 
-function PrivyInnerAdapter({ children, usePrivyHook }: { children: ReactNode; usePrivyHook: () => any }) {
+function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { children: ReactNode; usePrivyHook: () => any; useFundWalletHook: () => any }) {
   const privy = usePrivyHook();
+  const fundWalletHookResult = useFundWalletHook();
+  const privyFundWallet = fundWalletHookResult?.fundWallet || fundWalletHookResult?.openFunding;
   
   const embeddedWallet = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
@@ -39,6 +41,18 @@ function PrivyInnerAdapter({ children, usePrivyHook }: { children: ReactNode; us
       console.error('Failed to create Solana wallet:', error);
     }
   };
+
+  const fundWalletWrapper = async (address: string) => {
+    try {
+      await privyFundWallet({ address });
+    } catch (error) {
+      console.error('Failed to open funding modal:', error);
+    }
+  };
+
+  const exportWalletWrapper = async () => {
+    alert('To withdraw funds, copy your wallet address and send from an external wallet like Phantom. We are working on direct withdrawals.');
+  };
   
   const value: PrivySafeContextType = {
     login: privy.login,
@@ -53,6 +67,8 @@ function PrivyInnerAdapter({ children, usePrivyHook }: { children: ReactNode; us
     ready: privy.ready,
     embeddedWallet,
     createWallet: createWalletWrapper,
+    fundWallet: fundWalletWrapper,
+    exportWallet: exportWalletWrapper,
   };
   
   return (
@@ -66,6 +82,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   const [privyModule, setPrivyModule] = useState<{
     PrivyProvider: any;
     usePrivy: () => any;
+    useFundWallet: () => any;
   } | null>(null);
   const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
 
@@ -79,6 +96,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         setPrivyModule({
           PrivyProvider: privyMod.PrivyProvider,
           usePrivy: privyMod.usePrivy,
+          useFundWallet: solanaMod.useFundWallet,
         });
         setSolanaConnectors(solanaMod.toSolanaWalletConnectors());
       }
@@ -90,7 +108,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  const { PrivyProvider, usePrivy } = privyModule;
+  const { PrivyProvider, usePrivy, useFundWallet } = privyModule;
 
   return (
     <PrivyProvider
@@ -116,7 +134,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <PrivyInnerAdapter usePrivyHook={usePrivy}>
+      <PrivyInnerAdapter usePrivyHook={usePrivy} useFundWalletHook={useFundWallet}>
         {children}
       </PrivyInnerAdapter>
     </PrivyProvider>

@@ -6,17 +6,32 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
 function ProfileContent() {
   const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
-  const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, createWallet } = usePrivySafe();
+  const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, createWallet, fundWallet, exportWallet } = usePrivySafe();
   const [unifiedWager, setUnifiedWager] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+
+  const copyToClipboard = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  };
+
+  const handleDeposit = async (address: string) => {
+    await fundWallet(address);
+  };
 
   useEffect(() => {
     if (!PRIVY_ENABLED) return;
@@ -78,15 +93,32 @@ function ProfileContent() {
                    <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
                      <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase">Pulse Wallet</div>
                    </div>
-                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate" data-testid="text-embedded-wallet-address">
+                   <button 
+                     onClick={() => copyToClipboard(embeddedWallet.address)}
+                     className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate hover:opacity-80 transition-opacity cursor-pointer group" 
+                     data-testid="text-embedded-wallet-address"
+                   >
                      <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                      {embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}
-                   </div>
+                     {copiedAddress ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} className="opacity-50 group-hover:opacity-100" />}
+                   </button>
                    <div className="flex gap-2">
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" data-testid="button-deposit">
+                     <Button 
+                       size="sm" 
+                       variant="outline" 
+                       onClick={() => handleDeposit(embeddedWallet.address)}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                       data-testid="button-deposit"
+                     >
                        <ArrowDown size={12} /> Deposit
                      </Button>
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" data-testid="button-withdraw">
+                     <Button 
+                       size="sm" 
+                       variant="outline" 
+                       onClick={exportWallet}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" 
+                       data-testid="button-withdraw"
+                     >
                        <ArrowUp size={12} /> Withdraw
                      </Button>
                    </div>
@@ -96,15 +128,32 @@ function ProfileContent() {
                    <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
                      <div className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-semibold uppercase">External Wallet</div>
                    </div>
-                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate" data-testid="text-external-wallet-address">
+                   <button 
+                     onClick={() => copyToClipboard(user.wallet!.address)}
+                     className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate hover:opacity-80 transition-opacity cursor-pointer group" 
+                     data-testid="text-external-wallet-address"
+                   >
                      <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
                      {user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}
-                   </div>
+                     {copiedAddress ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} className="opacity-50 group-hover:opacity-100" />}
+                   </button>
                    <div className="flex gap-2">
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" data-testid="button-deposit">
+                     <Button 
+                       size="sm" 
+                       variant="outline" 
+                       onClick={() => handleDeposit(user.wallet!.address)}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                       data-testid="button-deposit"
+                     >
                        <ArrowDown size={12} /> Deposit
                      </Button>
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" data-testid="button-withdraw">
+                     <Button 
+                       size="sm" 
+                       variant="outline" 
+                       onClick={exportWallet}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" 
+                       data-testid="button-withdraw"
+                     >
                        <ArrowUp size={12} /> Withdraw
                      </Button>
                    </div>

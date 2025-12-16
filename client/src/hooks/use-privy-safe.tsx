@@ -20,6 +20,8 @@ export interface PrivySafeContextType {
   ready: boolean;
   embeddedWallet: EmbeddedWallet | null;
   createWallet: () => Promise<void>;
+  fundWallet: (address: string) => Promise<void>;
+  exportWallet: () => Promise<void>;
 }
 
 export const PrivySafeContext = createContext<PrivySafeContextType>({
@@ -31,6 +33,8 @@ export const PrivySafeContext = createContext<PrivySafeContextType>({
   ready: true,
   embeddedWallet: null,
   createWallet: async () => {},
+  fundWallet: async () => {},
+  exportWallet: async () => {},
 });
 
 function DemoProvider({ children }: { children: ReactNode }) {
@@ -43,6 +47,8 @@ function DemoProvider({ children }: { children: ReactNode }) {
     ready: true,
     embeddedWallet: null,
     createWallet: async () => {},
+    fundWallet: async () => { alert('Demo mode - wallet funding disabled.'); },
+    exportWallet: async () => { alert('Demo mode - wallet export disabled.'); },
   };
   
   return (
