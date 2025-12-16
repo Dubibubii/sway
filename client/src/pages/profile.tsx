@@ -24,24 +24,24 @@ export default function Profile() {
 
         {/* User Card */}
         <Card className="glass-panel border-0 mb-6">
-          <CardContent className="pt-6 flex items-center gap-4">
-            <Avatar className="w-16 h-16 border-2 border-primary/20">
+          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
+            <Avatar className="w-12 h-12 sm:w-16 sm:h-16 border-2 border-primary/20">
               <AvatarImage src="https://github.com/shadcn.png" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
-            <div>
-              <h2 className="text-xl font-bold">Crypto Trader</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold truncate">Crypto Trader</h2>
               {settings.connected ? (
-                 <div className="space-y-3">
-                   <div className="flex items-center gap-2 text-primary text-sm font-mono mt-1">
-                     <div className="w-2 h-2 rounded-full bg-primary" />
+                 <div className="space-y-2 sm:space-y-3">
+                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono mt-1 truncate">
+                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                      {settings.walletAddress}
                    </div>
                    <div className="flex gap-2">
-                     <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
                        <ArrowDown size={12} /> Deposit
                      </Button>
-                     <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 border-white/10 hover:bg-white/5">
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5">
                        <ArrowUp size={12} /> Withdraw
                      </Button>
                    </div>
@@ -52,9 +52,9 @@ export default function Profile() {
             </div>
 
             {settings.connected && (
-               <div className="ml-auto text-right pl-2">
+               <div className="text-right pl-2 shrink-0">
                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
-                 <div className="text-xl font-display font-bold text-white">
+                 <div className="text-lg sm:text-xl font-display font-bold text-white">
                    $12,450
                  </div>
                  <div className="text-xs font-mono text-emerald-400 flex items-center justify-end gap-1">
