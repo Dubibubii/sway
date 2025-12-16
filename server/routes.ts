@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getMarkets, getMockMarkets, type SimplifiedMarket } from "./kalshi";
+import { getEvents, getMarkets, getMockMarkets, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 
@@ -55,7 +55,7 @@ export async function registerRoutes(
       const category = req.query.category as string;
       let markets: SimplifiedMarket[];
       
-      markets = await getMarkets(50);
+      markets = await getEvents(50);
       
       if (category && category !== 'all') {
         markets = markets.filter(m => 
