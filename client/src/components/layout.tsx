@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, User, Wallet, Activity } from "lucide-react";
+import { Home, User, Activity } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -12,30 +12,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm glass-panel rounded-full px-2 py-2 flex justify-between items-center z-50">
+      {/* Top Navigation */}
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm glass-panel rounded-full px-6 py-3 flex justify-between items-center z-50">
         <Link href="/">
-          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
           </a>
         </Link>
         <Link href="/activity">
-          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <Activity size={24} strokeWidth={isActive('/activity') ? 2.5 : 2} />
           </a>
         </Link>
-        
         <Link href="/profile">
-          <a className={`flex-1 flex justify-center`}>
-             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform ${isActive('/profile') && location.includes('wallet') ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' : 'bg-secondary text-muted-foreground hover:scale-105'}`}>
-                <Wallet size={20} strokeWidth={2.5} />
-             </div>
-          </a>
-        </Link>
-
-        <Link href="/profile">
-          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/profile') && !location.includes('wallet') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <User size={24} strokeWidth={isActive('/profile') && !location.includes('wallet') ? 2.5 : 2} />
+          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+            <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
           </a>
         </Link>
       </nav>
