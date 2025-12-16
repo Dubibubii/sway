@@ -15,7 +15,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       
       {/* Top Navigation */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-fit max-w-sm glass-panel rounded-full px-5 py-2 flex justify-between items-center gap-10 z-50">
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-sm glass-panel rounded-full px-4 py-2 flex justify-between items-center z-50">
         <Link href="/">
           <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
@@ -27,11 +27,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </a>
         </Link>
         <Link href="/profile">
-          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <div className="relative">
-              <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
-            </div>
-            <div className="flex gap-1.5 mt-1">
+          <a className={`flex items-center gap-3 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+            <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
+            <div className="flex gap-1.5">
                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.3)]">
                   <span className="text-[10px] font-mono font-bold text-emerald-400 leading-none">${settings.yesWager}</span>
                </div>
