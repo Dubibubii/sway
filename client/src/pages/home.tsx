@@ -60,6 +60,21 @@ export default function Home() {
     }
   };
 
+  const manualSwipe = async (direction: 'left' | 'right' | 'down') => {
+    if (markets.length === 0) return;
+    const currentId = markets[markets.length - 1].id;
+    
+    if (direction === 'left') {
+      await animate(x, -500, { duration: 0.3 }).finished;
+    } else if (direction === 'right') {
+      await animate(x, 500, { duration: 0.3 }).finished;
+    } else if (direction === 'down') {
+      await animate(y, 500, { duration: 0.3 }).finished;
+    }
+    
+    handleSwipe(currentId, direction);
+  };
+
   const resetDeck = () => {
     setMarkets(MOCK_MARKETS);
   };
@@ -101,7 +116,9 @@ export default function Home() {
            {/* NO Button */}
            <motion.div 
              style={{ scale: noScale, backgroundColor: noColor, borderColor: noBorder }}
-             className="w-20 h-20 rounded-full border-2 border-destructive/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg"
+             className="w-20 h-20 rounded-full border-2 border-destructive/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-destructive/30 active:scale-95"
+             onClick={() => manualSwipe('left')}
+             whileTap={{ scale: 0.9 }}
            >
              <X size={32} className="text-white" />
            </motion.div>
@@ -109,7 +126,9 @@ export default function Home() {
            {/* SKIP Button */}
            <motion.div 
              style={{ scale: skipScale, backgroundColor: skipColor, borderColor: skipBorder }}
-             className="w-16 h-16 rounded-full border-2 border-blue-500/30 flex items-center justify-center backdrop-blur-sm mb-2"
+             className="w-16 h-16 rounded-full border-2 border-blue-500/30 flex items-center justify-center backdrop-blur-sm mb-2 cursor-pointer hover:bg-blue-500/30 active:scale-95"
+             onClick={() => manualSwipe('down')}
+             whileTap={{ scale: 0.9 }}
            >
              <ChevronsDown size={28} className="text-white" />
            </motion.div>
@@ -117,7 +136,9 @@ export default function Home() {
            {/* YES Button */}
            <motion.div 
              style={{ scale: yesScale, backgroundColor: yesColor, borderColor: yesBorder }}
-             className="w-20 h-20 rounded-full border-2 border-primary/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg"
+             className="w-20 h-20 rounded-full border-2 border-primary/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-primary/30 active:scale-95"
+             onClick={() => manualSwipe('right')}
+             whileTap={{ scale: 0.9 }}
            >
              <Check size={32} className="text-white" />
            </motion.div>
