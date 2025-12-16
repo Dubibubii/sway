@@ -241,10 +241,31 @@ function getMockMarkets(): SimplifiedMarket[] {
   ];
 }
 
+function isBinaryMarket(title: string): boolean {
+  const nonBinaryPatterns = [
+    /^who will/i,
+    /^which /i,
+    /^what will/i,
+    /^how many/i,
+    /^how much/i,
+    /^when will/i,
+    /^where will/i,
+  ];
+  
+  for (const pattern of nonBinaryPatterns) {
+    if (pattern.test(title)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
+  const binaryMarkets = markets.filter(m => isBinaryMarket(m.title));
+  
   const seenEventTickers = new Map<string, SimplifiedMarket>();
   
-  for (const market of markets) {
+  for (const market of binaryMarkets) {
     const parentKey = market.eventTicker || market.id;
     
     if (!seenEventTickers.has(parentKey)) {
