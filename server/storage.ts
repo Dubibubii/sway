@@ -1,5 +1,5 @@
 import { type User, type InsertUser, type Trade, type InsertTrade, users, trades } from "@shared/schema";
-import { db } from "../db";
+import { db } from "../db/index";
 import { eq, and, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 

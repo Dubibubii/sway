@@ -1,13 +1,22 @@
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
-import { Market } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Info } from 'lucide-react';
-
 import { useSettings } from '@/hooks/use-settings';
 
+interface MarketData {
+  id: string;
+  question: string;
+  category: string;
+  volume: string;
+  yesPrice: number;
+  noPrice: number;
+  endDate: string;
+  imageUrl?: string;
+}
+
 interface SwipeCardProps {
-  market: Market;
+  market: MarketData;
   onSwipe: (direction: 'left' | 'right' | 'down') => void;
   active: boolean;
   dragX?: MotionValue<number>;

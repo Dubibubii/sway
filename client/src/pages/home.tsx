@@ -1,16 +1,73 @@
 import { useState, useEffect } from 'react';
 import { SwipeCard } from '@/components/swipe-card';
-import { MOCK_MARKETS } from '@/lib/mock-data';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getMarkets, createTrade, type Market } from '@/lib/api';
+
+interface DisplayMarket {
+  id: string;
+  question: string;
+  category: string;
+  volume: string;
+  yesPrice: number;
+  noPrice: number;
+  endDate: string;
+}
+
+function formatMarket(m: Market): DisplayMarket {
+  return {
+    id: m.id,
+    question: m.title,
+    category: m.category,
+    volume: `$${(m.volume / 1000).toFixed(0)}K`,
+    yesPrice: m.yesPrice,
+    noPrice: m.noPrice,
+    endDate: new Date(m.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  };
+}
 
 export default function Home() {
-  const [markets, setMarkets] = useState(MOCK_MARKETS);
+  const queryClient = useQueryClient();
+  
+  const { data: marketsData, isLoading, refetch } = useQuery({
+    queryKey: ['markets'],
+    queryFn: () => getMarkets(),
+  });
+  
+  const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
   const { settings } = useSettings();
+  
+  useEffect(() => {
+    if (marketsData?.markets) {
+      setDisplayedMarkets(marketsData.markets.map(formatMarket));
+    }
+  }, [marketsData]);
+  
+  const tradeMutation = useMutation({
+    mutationFn: async (trade: { market: DisplayMarket; direction: 'YES' | 'NO'; wagerAmount: number }) => {
+      if (!settings.connected || !settings.privyId) {
+        return null;
+      }
+      const price = trade.direction === 'YES' ? trade.market.yesPrice : trade.market.noPrice;
+      return createTrade(settings.privyId, {
+        marketId: trade.market.id,
+        marketTitle: trade.market.question,
+        marketCategory: trade.market.category,
+        direction: trade.direction,
+        wagerAmount: trade.wagerAmount,
+        price,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['positions'] });
+      queryClient.invalidateQueries({ queryKey: ['trades'] });
+    },
+  });
   const { toast } = useToast();
   
   // Motion values for the active card to drive UI feedback
@@ -21,7 +78,7 @@ export default function Home() {
   useEffect(() => {
     x.set(0);
     y.set(0);
-  }, [markets, x, y]);
+  }, [displayedMarkets, x, y]);
 
   // Button transforms based on drag
   const noScale = useTransform(x, [-150, 0], [1.2, 1]);
@@ -37,12 +94,10 @@ export default function Home() {
   const skipBorder = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0)", "rgba(59, 130, 246, 1)"]);
 
   const handleSwipe = (id: string, direction: 'left' | 'right' | 'down') => {
-    const market = markets.find(m => m.id === id);
+    const market = displayedMarkets.find(m => m.id === id);
 
-    // Remove card from stack (visually handled by Framer Motion, but we need to update state)
     setTimeout(() => {
-      setMarkets(prev => prev.filter(m => m.id !== id));
-      // Reset values immediately after swipe to prevent lingering highlight
+      setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
       x.set(0);
       y.set(0);
     }, 200);
@@ -50,8 +105,12 @@ export default function Home() {
     if (!market) return;
 
     if (direction === 'right') {
-      const shares = settings.yesWager / (market.yesPrice / 100);
+      const shares = settings.yesWager / market.yesPrice;
       const payout = shares.toFixed(2);
+      
+      if (settings.connected) {
+        tradeMutation.mutate({ market, direction: 'YES', wagerAmount: settings.yesWager });
+      }
       
       toast({
         title: (
@@ -66,7 +125,7 @@ export default function Home() {
           <div className="mt-2 space-y-2">
             <div className="flex justify-between items-baseline">
               <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-              <span className="text-sm font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">@{market.yesPrice}¢</span>
+              <span className="text-sm font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
             </div>
             <div className="h-px bg-white/10 w-full" />
             <div className="flex justify-between text-xs text-zinc-400 font-medium">
@@ -78,8 +137,12 @@ export default function Home() {
         className: "bg-zinc-950/90 border-emerald-500/20 text-white backdrop-blur-xl shadow-2xl shadow-emerald-500/10 p-4"
       });
     } else if (direction === 'left') {
-      const shares = settings.noWager / (market.noPrice / 100);
+      const shares = settings.noWager / market.noPrice;
       const payout = shares.toFixed(2);
+
+      if (settings.connected) {
+        tradeMutation.mutate({ market, direction: 'NO', wagerAmount: settings.noWager });
+      }
 
       toast({
         title: (
@@ -94,7 +157,7 @@ export default function Home() {
           <div className="mt-2 space-y-2">
             <div className="flex justify-between items-baseline">
               <span className="text-3xl font-black tracking-tighter text-white">NO</span>
-              <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{market.noPrice}¢</span>
+              <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{Math.round(market.noPrice * 100)}¢</span>
             </div>
             <div className="h-px bg-white/10 w-full" />
             <div className="flex justify-between text-xs text-zinc-400 font-medium">
@@ -109,8 +172,8 @@ export default function Home() {
   };
 
   const manualSwipe = async (direction: 'left' | 'right' | 'down') => {
-    if (markets.length === 0) return;
-    const currentId = markets[markets.length - 1].id;
+    if (displayedMarkets.length === 0) return;
+    const currentId = displayedMarkets[displayedMarkets.length - 1].id;
     
     if (direction === 'left') {
       await animate(x, -500, { duration: 0.3 }).finished;
@@ -124,7 +187,7 @@ export default function Home() {
   };
 
   const resetDeck = () => {
-    setMarkets(MOCK_MARKETS);
+    refetch();
   };
 
   return (
@@ -133,29 +196,38 @@ export default function Home() {
         
         {/* Deck */}
         <div className="flex-1 w-full max-w-md relative mt-20 mb-32 z-10 px-4">
-          <AnimatePresence>
-            {markets.map((market, index) => (
-              index >= markets.length - 2 && ( // Only render top 2 cards for performance
-                <SwipeCard 
-                  key={market.id} 
-                  market={market} 
-                  active={index === markets.length - 1}
-                  onSwipe={(dir) => handleSwipe(market.id, dir)}
-                  dragX={index === markets.length - 1 ? x : undefined}
-                  dragY={index === markets.length - 1 ? y : undefined}
-                />
-              )
-            ))}
-          </AnimatePresence>
-
-          {markets.length === 0 && (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-              <div className="text-muted-foreground text-lg">No more markets for now.</div>
-              <Button onClick={resetDeck} variant="outline" className="gap-2">
-                <RefreshCw size={16} />
-                Refresh Deck
-              </Button>
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="text-muted-foreground">Loading markets...</div>
             </div>
+          ) : (
+            <>
+              <AnimatePresence>
+                {displayedMarkets.map((market, index) => (
+                  index >= displayedMarkets.length - 2 && (
+                    <SwipeCard 
+                      key={market.id} 
+                      market={market} 
+                      active={index === displayedMarkets.length - 1}
+                      onSwipe={(dir) => handleSwipe(market.id, dir)}
+                      dragX={index === displayedMarkets.length - 1 ? x : undefined}
+                      dragY={index === displayedMarkets.length - 1 ? y : undefined}
+                    />
+                  )
+                ))}
+              </AnimatePresence>
+
+              {displayedMarkets.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+                  <div className="text-muted-foreground text-lg">No more markets for now.</div>
+                  <Button onClick={resetDeck} variant="outline" className="gap-2">
+                    <RefreshCw size={16} />
+                    Refresh Deck
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
         

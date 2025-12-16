@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,11 +9,25 @@ import { Button } from '@/components/ui/button';
 import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
-export default function Profile() {
+function ProfileContent() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
+  const { login, logout, authenticated, user, getAccessToken, ready } = usePrivySafe();
   const [unifiedWager, setUnifiedWager] = useState(true);
   const [selectedInterests, setSelectedInterests] = useState<string[]>(["Crypto", "Tech"]);
+
+  useEffect(() => {
+    if (!PRIVY_ENABLED) return;
+    const syncPrivyUser = async () => {
+      if (ready && authenticated && user && !settings.connected) {
+        const walletAddress = user.wallet?.address || user.email?.address || 'Unknown';
+        const token = await getAccessToken();
+        await connectWallet(user.id, walletAddress, token || undefined);
+      }
+    };
+    syncPrivyUser();
+  }, [ready, authenticated, user]);
 
   const INTERESTS = [
     "Crypto", "Politics", "Sports", "Pop Culture", 
@@ -207,12 +221,17 @@ export default function Profile() {
 
         {/* Wallet Section */}
         <div className="space-y-6 mt-8">
-           {settings.connected ? (
-             <Button variant="destructive" className="w-full" onClick={disconnectWallet}>
+           {authenticated || settings.connected ? (
+             <Button variant="destructive" className="w-full" onClick={async () => {
+               await logout();
+               disconnectWallet();
+             }}>
                <LogOut className="mr-2" size={18} /> Disconnect Wallet
              </Button>
            ) : (
-             <Button className="w-full bg-white text-black hover:bg-white/90" onClick={connectWallet}>
+             <Button className="w-full bg-white text-black hover:bg-white/90" onClick={async () => {
+               await login();
+             }}>
                <Wallet className="mr-2" size={18} /> Connect Wallet
              </Button>
            )}
@@ -220,4 +239,8 @@ export default function Profile() {
       </div>
     </Layout>
   );
+}
+
+export default function Profile() {
+  return <ProfileContent />;
 }

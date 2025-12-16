@@ -3,33 +3,44 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getMarkets, getMockMarkets, type SimplifiedMarket } from "./kalshi";
 import { z } from "zod";
+import { PrivyClient } from "@privy-io/server-auth";
+
+const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
+const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
+
+const privyClient = PRIVY_APP_ID && PRIVY_APP_SECRET 
+  ? new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET)
+  : null;
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
   privyId?: string;
 }
 
-async function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const privyId = req.headers['x-privy-user-id'] as string;
-  if (privyId) {
-    req.privyId = privyId;
-    const user = await storage.getUserByPrivyId(privyId);
+async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const privyIdHeader = req.headers['x-privy-user-id'] as string;
+  
+  if (privyClient && authHeader?.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.slice(7);
+      const claims = await privyClient.verifyAuthToken(token);
+      req.privyId = claims.userId;
+    } catch (error) {
+      console.error('JWT verification failed:', error);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+  } else if (privyIdHeader) {
+    req.privyId = privyIdHeader;
+  } else {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  if (req.privyId) {
+    const user = await storage.getUserByPrivyId(req.privyId);
     if (user) {
       req.userId = user.id;
     }
-  }
-  next();
-}
-
-async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const privyId = req.headers['x-privy-user-id'] as string;
-  if (!privyId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  req.privyId = privyId;
-  const user = await storage.getUserByPrivyId(privyId);
-  if (user) {
-    req.userId = user.id;
   }
   next();
 }
@@ -132,8 +143,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      const shares = wagerAmount / price;
-      const estimatedPayout = shares * 1;
+      const shares = Math.round((wagerAmount / price) * 100) / 100;
+      const estimatedPayout = Math.round(shares * 100) / 100;
 
       const trade = await storage.createTrade({
         userId: req.userId,
@@ -142,9 +153,9 @@ export async function registerRoutes(
         marketCategory: marketCategory || null,
         direction,
         wagerAmount,
-        price: price.toString(),
-        shares: shares.toString(),
-        estimatedPayout: estimatedPayout.toString(),
+        price: price.toFixed(2),
+        shares: shares.toFixed(2),
+        estimatedPayout: estimatedPayout.toFixed(2),
         isClosed: false,
         closedAt: null,
         pnl: null,
