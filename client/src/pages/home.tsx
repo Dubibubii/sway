@@ -4,7 +4,7 @@ import { MOCK_MARKETS } from '@/lib/mock-data';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
-import { AnimatePresence, useMotionValue, useTransform, motion } from 'framer-motion';
+import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
