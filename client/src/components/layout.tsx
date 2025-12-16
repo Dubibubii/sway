@@ -13,22 +13,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm glass-panel rounded-full px-6 py-4 flex justify-between items-center z-50">
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm glass-panel rounded-full px-2 py-2 flex justify-between items-center z-50">
         <Link href="/">
-          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
           </a>
         </Link>
         <Link href="/activity">
-          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <Activity size={24} strokeWidth={isActive('/activity') ? 2.5 : 2} />
           </a>
         </Link>
-        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center -mt-8 border-4 border-background cursor-pointer">
-           <Wallet className="text-background" size={24} strokeWidth={2.5} />
+        
+        <div className="flex-1 flex justify-center">
+           <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 cursor-pointer hover:scale-105 transition-transform">
+              <Wallet size={20} strokeWidth={2.5} />
+           </div>
         </div>
+
         <Link href="/profile">
-          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
           </a>
         </Link>

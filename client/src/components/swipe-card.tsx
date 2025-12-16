@@ -18,6 +18,11 @@ export function SwipeCard({ market, onSwipe, active }: SwipeCardProps) {
   // Rotation based on x position
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   
+  // Scale based on active state (if it's the back card, scale it down)
+  const scale = active ? 1 : 0.95;
+  const opacity = active ? 1 : 0.6; // Fade out the back card slightly
+  const yOffset = active ? 0 : 20; // Move back card down slightly
+
   // Opacity of overlays
   const yesOpacity = useTransform(x, [50, 150], [0, 1]);
   const noOpacity = useTransform(x, [-50, -150], [0, 1]);
@@ -54,11 +59,12 @@ export function SwipeCard({ market, onSwipe, active }: SwipeCardProps) {
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragEnd={handleDragEnd}
       animate={controls}
-      style={{ x, y, rotate }}
-      className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40'}`}
+      style={{ x, y, rotate, scale, opacity, top: yOffset }}
+      className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40 pointer-events-none'}`}
       whileTap={{ scale: 1.05 }}
+      transition={{ duration: 0.3 }}
     >
-      <Card className="w-full h-[600px] overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
+      <Card className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
         
         {/* Image Background */}
         <div className="absolute inset-0 z-0">

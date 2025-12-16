@@ -56,7 +56,7 @@ export default function Home() {
         </div>
 
         {/* Deck */}
-        <div className="w-full max-w-sm h-[600px] relative">
+        <div className="flex-1 w-full max-w-sm relative mt-16 mb-24 z-10">
           <AnimatePresence>
             {markets.map((market, index) => (
               index >= markets.length - 2 && ( // Only render top 2 cards for performance
