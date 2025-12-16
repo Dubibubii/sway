@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Share2, X, Check, Copy } from 'lucide-react';
 import { useSettings } from '@/hooks/use-settings';
+import { useToast } from '@/hooks/use-toast';
 
 interface MarketData {
   id: string;
@@ -25,6 +27,8 @@ interface SwipeCardProps {
 
 export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardProps) {
   const { settings } = useSettings();
+  const { toast } = useToast();
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
@@ -32,6 +36,53 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
   // Use passed motion values if active, otherwise local (though inactive cards don't drag)
   const x = dragX || localX;
   const y = dragY || localY;
+
+  const getShareUrl = () => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/market/${market.id}`;
+  };
+
+  const getShareText = () => {
+    const yesPercent = Math.round(market.yesPrice * 100);
+    return `${market.question} - Currently at ${yesPercent}% YES on Pulse`;
+  };
+
+  const shareToTwitter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = encodeURIComponent(getShareText());
+    const url = encodeURIComponent(getShareUrl());
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const shareToFacebook = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = encodeURIComponent(getShareUrl());
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const copyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      toast({
+        title: "Link copied!",
+        description: "Share this market with your friends",
+      });
+    } catch {
+      toast({
+        title: "Failed to copy",
+        variant: "destructive",
+      });
+    }
+    setShowShareMenu(false);
+  };
+
+  const handleShareClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowShareMenu(!showShareMenu);
+  };
 
   // Rotation based on x position
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
@@ -160,7 +211,47 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
           
           <div className="flex justify-between items-center text-white/60 text-sm mt-2">
              <span>Vol: {market.volume}</span>
-             <Info size={18} />
+             <div className="relative">
+               <button 
+                 onClick={handleShareClick}
+                 className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                 data-testid="button-share"
+               >
+                 <Share2 size={18} />
+               </button>
+               
+               {showShareMenu && (
+                 <div 
+                   className="absolute bottom-full right-0 mb-2 bg-zinc-900/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
+                   onClick={(e) => e.stopPropagation()}
+                 >
+                   <button 
+                     onClick={shareToTwitter}
+                     className="flex items-center gap-3 px-4 py-3 w-full hover:bg-white/10 transition-colors text-white text-sm"
+                     data-testid="button-share-twitter"
+                   >
+                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                     <span>Share on X</span>
+                   </button>
+                   <button 
+                     onClick={shareToFacebook}
+                     className="flex items-center gap-3 px-4 py-3 w-full hover:bg-white/10 transition-colors text-white text-sm"
+                     data-testid="button-share-facebook"
+                   >
+                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                     <span>Share on Facebook</span>
+                   </button>
+                   <button 
+                     onClick={copyLink}
+                     className="flex items-center gap-3 px-4 py-3 w-full hover:bg-white/10 transition-colors text-white text-sm"
+                     data-testid="button-copy-link"
+                   >
+                     <Copy size={16} />
+                     <span>Copy Link</span>
+                   </button>
+                 </div>
+               )}
+             </div>
           </div>
         </div>
       </Card>
