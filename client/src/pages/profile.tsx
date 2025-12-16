@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
@@ -50,6 +50,18 @@ export default function Profile() {
                 <div className="text-muted-foreground text-sm mt-1">Wallet not connected</div>
               )}
             </div>
+
+            {settings.connected && (
+               <div className="ml-auto text-right pl-2">
+                 <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
+                 <div className="text-xl font-display font-bold text-white">
+                   $12,450
+                 </div>
+                 <div className="text-xs font-mono text-emerald-400 flex items-center justify-end gap-1">
+                   <TrendingUp size={12} /> +2.4%
+                 </div>
+               </div>
+            )}
           </CardContent>
         </Card>
 
