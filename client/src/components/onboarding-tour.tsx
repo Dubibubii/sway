@@ -42,7 +42,7 @@ const steps = [
   {
     id: 'positions',
     title: 'Track Your Positions',
-    description: 'View your active bets and past trades in the Portfolio tab at the bottom.',
+    description: 'View your active bets and past trades in the activity tab at the top.',
     icon: TrendingUp,
     iconColor: 'from-amber-500 to-orange-500',
   },
