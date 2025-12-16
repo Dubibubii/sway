@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
-import { lazy, Suspense, useEffect, useState, ReactNode } from "react";
+import { useEffect, useState, ReactNode, useMemo } from "react";
 import App from "./App";
 import "./index.css";
-import { PrivySafeProvider, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
+import { PrivySafeProvider, PrivySafeContext, PrivySafeContextType, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
 
@@ -10,23 +10,87 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
 );
 
+function PrivyInnerAdapter({ children, usePrivyHook }: { children: ReactNode; usePrivyHook: () => any }) {
+  const privy = usePrivyHook();
+  
+  const embeddedWallet = useMemo(() => {
+    if (!privy.user?.linkedAccounts) return null;
+    
+    const embedded = privy.user.linkedAccounts.find(
+      (account: any) => 
+        account.type === 'wallet' && 
+        account.walletClientType === 'privy' &&
+        account.chainType === 'solana'
+    );
+    
+    if (embedded && 'address' in embedded) {
+      return {
+        address: (embedded as any).address,
+        walletClientType: 'privy',
+      };
+    }
+    return null;
+  }, [privy.user?.linkedAccounts]);
+  
+  const createWalletWrapper = async () => {
+    try {
+      await (privy.createWallet as any)({ chainType: 'solana' });
+    } catch (error) {
+      console.error('Failed to create Solana wallet:', error);
+    }
+  };
+  
+  const value: PrivySafeContextType = {
+    login: privy.login,
+    logout: privy.logout,
+    authenticated: privy.authenticated,
+    user: privy.user ? {
+      id: privy.user.id,
+      wallet: privy.user.wallet ? { address: privy.user.wallet.address } : undefined,
+      email: privy.user.email ? { address: privy.user.email.address } : undefined,
+    } : null,
+    getAccessToken: privy.getAccessToken,
+    ready: privy.ready,
+    embeddedWallet,
+    createWallet: createWalletWrapper,
+  };
+  
+  return (
+    <PrivySafeContext.Provider value={value}>
+      {children}
+    </PrivySafeContext.Provider>
+  );
+}
+
 function PrivyWrapperComponent({ children }: { children: ReactNode }) {
-  const [PrivyProvider, setPrivyProvider] = useState<any>(null);
+  const [privyModule, setPrivyModule] = useState<{
+    PrivyProvider: any;
+    usePrivy: () => any;
+  } | null>(null);
   const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
 
   useEffect(() => {
+    let mounted = true;
     Promise.all([
       import("@privy-io/react-auth"),
       import("@privy-io/react-auth/solana")
     ]).then(([privyMod, solanaMod]) => {
-      setPrivyProvider(() => privyMod.PrivyProvider);
-      setSolanaConnectors(() => solanaMod.toSolanaWalletConnectors());
+      if (mounted) {
+        setPrivyModule({
+          PrivyProvider: privyMod.PrivyProvider,
+          usePrivy: privyMod.usePrivy,
+        });
+        setSolanaConnectors(solanaMod.toSolanaWalletConnectors());
+      }
     });
+    return () => { mounted = false; };
   }, []);
 
-  if (!PrivyProvider || !solanaConnectors) {
+  if (!privyModule || !solanaConnectors) {
     return <LoadingScreen />;
   }
+
+  const { PrivyProvider, usePrivy } = privyModule;
 
   return (
     <PrivyProvider
@@ -41,8 +105,9 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         },
         loginMethods: ['wallet', 'email', 'google'],
         embeddedWallets: {
-          createOnLogin: 'all-users',
-          showWalletUIs: true,
+          solana: {
+            createOnLogin: 'all-users',
+          },
         },
         externalWallets: {
           solana: {
@@ -51,7 +116,9 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         },
       }}
     >
-      {children}
+      <PrivyInnerAdapter usePrivyHook={usePrivy}>
+        {children}
+      </PrivyInnerAdapter>
     </PrivyProvider>
   );
 }
@@ -60,9 +127,7 @@ const AppWithProviders = () => {
   if (PRIVY_ENABLED && PRIVY_APP_ID) {
     return (
       <PrivyWrapperComponent>
-        <PrivySafeProvider>
-          <App />
-        </PrivySafeProvider>
+        <App />
       </PrivyWrapperComponent>
     );
   }

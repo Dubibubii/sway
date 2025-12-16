@@ -91,9 +91,27 @@ function ProfileContent() {
                      </Button>
                    </div>
                  </div>
+              ) : authenticated && user?.wallet ? (
+                 <div className="space-y-2 sm:space-y-3">
+                   <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
+                     <div className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-semibold uppercase">External Wallet</div>
+                   </div>
+                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate" data-testid="text-external-wallet-address">
+                     <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+                     {user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}
+                   </div>
+                   <div className="flex gap-2">
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" data-testid="button-deposit">
+                       <ArrowDown size={12} /> Deposit
+                     </Button>
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" data-testid="button-withdraw">
+                       <ArrowUp size={12} /> Withdraw
+                     </Button>
+                   </div>
+                 </div>
               ) : authenticated && !embeddedWallet ? (
                 <div className="space-y-2 sm:space-y-3 mt-2">
-                  <div className="text-muted-foreground text-sm">No Pulse wallet yet</div>
+                  <div className="text-muted-foreground text-sm">Signed in with {user?.email?.address ? 'email' : 'social login'}</div>
                   <Button 
                     size="sm" 
                     onClick={async () => {
@@ -131,7 +149,7 @@ function ProfileContent() {
               )}
             </div>
 
-            {(authenticated && embeddedWallet) || settings.connected ? (
+            {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
                <div className="text-right pl-2 shrink-0">
                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
                  <div className="text-lg sm:text-xl font-display font-bold text-white" data-testid="text-wallet-balance">

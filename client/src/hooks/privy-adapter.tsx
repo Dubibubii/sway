@@ -6,21 +6,31 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   const privy = usePrivy();
   
   const embeddedWallet = useMemo(() => {
-    if (!privy.user) return null;
-    const embeddedAccount = privy.user.linkedAccounts?.find(
+    if (!privy.user?.linkedAccounts) return null;
+    
+    const embedded = privy.user.linkedAccounts.find(
       (account: any) => 
         account.type === 'wallet' && 
         account.walletClientType === 'privy' &&
         account.chainType === 'solana'
     );
-    if (embeddedAccount) {
+    
+    if (embedded && 'address' in embedded) {
       return {
-        address: (embeddedAccount as any).address,
+        address: (embedded as any).address,
         walletClientType: 'privy',
       };
     }
     return null;
-  }, [privy.user]);
+  }, [privy.user?.linkedAccounts]);
+  
+  const createWalletWrapper = async () => {
+    try {
+      await (privy.createWallet as any)({ chainType: 'solana' });
+    } catch (error) {
+      console.error('Failed to create wallet:', error);
+    }
+  };
   
   const value: PrivySafeContextType = {
     login: privy.login,
@@ -34,9 +44,7 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     getAccessToken: privy.getAccessToken,
     ready: privy.ready,
     embeddedWallet,
-    createWallet: async () => {
-      console.log('Embedded wallets are auto-created on login. Please log in again if wallet is missing.');
-    },
+    createWallet: createWalletWrapper,
   };
   
   return (
