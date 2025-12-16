@@ -37,7 +37,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           accentColor: '#10b981',
           showWalletLoginFirst: true,
           walletChainType: 'solana-only',
-          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack', 'jupiter'],
+          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack', 'magic_eden', 'jupiter'],
         },
         loginMethods: ['wallet', 'email', 'google'],
         externalWallets: {
