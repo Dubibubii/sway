@@ -121,16 +121,6 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
           </h2>
 
           <div className="grid grid-cols-2 gap-3 mt-2">
-            <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center">
-              <span className="text-xs font-medium text-emerald-200 uppercase tracking-wider">Yes Chance</span>
-              <div className="flex flex-col items-center gap-0">
-                <div className="flex items-center gap-1">
-                   <TrendingUp size={20} className="text-emerald-400" />
-                   <span className="text-3xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
-                </div>
-                <span className="text-xs font-medium text-emerald-200/80">Payout: ${(settings.yesWager / market.yesPrice).toFixed(2)}</span>
-              </div>
-            </div>
             <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-3 border border-destructive/30 flex flex-col items-center">
               <span className="text-xs font-medium text-rose-200 uppercase tracking-wider">No Chance</span>
               <div className="flex flex-col items-center gap-0">
@@ -139,6 +129,16 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
                    <span className="text-3xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
                 </div>
                 <span className="text-xs font-medium text-rose-200/80">Payout: ${(settings.noWager / market.noPrice).toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center">
+              <span className="text-xs font-medium text-emerald-200 uppercase tracking-wider">Yes Chance</span>
+              <div className="flex flex-col items-center gap-0">
+                <div className="flex items-center gap-1">
+                   <TrendingUp size={20} className="text-emerald-400" />
+                   <span className="text-3xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
+                </div>
+                <span className="text-xs font-medium text-emerald-200/80">Payout: ${(settings.yesWager / market.yesPrice).toFixed(2)}</span>
               </div>
             </div>
           </div>
