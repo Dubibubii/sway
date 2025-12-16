@@ -22,7 +22,7 @@ const AppWithProviders = () => {
                 theme: 'dark',
                 accentColor: '#10b981',
                 showWalletLoginFirst: true,
-                walletChainType: 'ethereum-and-solana',
+                walletChainType: 'solana-only',
               },
               loginMethods: ['wallet', 'email', 'google'],
             }}
