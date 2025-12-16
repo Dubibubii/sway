@@ -21,11 +21,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
           </a>
         </Link>
-        <Link href="/activity">
-          <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <Activity size={24} strokeWidth={isActive('/activity') ? 2.5 : 2} />
-          </a>
-        </Link>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <Link href="/activity">
+            <a className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+              <Activity size={24} strokeWidth={isActive('/activity') ? 2.5 : 2} />
+            </a>
+          </Link>
+        </div>
         <Link href="/profile">
           <a className={`flex items-center gap-3 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
             <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
