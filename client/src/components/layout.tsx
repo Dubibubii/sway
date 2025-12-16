@@ -25,15 +25,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </a>
         </Link>
         
-        <div className="flex-1 flex justify-center">
-           <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 cursor-pointer hover:scale-105 transition-transform">
-              <Wallet size={20} strokeWidth={2.5} />
-           </div>
-        </div>
+        <Link href="/profile">
+          <a className={`flex-1 flex justify-center`}>
+             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform ${isActive('/profile') && location.includes('wallet') ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' : 'bg-secondary text-muted-foreground hover:scale-105'}`}>
+                <Wallet size={20} strokeWidth={2.5} />
+             </div>
+          </a>
+        </Link>
 
         <Link href="/profile">
-          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
+          <a className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${isActive('/profile') && !location.includes('wallet') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+            <User size={24} strokeWidth={isActive('/profile') && !location.includes('wallet') ? 2.5 : 2} />
           </a>
         </Link>
       </nav>
