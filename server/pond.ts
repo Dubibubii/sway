@@ -232,18 +232,20 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
   
   const title = market.title || event?.title || '';
   
-  const getImageUrl = (cat: string): string | undefined => {
-    const categoryImages: Record<string, string> = {
-      'Crypto': 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=600&fit=crop',
-      'Tech': 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
-      'AI': 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
-      'Politics': 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&h=600&fit=crop',
-      'Economics': 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
-      'Sports': 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&h=600&fit=crop',
-      'Weather': 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800&h=600&fit=crop',
-      'World': 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=600&fit=crop',
-    };
-    return categoryImages[cat] || 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop';
+  const getKalshiImageUrl = (): string => {
+    const eventTicker = market.event_ticker || event?.event_ticker || '';
+    const marketTicker = market.ticker || '';
+    
+    if (marketTicker) {
+      return `https://kalshi-public-docs.s3.us-east-1.amazonaws.com/market-images/${marketTicker}.jpg`;
+    }
+    
+    if (eventTicker) {
+      const baseTicker = eventTicker.split('-')[0];
+      return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${baseTicker}.webp`;
+    }
+    
+    return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`;
   };
   
   return {
@@ -258,7 +260,7 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
     volume: market.volume || 0,
     endDate: market.close_time || new Date().toISOString(),
     status: market.status || 'active',
-    imageUrl: getImageUrl(category),
+    imageUrl: getKalshiImageUrl(),
     eventTicker: market.event_ticker,
   };
 }
