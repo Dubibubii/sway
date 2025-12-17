@@ -234,18 +234,17 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
   
   const getKalshiImageUrl = (): string => {
     const eventTicker = market.event_ticker || event?.event_ticker || '';
-    const marketTicker = market.ticker || '';
-    
-    if (marketTicker) {
-      return `https://kalshi-public-docs.s3.us-east-1.amazonaws.com/market-images/${marketTicker}.jpg`;
-    }
     
     if (eventTicker) {
       const baseTicker = eventTicker.split('-')[0];
       return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${baseTicker}.webp`;
     }
     
-    return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`;
+    if (seriesTicker) {
+      return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`;
+    }
+    
+    return `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/default.webp`;
   };
   
   return {
