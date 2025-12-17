@@ -41,15 +41,10 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = async (address: string) => {
+  const handleDeposit = (address: string) => {
     console.log('handleDeposit called with address:', address);
-    try {
-      await fundWallet(address);
-    } catch (error) {
-      console.error('Privy fundWallet error:', error);
-      setDepositAddress(address);
-      setDepositDialogOpen(true);
-    }
+    setDepositAddress(address);
+    setDepositDialogOpen(true);
   };
   
   const copyDepositAddress = async () => {
