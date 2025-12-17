@@ -1,11 +1,11 @@
 import { ReactNode, useMemo, useCallback } from 'react';
-import { usePrivy, useFundWallet, useExportAccount } from '@privy-io/react-auth';
+import { usePrivy } from '@privy-io/react-auth';
+import { useFundWallet } from '@privy-io/react-auth/solana';
 import { PrivySafeContext, PrivySafeContextType } from './use-privy-safe';
 
 export default function PrivyAdapter({ children }: { children: ReactNode }) {
   const privy = usePrivy();
   const { fundWallet: privyFundWallet } = useFundWallet();
-  const { exportAccount: privyExportAccount } = useExportAccount();
   
   const embeddedWallet = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
@@ -36,21 +36,15 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   
   const fundWalletWrapper = useCallback(async (address: string) => {
     try {
-      await privyFundWallet(address, { chain: { id: 'solana:mainnet' } as any });
+      await privyFundWallet({ address });
     } catch (error) {
       console.error('Failed to fund wallet:', error);
     }
   }, [privyFundWallet]);
   
   const exportWalletWrapper = useCallback(async () => {
-    try {
-      if (embeddedWallet?.address) {
-        await privyExportAccount({ address: embeddedWallet.address });
-      }
-    } catch (error) {
-      console.error('Failed to export wallet:', error);
-    }
-  }, [privyExportAccount, embeddedWallet?.address]);
+    console.log('Export wallet - copy address to send from external wallet');
+  }, []);
   
   const value: PrivySafeContextType = {
     login: privy.login,

@@ -6,11 +6,12 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 function ProfileContent() {
   const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
@@ -19,6 +20,9 @@ function ProfileContent() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [depositAddress, setDepositAddress] = useState<string | null>(null);
+  const [depositCopied, setDepositCopied] = useState(false);
   
   const walletAddress = embeddedWallet?.address || user?.wallet?.address || null;
   const { solBalance, usdBalance, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(walletAddress);
@@ -38,8 +42,21 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = async (address: string) => {
-    await fundWallet(address);
+  const handleDeposit = (address: string) => {
+    setDepositAddress(address);
+    setDepositDialogOpen(true);
+  };
+  
+  const copyDepositAddress = async () => {
+    if (depositAddress) {
+      try {
+        await navigator.clipboard.writeText(depositAddress);
+        setDepositCopied(true);
+        setTimeout(() => setDepositCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
   };
 
   useEffect(() => {
@@ -367,6 +384,63 @@ function ProfileContent() {
            )}
         </div>
       </div>
+      
+      <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <ArrowDown className="text-emerald-400" size={20} />
+              Deposit SOL
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Send SOL from your Phantom or other Solana wallet to this address
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
+              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your Pulse Wallet Address</div>
+              <div className="font-mono text-sm text-white break-all mb-3">
+                {depositAddress}
+              </div>
+              <Button 
+                onClick={copyDepositAddress}
+                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
+                variant="outline"
+              >
+                {depositCopied ? (
+                  <>
+                    <Check size={16} className="mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} className="mr-2" />
+                    Copy Address
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
+              <p className="text-xs text-blue-300">
+                <strong>Tip:</strong> Open Phantom, tap Send, paste this address, and send your desired amount of SOL.
+              </p>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDepositDialogOpen(false);
+                refetchBalance();
+              }}
+              className="w-full"
+            >
+              Done - Refresh Balance
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
