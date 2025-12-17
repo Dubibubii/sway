@@ -51,6 +51,7 @@ export interface SimplifiedMarket {
   yesLabel: string;
   noLabel: string;
   volume: number;
+  volume24h: number;
   endDate: string;
   status: string;
   imageUrl?: string;
@@ -257,6 +258,7 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
     yesLabel: market.yes_sub_title || 'Yes',
     noLabel: market.no_sub_title || 'No',
     volume: market.volume || 0,
+    volume24h: market.volume_24h || 0,
     endDate: market.close_time || new Date().toISOString(),
     status: market.status || 'active',
     imageUrl: getKalshiImageUrl(),
@@ -336,6 +338,7 @@ function transformMarket(market: any, event?: any): SimplifiedMarket {
     yesLabel: market.yesSubTitle || 'Yes',
     noLabel: market.noSubTitle || 'No',
     volume: market.volume || event?.volume || 0,
+    volume24h: market.volume24h || event?.volume24h || 0,
     endDate: market.closeTime 
       ? new Date(market.closeTime * 1000).toISOString() 
       : new Date().toISOString(),
@@ -474,6 +477,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 325000,
+      volume24h: 5000,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=600&fit=crop',
@@ -488,6 +492,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 189000,
+      volume24h: 3000,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=600&fit=crop',
@@ -502,6 +507,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 434000,
+      volume24h: 4000,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
@@ -516,6 +522,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 198000,
+      volume24h: 2000,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop',
@@ -530,6 +537,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 567000,
+      volume24h: 6000,
       endDate: '2028-11-15T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&h=600&fit=crop',
@@ -544,6 +552,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 892000,
+      volume24h: 8000,
       endDate: '2027-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
@@ -558,6 +567,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 345000,
+      volume24h: 3500,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&h=600&fit=crop',
@@ -572,6 +582,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 678000,
+      volume24h: 7000,
       endDate: '2028-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=800&h=600&fit=crop',
@@ -586,6 +597,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 456000,
+      volume24h: 4500,
       endDate: '2026-02-15T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&h=600&fit=crop',
@@ -600,6 +612,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       yesLabel: 'Yes',
       noLabel: 'No',
       volume: 234000,
+      volume24h: 2500,
       endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&h=600&fit=crop',

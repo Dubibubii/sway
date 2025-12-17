@@ -59,7 +59,8 @@ export async function registerRoutes(
       
       markets = diversifyMarketFeed(markets);
       
-      markets.sort((a, b) => b.volume - a.volume);
+      // Sort by 24h volume for trending (most recent activity)
+      markets.sort((a, b) => b.volume24h - a.volume24h);
       
       const trendingCount = Math.min(50, markets.length);
       const trendingMarkets = markets.slice(0, trendingCount);
@@ -86,7 +87,7 @@ export async function registerRoutes(
       
       organizedMarkets = organizedMarkets.reverse();
       
-      console.log('Markets: Total', organizedMarkets.length, '- First 3 volumes:', organizedMarkets.slice(-3).map(m => m.volume));
+      console.log('Markets: Total', organizedMarkets.length, '- Top 3 by 24h vol:', organizedMarkets.slice(-3).map(m => ({ title: m.title?.slice(0,25), vol24h: m.volume24h })));
       
       res.json({ markets: organizedMarkets });
     } catch (error) {
