@@ -82,11 +82,6 @@ export default function Home() {
     if (marketsData?.markets) {
       let filteredMarkets = marketsData.markets;
       
-      // Filter out markets with no real bid/ask data (50%/50% indicates resolved or untradeable)
-      filteredMarkets = filteredMarkets.filter(m => 
-        !(m.yesPrice === 0.5 && m.noPrice === 0.5)
-      );
-      
       if (settings.interests.length > 0) {
         const normalizedInterests = settings.interests.map(i => i.toLowerCase());
         filteredMarkets = filteredMarkets.filter(m => 

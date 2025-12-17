@@ -126,6 +126,10 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
       for (const event of events) {
         if (event.markets && event.markets.length > 0) {
           for (const market of event.markets) {
+            // Only include active markets with actual bid/ask data
+            if (market.status !== 'active') continue;
+            if (!market.yesAsk && !market.yesBid) continue;
+            
             allMarkets.push(transformMarket(market, event));
           }
         }
@@ -165,13 +169,15 @@ function transformMarket(market: PondMarket, event?: PondEvent): SimplifiedMarke
   const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : null;
   const yesBid = market.yesBid ? parseFloat(market.yesBid) : null;
   
+  
+  // API returns prices as decimals (0-1 range) - just use them directly
   let yesPrice: number;
   if (yesAsk !== null && yesBid !== null) {
-    yesPrice = (yesAsk + yesBid) / 2 / 100;
+    yesPrice = (yesAsk + yesBid) / 2;
   } else if (yesAsk !== null) {
-    yesPrice = yesAsk / 100;
+    yesPrice = yesAsk;
   } else if (yesBid !== null) {
-    yesPrice = yesBid / 100;
+    yesPrice = yesBid;
   } else {
     yesPrice = 0.5;
   }
