@@ -15,7 +15,7 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
   const fundWalletHookResult = useFundWalletHook();
   const privyFundWallet = fundWalletHookResult?.fundWallet || fundWalletHookResult?.openFunding;
   
-  const embeddedWallet = useMemo(() => {
+  const embeddedWalletData = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
     
     const embedded = privy.user.linkedAccounts.find(
@@ -29,10 +29,16 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
       return {
         address: (embedded as any).address,
         walletClientType: 'privy',
+        id: (embedded as any).id,
       };
     }
     return null;
   }, [privy.user?.linkedAccounts]);
+
+  const embeddedWallet = embeddedWalletData ? {
+    address: embeddedWalletData.address,
+    walletClientType: embeddedWalletData.walletClientType,
+  } : null;
   
   const createWalletWrapper = async () => {
     try {
@@ -44,12 +50,31 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
 
   const fundWalletWrapper = async (address: string) => {
     try {
-      await privyFundWallet({ 
+      console.log('Opening Privy funding modal for address:', address);
+      console.log('Embedded wallet data:', embeddedWalletData);
+      console.log('privyFundWallet function:', privyFundWallet);
+      
+      if (!privyFundWallet) {
+        console.error('fundWallet function not available from Privy');
+        alert('Funding not available. Please check Privy dashboard configuration.');
+        return;
+      }
+      
+      const result = await privyFundWallet({ 
         address,
-        defaultFundingMethod: 'manual'
+        options: {
+          defaultFundingMethod: 'manual',
+          uiConfig: {
+            receiveFundsTitle: 'Deposit SOL to Pulse',
+            receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
+          }
+        }
       });
-    } catch (error) {
+      console.log('Fund wallet result:', result);
+    } catch (error: any) {
       console.error('Failed to open funding modal:', error);
+      console.error('Error details:', error?.message, error?.stack);
+      alert(`Funding error: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -133,6 +158,11 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         externalWallets: {
           solana: {
             connectors: solanaConnectors,
+          },
+        },
+        fundingMethodConfig: {
+          moonpay: {
+            useSandbox: false,
           },
         },
       }}

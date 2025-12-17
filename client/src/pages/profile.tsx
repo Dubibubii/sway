@@ -42,9 +42,15 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = (address: string) => {
-    setDepositAddress(address);
-    setDepositDialogOpen(true);
+  const handleDeposit = async (address: string) => {
+    console.log('handleDeposit called with address:', address);
+    try {
+      await fundWallet(address);
+    } catch (error) {
+      console.error('fundWallet error, falling back to dialog:', error);
+      setDepositAddress(address);
+      setDepositDialogOpen(true);
+    }
   };
   
   const copyDepositAddress = async () => {
