@@ -75,14 +75,12 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
       throw new Error('Funding modal not available');
     }
     
-    const result = await privyFundWallet({ 
-      address,
-      options: {
-        defaultFundingMethod: 'manual',
-        uiConfig: {
-          receiveFundsTitle: 'Deposit SOL to Pulse',
-          receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
-        }
+    const result = await privyFundWallet(address, {
+      cluster: { name: 'mainnet-beta' },
+      defaultFundingMethod: 'manual',
+      uiConfig: {
+        receiveFundsTitle: 'Deposit SOL to Pulse',
+        receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
       }
     });
     console.log('Fund wallet result:', result);
