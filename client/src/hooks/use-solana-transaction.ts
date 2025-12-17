@@ -1,7 +1,10 @@
 import { useState, useCallback, createContext, useContext, ReactNode } from 'react';
 import { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY || '';
+const SOLANA_RPC = HELIUS_API_KEY 
+  ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+  : 'https://api.mainnet-beta.solana.com';
 const FEE_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 const FEE_PERCENTAGE = 0.01;
 

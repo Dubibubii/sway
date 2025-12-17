@@ -261,7 +261,12 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           },
         },
         solanaClusters: [
-          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' },
+          { 
+            name: 'mainnet-beta', 
+            rpcUrl: import.meta.env.VITE_HELIUS_API_KEY 
+              ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}`
+              : 'https://api.mainnet-beta.solana.com' 
+          },
         ],
       }}
     >

@@ -41,3 +41,9 @@ waitForPort = 5000
 
 [agent]
 mockupState = "FULLSTACK"
+
+[userenv]
+
+[userenv.shared]
+HELIUS_API_KEY = "59f509f2-470e-41d8-9cbf-6a42eb4d47a7"
+VITE_HELIUS_API_KEY = "59f509f2-470e-41d8-9cbf-6a42eb4d47a7"
