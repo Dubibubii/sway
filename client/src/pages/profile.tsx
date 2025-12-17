@@ -12,8 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
-// Solana devnet RPC endpoint
-const SOLANA_RPC_URL = 'https://api.devnet.solana.com';
+// Solana mainnet RPC endpoint
+const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com';
 
 // Fetch SOL balance from Solana RPC
 async function fetchSolBalance(address: string): Promise<number> {
@@ -49,18 +49,6 @@ function ProfileContent() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [solBalance, setSolBalance] = useState<number>(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-  const [showDepositDialog, setShowDepositDialog] = useState(false);
-  const [depositAddressCopied, setDepositAddressCopied] = useState(false);
-
-  const copyDepositAddress = async (address: string) => {
-    try {
-      await navigator.clipboard.writeText(address);
-      setDepositAddressCopied(true);
-      setTimeout(() => setDepositAddressCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy address:', err);
-    }
-  };
 
   // Fetch wallet balance
   const refreshBalance = useCallback(async () => {
@@ -96,8 +84,8 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = () => {
-    setShowDepositDialog(true);
+  const handleDeposit = async (address: string) => {
+    await fundWallet(address);
   };
 
   useEffect(() => {
@@ -173,7 +161,7 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={handleDeposit}
+                       onClick={() => handleDeposit(embeddedWallet.address)}
                        className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
                        data-testid="button-deposit"
                      >
@@ -208,7 +196,7 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={handleDeposit}
+                       onClick={() => handleDeposit(user.wallet!.address)}
                        className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
                        data-testid="button-deposit"
                      >
