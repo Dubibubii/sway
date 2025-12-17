@@ -1,4 +1,36 @@
-const POND_BASE_URL = 'https://prediction-markets-api.dflow.net/api/v1';
+const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
+
+export interface KalshiMarket {
+  ticker: string;
+  title: string;
+  subtitle: string;
+  event_ticker: string;
+  status: string;
+  market_type: string;
+  volume: number;
+  volume_24h: number;
+  open_interest: number;
+  close_time: string;
+  expiration_time: string;
+  yes_ask: number;
+  yes_bid: number;
+  no_ask: number;
+  no_bid: number;
+  yes_sub_title: string;
+  no_sub_title: string;
+  rules_primary: string;
+  last_price: number;
+  category: string;
+}
+
+export interface KalshiEvent {
+  event_ticker: string;
+  title: string;
+  sub_title: string;
+  series_ticker: string;
+  category: string;
+  markets?: KalshiMarket[] | null;
+}
 
 export interface PondMarketAccount {
   isInitialized: boolean;
@@ -7,40 +39,6 @@ export interface PondMarketAccount {
   yesMint: string;
   redemptionStatus?: string | null;
   scalarOutcomePct?: number | null;
-}
-
-export interface PondMarket {
-  ticker: string;
-  title: string;
-  subtitle: string;
-  eventTicker: string;
-  status: string;
-  marketType: string;
-  volume: number;
-  openInterest: number;
-  closeTime: number;
-  expirationTime: number;
-  yesAsk: string | null;
-  yesBid: string | null;
-  noAsk: string | null;
-  noBid: string | null;
-  yesSubTitle: string;
-  noSubTitle: string;
-  rulesPrimary: string;
-  accounts: Record<string, PondMarketAccount>;
-}
-
-export interface PondEvent {
-  ticker: string;
-  title: string;
-  subtitle: string;
-  seriesTicker: string;
-  imageUrl?: string | null;
-  volume?: number | null;
-  volume24h?: number | null;
-  liquidity?: number | null;
-  openInterest?: number | null;
-  markets?: PondMarket[] | null;
 }
 
 export interface SimplifiedMarket {
@@ -60,30 +58,27 @@ export interface SimplifiedMarket {
   eventTicker?: string;
 }
 
-export async function getMarkets(limit = 50, cursor?: number): Promise<SimplifiedMarket[]> {
+export async function getMarkets(limit = 50, cursor?: string): Promise<SimplifiedMarket[]> {
   const params = new URLSearchParams({
     limit: limit.toString(),
-    status: 'active',
-    sort: 'volume',
-    isInitialized: 'true',
   });
-  if (cursor) params.append('cursor', cursor.toString());
+  if (cursor) params.append('cursor', cursor);
   
   try {
-    const response = await fetch(`${POND_BASE_URL}/markets?${params}`, {
+    const response = await fetch(`${KALSHI_BASE_URL}/markets?${params}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
     
     if (!response.ok) {
-      console.error('Pond API error:', response.status, await response.text());
+      console.error('Kalshi API error:', response.status, await response.text());
       return getMockMarkets();
     }
     
     const data = await response.json();
-    return data.markets?.map(transformMarket) || getMockMarkets();
+    return data.markets?.map((m: KalshiMarket) => transformKalshiMarket(m)) || getMockMarkets();
   } catch (error) {
-    console.error('Error fetching Pond markets:', error);
+    console.error('Error fetching Kalshi markets:', error);
     return getMockMarkets();
   }
 }
@@ -97,27 +92,25 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
     while (allMarkets.length < maxMarkets) {
       const params = new URLSearchParams({
         limit: pageSize.toString(),
-        withNestedMarkets: withNestedMarkets.toString(),
-        status: 'active',
-        sort: 'volume',
+        with_nested_markets: withNestedMarkets.toString(),
       });
       
       if (cursor) {
         params.append('cursor', cursor);
       }
       
-      const response = await fetch(`${POND_BASE_URL}/events?${params}`, {
+      const response = await fetch(`${KALSHI_BASE_URL}/events?${params}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
       
       if (!response.ok) {
-        console.error('Pond API error:', response.status, await response.text());
+        console.error('Kalshi API error:', response.status, await response.text());
         break;
       }
       
       const data = await response.json();
-      const events = data.events || [];
+      const events: KalshiEvent[] = data.events || [];
       
       if (events.length === 0) {
         break;
@@ -126,11 +119,10 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
       for (const event of events) {
         if (event.markets && event.markets.length > 0) {
           for (const market of event.markets) {
-            // Only include active markets with actual bid/ask data
             if (market.status !== 'active') continue;
-            if (!market.yesAsk && !market.yesBid) continue;
+            if (!market.yes_ask && !market.yes_bid) continue;
             
-            allMarkets.push(transformMarket(market, event));
+            allMarkets.push(transformKalshiMarket(market, event));
           }
         }
       }
@@ -165,7 +157,113 @@ export async function getMarketsByCategory(category: string): Promise<Simplified
   );
 }
 
-function transformMarket(market: PondMarket, event?: PondEvent): SimplifiedMarket {
+function mapKalshiCategory(kalshiCategory: string): string {
+  const categoryMap: Record<string, string> = {
+    'Science and Technology': 'Tech',
+    'Financials': 'Economics',
+    'Climate and Weather': 'Weather',
+    'Politics': 'Politics',
+    'World': 'Politics',
+    'Entertainment': 'General',
+    'Social': 'General',
+    'Sports': 'Sports',
+  };
+  return categoryMap[kalshiCategory] || '';
+}
+
+function detectCategoryFromTitle(title: string): string {
+  const upperTitle = title.toUpperCase();
+  
+  const cryptoKeywords = ['BITCOIN', 'BTC', 'ETHEREUM', 'ETH', 'SOLANA', 'SOL', 'CRYPTO', 'XRP', 'DOGECOIN', 'DOGE'];
+  for (const keyword of cryptoKeywords) {
+    if (upperTitle.includes(keyword)) return 'Crypto';
+  }
+  
+  const aiKeywords = ['AI', 'ARTIFICIAL INTELLIGENCE', 'OPENAI', 'GPT', 'CHATGPT', 'ANTHROPIC', 'CLAUDE', 'AGI', 'MACHINE LEARNING'];
+  for (const keyword of aiKeywords) {
+    if (upperTitle.includes(keyword)) return 'AI';
+  }
+  
+  const techKeywords = ['TESLA', 'APPLE', 'GOOGLE', 'AMAZON', 'MICROSOFT', 'NVIDIA', 'META', 'SPACEX', 'TWITTER', 'TIKTOK', 'IPO', 'STARTUP', 'IPHONE', 'ANDROID'];
+  for (const keyword of techKeywords) {
+    if (upperTitle.includes(keyword)) return 'Tech';
+  }
+  
+  const sportsKeywords = ['NFL', 'NBA', 'MLB', 'NHL', 'SUPER BOWL', 'WORLD SERIES', 'CHAMPIONSHIP', 'PLAYOFF', 'MVP', 'TOUCHDOWN', 'HOME RUN'];
+  for (const keyword of sportsKeywords) {
+    if (upperTitle.includes(keyword)) return 'Sports';
+  }
+  
+  const economicsKeywords = ['FED', 'FEDERAL RESERVE', 'INTEREST RATE', 'INFLATION', 'GDP', 'UNEMPLOYMENT', 'STOCK', 'S&P', 'NASDAQ', 'DOW'];
+  for (const keyword of economicsKeywords) {
+    if (upperTitle.includes(keyword)) return 'Economics';
+  }
+  
+  const politicsKeywords = ['TRUMP', 'BIDEN', 'PRESIDENT', 'CONGRESS', 'SENATE', 'ELECTION', 'VOTE', 'GOVERNOR', 'REPUBLICAN', 'DEMOCRAT'];
+  for (const keyword of politicsKeywords) {
+    if (upperTitle.includes(keyword)) return 'Politics';
+  }
+  
+  return 'General';
+}
+
+function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): SimplifiedMarket {
+  const yesAsk = market.yes_ask || 0;
+  const yesBid = market.yes_bid || 0;
+  
+  let yesPrice: number;
+  if (yesAsk > 0 && yesBid > 0) {
+    yesPrice = (yesAsk + yesBid) / 2 / 100;
+  } else if (yesAsk > 0) {
+    yesPrice = yesAsk / 100;
+  } else if (yesBid > 0) {
+    yesPrice = yesBid / 100;
+  } else if (market.last_price > 0) {
+    yesPrice = market.last_price / 100;
+  } else {
+    yesPrice = 0.5;
+  }
+  const noPrice = 1 - yesPrice;
+  
+  const kalshiCategory = event?.category || market.category || '';
+  const mappedCategory = mapKalshiCategory(kalshiCategory);
+  const seriesTicker = event?.series_ticker || market.event_ticker?.split('-')[0] || '';
+  const category = mappedCategory || formatCategory(seriesTicker) || detectCategoryFromTitle(market.title);
+  
+  const title = market.title || event?.title || '';
+  
+  const getImageUrl = (cat: string): string | undefined => {
+    const categoryImages: Record<string, string> = {
+      'Crypto': 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=600&fit=crop',
+      'Tech': 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
+      'AI': 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
+      'Politics': 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&h=600&fit=crop',
+      'Economics': 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
+      'Sports': 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&h=600&fit=crop',
+      'Weather': 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800&h=600&fit=crop',
+      'World': 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=600&fit=crop',
+    };
+    return categoryImages[cat] || 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop';
+  };
+  
+  return {
+    id: market.ticker,
+    title,
+    subtitle: market.subtitle || event?.sub_title || '',
+    category: category || 'General',
+    yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
+    noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesLabel: market.yes_sub_title || 'Yes',
+    noLabel: market.no_sub_title || 'No',
+    volume: market.volume || 0,
+    endDate: market.close_time || new Date().toISOString(),
+    status: market.status || 'active',
+    imageUrl: getImageUrl(category),
+    eventTicker: market.event_ticker,
+  };
+}
+
+function transformMarket(market: any, event?: any): SimplifiedMarket {
   const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : null;
   const yesBid = market.yesBid ? parseFloat(market.yesBid) : null;
   
@@ -366,60 +464,144 @@ function formatCategory(ticker: string): string {
 function getMockMarkets(): SimplifiedMarket[] {
   return [
     {
-      id: 'BTC-100K-DEC',
-      title: 'Will Bitcoin reach $100K by end of December?',
+      id: 'BTC-150K-2026',
+      title: 'Will Bitcoin reach $150K by end of 2026?',
       subtitle: 'BTC price prediction market',
       category: 'Crypto',
-      yesPrice: 0.72,
-      noPrice: 0.28,
+      yesPrice: 0.62,
+      noPrice: 0.38,
       yesLabel: 'Yes',
       noLabel: 'No',
-      volume: 125000,
-      endDate: '2024-12-31T23:59:59Z',
+      volume: 325000,
+      endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=600&fit=crop',
     },
     {
-      id: 'ETH-ETF-Q1',
-      title: 'Will an Ethereum ETF be approved in Q1 2025?',
-      subtitle: 'SEC regulatory decision',
+      id: 'ETH-10K-2026',
+      title: 'Will Ethereum reach $10K by 2026?',
+      subtitle: 'ETH price prediction',
       category: 'Crypto',
-      yesPrice: 0.45,
-      noPrice: 0.55,
+      yesPrice: 0.35,
+      noPrice: 0.65,
       yesLabel: 'Yes',
       noLabel: 'No',
-      volume: 89000,
-      endDate: '2025-03-31T23:59:59Z',
+      volume: 189000,
+      endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=600&fit=crop',
     },
     {
-      id: 'FED-RATE-JAN',
-      title: 'Will the Fed cut rates in January 2025?',
+      id: 'FED-RATE-2026',
+      title: 'Will the Fed cut rates below 3% by 2026?',
       subtitle: 'Federal Reserve monetary policy',
       category: 'Economics',
-      yesPrice: 0.38,
-      noPrice: 0.62,
+      yesPrice: 0.58,
+      noPrice: 0.42,
       yesLabel: 'Yes',
       noLabel: 'No',
-      volume: 234000,
-      endDate: '2025-01-31T23:59:59Z',
+      volume: 434000,
+      endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
     },
     {
-      id: 'SOL-200-Q1',
-      title: 'Will Solana reach $200 by end of Q1 2025?',
+      id: 'SOL-500-2026',
+      title: 'Will Solana reach $500 by end of 2026?',
       subtitle: 'SOL price prediction',
       category: 'Crypto',
-      yesPrice: 0.48,
-      noPrice: 0.52,
+      yesPrice: 0.42,
+      noPrice: 0.58,
       yesLabel: 'Yes',
       noLabel: 'No',
-      volume: 98000,
-      endDate: '2025-03-31T23:59:59Z',
+      volume: 198000,
+      endDate: '2026-12-31T23:59:59Z',
       status: 'active',
       imageUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'TRUMP-2028',
+      title: 'Will Trump win the 2028 presidential election?',
+      subtitle: 'US Politics prediction',
+      category: 'Politics',
+      yesPrice: 0.25,
+      noPrice: 0.75,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 567000,
+      endDate: '2028-11-15T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'AI-AGI-2027',
+      title: 'Will AGI be achieved by 2027?',
+      subtitle: 'Artificial General Intelligence milestone',
+      category: 'AI',
+      yesPrice: 0.18,
+      noPrice: 0.82,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 892000,
+      endDate: '2027-12-31T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'TESLA-ROBOTAXI-2026',
+      title: 'Will Tesla launch Robotaxi service by 2026?',
+      subtitle: 'Tesla autonomous vehicles',
+      category: 'Tech',
+      yesPrice: 0.55,
+      noPrice: 0.45,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 345000,
+      endDate: '2026-12-31T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'SPACEX-MARS-2028',
+      title: 'Will SpaceX land humans on Mars by 2028?',
+      subtitle: 'Space exploration milestone',
+      category: 'Tech',
+      yesPrice: 0.12,
+      noPrice: 0.88,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 678000,
+      endDate: '2028-12-31T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'NFL-SUPERBOWL-2026',
+      title: 'Will the Chiefs win Super Bowl 2026?',
+      subtitle: 'NFL championship prediction',
+      category: 'Sports',
+      yesPrice: 0.22,
+      noPrice: 0.78,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 456000,
+      endDate: '2026-02-15T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&h=600&fit=crop',
+    },
+    {
+      id: 'APPLE-VR-2026',
+      title: 'Will Apple Vision Pro 2 launch by 2026?',
+      subtitle: 'Apple product launch',
+      category: 'Tech',
+      yesPrice: 0.78,
+      noPrice: 0.22,
+      yesLabel: 'Yes',
+      noLabel: 'No',
+      volume: 234000,
+      endDate: '2026-12-31T23:59:59Z',
+      status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&h=600&fit=crop',
     },
   ];
 }

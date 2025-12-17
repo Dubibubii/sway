@@ -40,7 +40,7 @@ export default function Activity() {
   
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
-  const { balance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -116,7 +116,7 @@ export default function Activity() {
     }
 
     const solAmount = amount / 100;
-    if (balance !== null && solAmount > balance) {
+    if (solBalance !== null && solAmount > solBalance) {
       toast.error('Insufficient balance');
       return;
     }
@@ -291,10 +291,22 @@ export default function Activity() {
                                  className="border-t border-white/5 bg-black/20"
                                >
                                  <div className="flex p-2 gap-2">
-                                   <Button className="flex-1 h-9 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20" variant="outline" size="sm" data-testid={`button-add-${position.id}`}>
+                                   <Button 
+                                     className="flex-1 h-9 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20" 
+                                     variant="outline" 
+                                     size="sm" 
+                                     data-testid={`button-add-${position.id}`}
+                                     onClick={(e) => handleAddClick(e, position)}
+                                   >
                                      <Plus size={16} className="mr-2" /> Add
                                    </Button>
-                                   <Button className="flex-1 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20" variant="outline" size="sm" data-testid={`button-close-${position.id}`}>
+                                   <Button 
+                                     className="flex-1 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20" 
+                                     variant="outline" 
+                                     size="sm" 
+                                     data-testid={`button-close-${position.id}`}
+                                     onClick={(e) => handleCloseClick(e, position)}
+                                   >
                                      <X size={16} className="mr-2" /> Close
                                    </Button>
                                  </div>
