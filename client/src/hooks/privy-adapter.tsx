@@ -36,7 +36,12 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   
   const fundWalletWrapper = useCallback(async (address: string) => {
     try {
-      await privyFundWallet({ address });
+      await privyFundWallet({
+        address,
+        options: {
+          chain: 'solana:mainnet' as const
+        }
+      });
     } catch (error) {
       console.error('Failed to fund wallet:', error);
     }

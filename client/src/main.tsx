@@ -61,7 +61,12 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     console.log('Opening Privy funding modal for address:', address);
     
     try {
-      await fundWallet({ address });
+      await fundWallet({
+        address,
+        options: {
+          chain: 'solana:mainnet' as const
+        }
+      });
     } catch (err: any) {
       console.error('Privy fundWallet error:', err);
       throw err;
