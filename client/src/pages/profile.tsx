@@ -6,7 +6,8 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, QrCode, ExternalLink } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -48,6 +49,18 @@ function ProfileContent() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [solBalance, setSolBalance] = useState<number>(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const [showDepositDialog, setShowDepositDialog] = useState(false);
+  const [depositAddressCopied, setDepositAddressCopied] = useState(false);
+
+  const copyDepositAddress = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setDepositAddressCopied(true);
+      setTimeout(() => setDepositAddressCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  };
 
   // Fetch wallet balance
   const refreshBalance = useCallback(async () => {
@@ -83,8 +96,8 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = async (address: string) => {
-    await fundWallet(address);
+  const handleDeposit = () => {
+    setShowDepositDialog(true);
   };
 
   useEffect(() => {
@@ -160,7 +173,7 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={() => handleDeposit(embeddedWallet.address)}
+                       onClick={handleDeposit}
                        className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
                        data-testid="button-deposit"
                      >
@@ -195,7 +208,7 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={() => handleDeposit(user.wallet!.address)}
+                       onClick={handleDeposit}
                        className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
                        data-testid="button-deposit"
                      >
@@ -413,6 +426,49 @@ function ProfileContent() {
            )}
         </div>
       </div>
+
+      {/* Deposit Dialog */}
+      <Dialog open={showDepositDialog} onOpenChange={setShowDepositDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Deposit SOL</DialogTitle>
+            <DialogDescription className="text-center text-zinc-400">
+              Send SOL to your Pulse wallet on Solana Devnet
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="text-center">
+              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your Wallet Address</div>
+              <div className="bg-zinc-800 rounded-lg p-4">
+                <code className="text-xs sm:text-sm text-emerald-400 break-all font-mono">
+                  {embeddedWallet?.address || user?.wallet?.address || ''}
+                </code>
+              </div>
+            </div>
+            
+            <Button
+              className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
+              onClick={() => copyDepositAddress(embeddedWallet?.address || user?.wallet?.address || '')}
+            >
+              {depositAddressCopied ? <Check size={16} /> : <Copy size={16} />}
+              {depositAddressCopied ? 'Copied!' : 'Copy Address'}
+            </Button>
+
+            <div className="text-center text-xs text-zinc-500 pt-2">
+              <p className="mb-2">For testing on Devnet:</p>
+              <a 
+                href="https://faucet.solana.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center justify-center gap-1"
+              >
+                Get free SOL from faucet <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
