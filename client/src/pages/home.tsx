@@ -25,12 +25,23 @@ interface DisplayMarket {
   imageUrl?: string;
 }
 
+function formatVolume(volume: number): string {
+  if (volume >= 1_000_000_000) {
+    return `$${(volume / 1_000_000_000).toFixed(1)}B`;
+  } else if (volume >= 1_000_000) {
+    return `$${(volume / 1_000_000).toFixed(1)}M`;
+  } else if (volume >= 1_000) {
+    return `$${(volume / 1_000).toFixed(0)}K`;
+  }
+  return `$${volume}`;
+}
+
 function formatMarket(m: Market): DisplayMarket {
   return {
     id: m.id,
     question: m.title,
     category: m.category,
-    volume: `$${(m.volume / 1000).toFixed(0)}K`,
+    volume: formatVolume(m.volume),
     yesPrice: m.yesPrice,
     noPrice: m.noPrice,
     yesLabel: m.yesLabel || 'Yes',
