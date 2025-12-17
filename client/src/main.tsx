@@ -239,7 +239,6 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   return (
     <PrivyProvider
       appId={PRIVY_APP_ID}
-      clientId={PRIVY_CLIENT_ID || undefined}
       config={{
         appearance: {
           theme: 'dark',
