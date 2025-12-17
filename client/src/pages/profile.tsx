@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -6,10 +6,38 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
+
+// Solana devnet RPC endpoint
+const SOLANA_RPC_URL = 'https://api.devnet.solana.com';
+
+// Fetch SOL balance from Solana RPC
+async function fetchSolBalance(address: string): Promise<number> {
+  try {
+    const response = await fetch(SOLANA_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getBalance',
+        params: [address],
+      }),
+    });
+    const data = await response.json();
+    if (data.result?.value !== undefined) {
+      // Convert lamports to SOL (1 SOL = 1,000,000,000 lamports)
+      return data.result.value / 1_000_000_000;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error fetching SOL balance:', error);
+    return 0;
+  }
+}
 
 function ProfileContent() {
   const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
@@ -18,6 +46,32 @@ function ProfileContent() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [solBalance, setSolBalance] = useState<number>(0);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+
+  // Fetch wallet balance
+  const refreshBalance = useCallback(async () => {
+    const walletAddress = embeddedWallet?.address || user?.wallet?.address;
+    if (!walletAddress) return;
+    
+    setIsLoadingBalance(true);
+    try {
+      const balance = await fetchSolBalance(walletAddress);
+      setSolBalance(balance);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [embeddedWallet?.address, user?.wallet?.address]);
+
+  // Auto-refresh balance when wallet changes
+  useEffect(() => {
+    if (authenticated && (embeddedWallet || user?.wallet)) {
+      refreshBalance();
+      // Refresh every 10 seconds
+      const interval = setInterval(refreshBalance, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [authenticated, embeddedWallet, user?.wallet, refreshBalance]);
 
   const copyToClipboard = async (address: string) => {
     try {
@@ -200,12 +254,22 @@ function ProfileContent() {
 
             {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
                <div className="text-right pl-2 shrink-0">
-                 <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
+                 <div className="flex items-center gap-1 justify-end mb-0.5">
+                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Balance</div>
+                   <button 
+                     onClick={refreshBalance} 
+                     disabled={isLoadingBalance}
+                     className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                     data-testid="button-refresh-balance"
+                   >
+                     <RefreshCw size={10} className={`text-zinc-500 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                   </button>
+                 </div>
                  <div className="text-lg sm:text-xl font-display font-bold text-white" data-testid="text-wallet-balance">
-                   $0.00
+                   ${(solBalance * 200).toFixed(2)}
                  </div>
                  <div className="text-xs font-mono text-zinc-500 flex items-center justify-end gap-1">
-                   0 SOL
+                   {solBalance.toFixed(4)} SOL
                  </div>
                </div>
             ) : null}
