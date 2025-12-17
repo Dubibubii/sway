@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -6,39 +6,10 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, QrCode, ExternalLink } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
-
-// Solana mainnet RPC endpoint
-const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com';
-
-// Fetch SOL balance from Solana RPC
-async function fetchSolBalance(address: string): Promise<number> {
-  try {
-    const response = await fetch(SOLANA_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getBalance',
-        params: [address],
-      }),
-    });
-    const data = await response.json();
-    if (data.result?.value !== undefined) {
-      // Convert lamports to SOL (1 SOL = 1,000,000,000 lamports)
-      return data.result.value / 1_000_000_000;
-    }
-    return 0;
-  } catch (error) {
-    console.error('Error fetching SOL balance:', error);
-    return 0;
-  }
-}
 
 function ProfileContent() {
   const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
@@ -47,32 +18,6 @@ function ProfileContent() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const [solBalance, setSolBalance] = useState<number>(0);
-  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-
-  // Fetch wallet balance
-  const refreshBalance = useCallback(async () => {
-    const walletAddress = embeddedWallet?.address || user?.wallet?.address;
-    if (!walletAddress) return;
-    
-    setIsLoadingBalance(true);
-    try {
-      const balance = await fetchSolBalance(walletAddress);
-      setSolBalance(balance);
-    } finally {
-      setIsLoadingBalance(false);
-    }
-  }, [embeddedWallet?.address, user?.wallet?.address]);
-
-  // Auto-refresh balance when wallet changes
-  useEffect(() => {
-    if (authenticated && (embeddedWallet || user?.wallet)) {
-      refreshBalance();
-      // Refresh every 10 seconds
-      const interval = setInterval(refreshBalance, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [authenticated, embeddedWallet, user?.wallet, refreshBalance]);
 
   const copyToClipboard = async (address: string) => {
     try {
@@ -255,22 +200,12 @@ function ProfileContent() {
 
             {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
                <div className="text-right pl-2 shrink-0">
-                 <div className="flex items-center gap-1 justify-end mb-0.5">
-                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Balance</div>
-                   <button 
-                     onClick={refreshBalance} 
-                     disabled={isLoadingBalance}
-                     className="p-0.5 hover:bg-white/10 rounded transition-colors"
-                     data-testid="button-refresh-balance"
-                   >
-                     <RefreshCw size={10} className={`text-zinc-500 ${isLoadingBalance ? 'animate-spin' : ''}`} />
-                   </button>
-                 </div>
+                 <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-0.5">Balance</div>
                  <div className="text-lg sm:text-xl font-display font-bold text-white" data-testid="text-wallet-balance">
-                   ${(solBalance * 200).toFixed(2)}
+                   $0.00
                  </div>
                  <div className="text-xs font-mono text-zinc-500 flex items-center justify-end gap-1">
-                   {solBalance.toFixed(4)} SOL
+                   0 SOL
                  </div>
                </div>
             ) : null}
@@ -414,49 +349,6 @@ function ProfileContent() {
            )}
         </div>
       </div>
-
-      {/* Deposit Dialog */}
-      <Dialog open={showDepositDialog} onOpenChange={setShowDepositDialog}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center">Deposit SOL</DialogTitle>
-            <DialogDescription className="text-center text-zinc-400">
-              Send SOL to your Pulse wallet on Solana Devnet
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="text-center">
-              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your Wallet Address</div>
-              <div className="bg-zinc-800 rounded-lg p-4">
-                <code className="text-xs sm:text-sm text-emerald-400 break-all font-mono">
-                  {embeddedWallet?.address || user?.wallet?.address || ''}
-                </code>
-              </div>
-            </div>
-            
-            <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
-              onClick={() => copyDepositAddress(embeddedWallet?.address || user?.wallet?.address || '')}
-            >
-              {depositAddressCopied ? <Check size={16} /> : <Copy size={16} />}
-              {depositAddressCopied ? 'Copied!' : 'Copy Address'}
-            </Button>
-
-            <div className="text-center text-xs text-zinc-500 pt-2">
-              <p className="mb-2">For testing on Devnet:</p>
-              <a 
-                href="https://faucet.solana.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline flex items-center justify-center gap-1"
-              >
-                Get free SOL from faucet <ExternalLink size={12} />
-              </a>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }

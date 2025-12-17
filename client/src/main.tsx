@@ -135,9 +135,6 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
             connectors: solanaConnectors,
           },
         },
-        solanaClusters: [
-          { name: 'devnet', rpcUrl: 'https://api.devnet.solana.com' },
-        ],
       }}
     >
       <PrivyInnerAdapter usePrivyHook={usePrivy} useFundWalletHook={useFundWallet}>
