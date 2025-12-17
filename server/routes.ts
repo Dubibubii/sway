@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
+import { FEE_CONFIG } from "@shared/schema";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
@@ -151,8 +152,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      const shares = Math.round((wagerAmount / price) * 100) / 100;
+      // Calculate 1% entry fee
+      const entryFee = wagerAmount * FEE_CONFIG.FEE_PERCENTAGE;
+      const netWagerAmount = wagerAmount - entryFee;
+      
+      const shares = Math.round((netWagerAmount / price) * 100) / 100;
       const estimatedPayout = Math.round(shares * 100) / 100;
+
+      console.log(`Trade created: Entry fee of $${entryFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
 
       const trade = await storage.createTrade({
         userId: req.userId,
@@ -164,12 +171,14 @@ export async function registerRoutes(
         price: price.toFixed(2),
         shares: shares.toFixed(2),
         estimatedPayout: estimatedPayout.toFixed(2),
+        entryFee: entryFee.toFixed(4),
+        exitFee: null,
         isClosed: false,
         closedAt: null,
         pnl: null,
       });
 
-      res.json({ trade });
+      res.json({ trade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT });
     } catch (error) {
       console.error('Error creating trade:', error);
       res.status(500).json({ error: 'Failed to create trade' });
@@ -207,10 +216,18 @@ export async function registerRoutes(
   app.post('/api/trades/:tradeId/close', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { tradeId } = req.params;
-      const { pnl } = req.body;
+      const { pnl, payout } = req.body;
 
-      const trade = await storage.closeTrade(tradeId, pnl || 0);
-      res.json({ trade });
+      // Calculate 1% exit fee on the payout amount
+      const payoutAmount = payout || 0;
+      const exitFee = payoutAmount * FEE_CONFIG.FEE_PERCENTAGE;
+      const netPayout = payoutAmount - exitFee;
+      const adjustedPnl = pnl ? (parseFloat(pnl) - exitFee) : (netPayout - payoutAmount);
+
+      console.log(`Trade closed: Exit fee of $${exitFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
+
+      const trade = await storage.closeTrade(tradeId, adjustedPnl, exitFee);
+      res.json({ trade, exitFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT });
     } catch (error) {
       console.error('Error closing trade:', error);
       res.status(500).json({ error: 'Failed to close trade' });

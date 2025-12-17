@@ -24,11 +24,19 @@ export const trades = pgTable("trades", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   shares: decimal("shares", { precision: 10, scale: 2 }).notNull(),
   estimatedPayout: decimal("estimated_payout", { precision: 10, scale: 2 }).notNull(),
+  entryFee: decimal("entry_fee", { precision: 10, scale: 4 }),
+  exitFee: decimal("exit_fee", { precision: 10, scale: 4 }),
   isClosed: boolean("is_closed").notNull().default(false),
   closedAt: timestamp("closed_at"),
   pnl: decimal("pnl", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// Fee configuration
+export const FEE_CONFIG = {
+  FEE_PERCENTAGE: 0.01, // 1% fee
+  FEE_RECIPIENT: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY',
+};
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,

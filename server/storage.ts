@@ -11,7 +11,7 @@ export interface IStorage {
   createTrade(trade: InsertTrade): Promise<Trade>;
   getUserTrades(userId: string): Promise<Trade[]>;
   getOpenPositions(userId: string): Promise<Trade[]>;
-  closeTrade(tradeId: string, pnl: number): Promise<Trade>;
+  closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -51,9 +51,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(trades.createdAt));
   }
 
-  async closeTrade(tradeId: string, pnl: number): Promise<Trade> {
+  async closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade> {
     const result = await db.update(trades)
-      .set({ isClosed: true, closedAt: new Date(), pnl: pnl.toString() })
+      .set({ 
+        isClosed: true, 
+        closedAt: new Date(), 
+        pnl: pnl.toString(),
+        exitFee: exitFee ? exitFee.toFixed(4) : null,
+      })
       .where(eq(trades.id, tradeId))
       .returning();
     return result[0];
