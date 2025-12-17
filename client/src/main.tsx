@@ -5,8 +5,8 @@ import "./index.css";
 import { PrivySafeProvider, PrivySafeContext, PrivySafeContextType, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
 import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransferTransaction, createSOLTransferWithFeeTransaction, TransactionResult } from "@/hooks/use-solana-transaction";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
-import { PrivyProvider, usePrivy, useFundWallet } from "@privy-io/react-auth";
-import { useSignAndSendTransaction, useWallets, toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
+import { useFundWallet, useSignAndSendTransaction, useWallets, toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
 const PRIVY_CLIENT_ID = import.meta.env.VITE_PRIVY_CLIENT_ID;
