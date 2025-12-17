@@ -217,7 +217,11 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-400">${settings.noWager}</span>
                 <span className="text-zinc-500">→</span>
-                <span className="text-rose-400 font-semibold">${(settings.noWager / market.noPrice).toFixed(0)}</span>
+                <span className="text-rose-400 font-semibold">${(() => {
+                  const returnVal = settings.noWager / market.noPrice;
+                  const multiplier = 1 / market.noPrice;
+                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
+                })()}</span>
               </div>
             </div>
             <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center gap-2">
@@ -229,7 +233,11 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-400">${settings.yesWager}</span>
                 <span className="text-zinc-500">→</span>
-                <span className="text-emerald-400 font-semibold">${(settings.yesWager / market.yesPrice).toFixed(0)}</span>
+                <span className="text-emerald-400 font-semibold">${(() => {
+                  const returnVal = settings.yesWager / market.yesPrice;
+                  const multiplier = 1 / market.yesPrice;
+                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
+                })()}</span>
               </div>
             </div>
           </div>
