@@ -53,26 +53,42 @@ export async function registerRoutes(
 
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const category = req.query.category as string;
       let markets: SimplifiedMarket[];
       
-      markets = await getEvents(500);
+      markets = await getEvents(1000);
       
       markets = diversifyMarketFeed(markets);
       
-      const categoryBreakdownAfter: Record<string, number> = {};
-      for (const m of markets) {
-        categoryBreakdownAfter[m.category] = (categoryBreakdownAfter[m.category] || 0) + 1;
-      }
-      console.log('After diversification:', categoryBreakdownAfter);
+      markets.sort((a, b) => b.volume - a.volume);
       
-      if (category && category !== 'all') {
-        markets = markets.filter(m => 
-          m.category.toLowerCase() === category.toLowerCase()
-        );
+      const trendingCount = Math.min(50, markets.length);
+      const trendingMarkets = markets.slice(0, trendingCount);
+      
+      const remainingMarkets = markets.slice(trendingCount);
+      const categories = ['Politics', 'Sports', 'Economics', 'Tech', 'Weather', 'General'];
+      const categoryMarkets: SimplifiedMarket[] = [];
+      
+      let hasMore = true;
+      let index = 0;
+      while (hasMore) {
+        hasMore = false;
+        for (const cat of categories) {
+          const catMarkets = remainingMarkets.filter(m => m.category === cat);
+          if (catMarkets[index]) {
+            categoryMarkets.push(catMarkets[index]);
+            hasMore = true;
+          }
+        }
+        index++;
       }
       
-      res.json({ markets });
+      let organizedMarkets = [...trendingMarkets, ...categoryMarkets];
+      
+      organizedMarkets = organizedMarkets.reverse();
+      
+      console.log('Markets: Total', organizedMarkets.length, '- First 3 volumes:', organizedMarkets.slice(-3).map(m => m.volume));
+      
+      res.json({ markets: organizedMarkets });
     } catch (error) {
       console.error('Error fetching markets:', error);
       res.status(500).json({ error: 'Failed to fetch markets' });

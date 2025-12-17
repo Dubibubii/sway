@@ -2,7 +2,12 @@
 
 ## Overview
 
-Pulse is a mobile-first prediction markets trading application that allows users to swipe on markets (similar to Tinder) to place bets. The app integrates with the Pond/dflow.net prediction markets metadata API for Solana-based trading and uses Privy for Web3 wallet authentication. Users can swipe right to bet "Yes", left to bet "No", or down to skip markets.
+Pulse is a mobile-first prediction markets trading application that allows users to swipe on markets (similar to Tinder) to place bets. The app integrates with the Kalshi API for market data and uses Privy for Web3 wallet authentication on Solana. Users can swipe right to bet "Yes", left to bet "No", or down to skip markets.
+
+### Market Organization
+- **Trending First**: Top 50 markets sorted by volume (highest to lowest)
+- **Category Rotation**: After trending, cycles through categories (Politics, Sports, Economics, Tech, Weather, General) one market at a time
+- **Binary Markets Only**: Filters out non-binary markets with extreme probabilities (≥97% or ≤3%)
 
 ## User Preferences
 
@@ -47,9 +52,9 @@ Preferred communication style: Simple, everyday language.
   - Server: `@privy-io/server-auth`
   - Required env vars: `VITE_PRIVY_APP_ID`, `PRIVY_APP_SECRET`
 
-- **Pond/dflow.net API**: Prediction markets metadata API
-  - Base URL: `https://prediction-markets-api.dflow.net/api/v1`
-  - Provides Solana account data (yesMint, noMint, marketLedger) for on-chain trading
+- **Kalshi API**: Prediction markets data
+  - Base URL: `https://api.elections.kalshi.com/trade-api/v2`
+  - Provides market metadata, prices, and volume data
   - No API key required for public endpoints
 
 ### Database

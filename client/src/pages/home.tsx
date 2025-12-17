@@ -80,19 +80,9 @@ export default function Home() {
   
   useEffect(() => {
     if (marketsData?.markets) {
-      let filteredMarkets = marketsData.markets;
-      
-      if (settings.interests.length > 0) {
-        const normalizedInterests = settings.interests.map(i => i.toLowerCase());
-        filteredMarkets = filteredMarkets.filter(m => 
-          normalizedInterests.includes(m.category.toLowerCase())
-        );
-        console.log('Filtering by interests:', settings.interests, 'Found:', filteredMarkets.length, 'markets');
-      }
-      
-      setDisplayedMarkets(filteredMarkets.map(formatMarket));
+      setDisplayedMarkets(marketsData.markets.map(formatMarket));
     }
-  }, [marketsData, settings.interests]);
+  }, [marketsData]);
   
   const tradeMutation = useMutation({
     mutationFn: async (trade: { market: DisplayMarket; direction: 'YES' | 'NO'; wagerAmount: number }) => {

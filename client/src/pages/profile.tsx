@@ -14,10 +14,9 @@ import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 function ProfileContent() {
-  const { settings, updateWager, updateInterests, connectWallet, disconnectWallet } = useSettings();
+  const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
   const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, createWallet, fundWallet, exportWallet } = usePrivySafe();
   const [unifiedWager, setUnifiedWager] = useState(true);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(settings.interests.length > 0 ? settings.interests : ["Crypto", "Tech"]);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
@@ -75,25 +74,6 @@ function ProfileContent() {
     };
     syncPrivyUser();
   }, [ready, authenticated, user]);
-
-  useEffect(() => {
-    if (settings.interests.length > 0) {
-      setSelectedInterests(settings.interests);
-    }
-  }, [settings.interests]);
-
-  const INTERESTS = [
-    "Crypto", "Politics", "Sports", "Economics", 
-    "Tech", "AI", "Weather", "General"
-  ];
-
-  const toggleInterest = (interest: string) => {
-    const newInterests = selectedInterests.includes(interest) 
-      ? selectedInterests.filter(i => i !== interest)
-      : [...selectedInterests, interest];
-    setSelectedInterests(newInterests);
-    updateInterests(newInterests);
-  };
 
   const handleUnifiedChange = (val: number[]) => {
     updateWager('yes', val[0]);
@@ -347,28 +327,6 @@ function ProfileContent() {
               </Card>
             </>
           )}
-        </div>
-
-        {/* Interests Section */}
-        <div className="space-y-6 mt-8">
-          <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Interests</h3>
-          <div className="flex flex-wrap gap-2">
-            {INTERESTS.map((interest) => (
-              <div
-                key={interest}
-                onClick={() => toggleInterest(interest)}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium cursor-pointer transition-all duration-200 border select-none
-                  ${selectedInterests.includes(interest) 
-                    ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
-                    : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:text-white'
-                  }
-                `}
-              >
-                {interest}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Wallet Section */}
