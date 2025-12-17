@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com';
+const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
+const SOLANA_RPC_URL = heliusApiKey 
+  ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+  : 'https://api.mainnet-beta.solana.com';
 const SOL_PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
 
 interface SolanaBalance {

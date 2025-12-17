@@ -75,9 +75,9 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
       throw new Error('Funding modal not available');
     }
     
-    const result = await privyFundWallet(address, {
-      cluster: { name: 'mainnet-beta' },
-      defaultFundingMethod: 'manual',
+    const result = await privyFundWallet({
+      address,
+      chain: { type: 'solana', id: 'mainnet' },
       uiConfig: {
         receiveFundsTitle: 'Deposit SOL to Pulse',
         receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
@@ -220,7 +220,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         setPrivyModule({
           PrivyProvider: privyMod.PrivyProvider,
           usePrivy: privyMod.usePrivy,
-          useFundWallet: solanaMod.useFundWallet,
+          useFundWallet: (privyMod as any).useFundWallet,
           useSignAndSendTransaction: solanaMod.useSignAndSendTransaction,
           useWallets: solanaMod.useWallets,
         });

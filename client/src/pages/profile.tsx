@@ -23,7 +23,6 @@ function ProfileContent() {
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [depositAddress, setDepositAddress] = useState<string | null>(null);
   const [depositCopied, setDepositCopied] = useState(false);
-  
   const walletAddress = embeddedWallet?.address || user?.wallet?.address || null;
   const { solBalance, usdBalance, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(walletAddress);
   
@@ -47,7 +46,7 @@ function ProfileContent() {
     try {
       await fundWallet(address);
     } catch (error) {
-      console.error('fundWallet error, falling back to dialog:', error);
+      console.error('Privy fundWallet error:', error);
       setDepositAddress(address);
       setDepositDialogOpen(true);
     }
@@ -447,6 +446,7 @@ function ProfileContent() {
           </div>
         </DialogContent>
       </Dialog>
+      
     </Layout>
   );
 }
