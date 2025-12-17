@@ -1,8 +1,9 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useState, ReactNode, useMemo } from "react";
+import { useEffect, useState, ReactNode, useMemo, useCallback } from "react";
 import App from "./App";
 import "./index.css";
 import { PrivySafeProvider, PrivySafeContext, PrivySafeContextType, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
+import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransferTransaction, createSOLTransferWithFeeTransaction, TransactionResult } from "@/hooks/use-solana-transaction";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
 
@@ -10,10 +11,25 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
 );
 
-function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { children: ReactNode; usePrivyHook: () => any; useFundWalletHook: () => any }) {
+const useNoopHook = () => ({ signAndSendTransaction: null, wallets: [] });
+
+function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignAndSendTransactionHook = useNoopHook, useWalletsHook = useNoopHook }: { 
+  children: ReactNode; 
+  usePrivyHook: () => any; 
+  useFundWalletHook: () => any;
+  useSignAndSendTransactionHook?: () => any;
+  useWalletsHook?: () => any;
+}) {
   const privy = usePrivyHook();
   const fundWalletHookResult = useFundWalletHook();
   const privyFundWallet = fundWalletHookResult?.fundWallet || fundWalletHookResult?.openFunding;
+  
+  const txHookResult = useSignAndSendTransactionHook();
+  const signAndSendTransaction = txHookResult?.signAndSendTransaction || null;
+  const walletsHookResult = useWalletsHook();
+  const privyWallets = walletsHookResult?.wallets || [];
+  const [txIsLoading, setTxIsLoading] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
   
   const embeddedWalletData = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
@@ -81,6 +97,79 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
   const exportWalletWrapper = async () => {
     alert('To withdraw funds, copy your wallet address and send from an external wallet like Phantom. We are working on direct withdrawals.');
   };
+
+  const getPrivyWallet = useCallback(() => {
+    if (!privyWallets || privyWallets.length === 0) return null;
+    return privyWallets.find((w: any) => w.address === embeddedWalletData?.address) || privyWallets[0];
+  }, [privyWallets, embeddedWalletData]);
+
+  const sendSOL = useCallback(async (toAddress: string, amountSOL: number): Promise<TransactionResult> => {
+    if (!embeddedWalletData?.address) {
+      throw new Error('No wallet connected');
+    }
+    if (amountSOL <= 0.000001) {
+      throw new Error('Amount too small');
+    }
+    const wallet = getPrivyWallet();
+    if (!wallet || !signAndSendTransaction) {
+      throw new Error('Wallet or transaction signing not available');
+    }
+
+    setTxIsLoading(true);
+    setTxError(null);
+
+    try {
+      const { transaction } = await createSOLTransferTransaction(embeddedWalletData.address, toAddress, amountSOL);
+      const signature = await signAndSendTransaction({
+        transaction: transaction.serialize({ requireAllSignatures: false }),
+        wallet
+      });
+      return { signature, success: true };
+    } catch (err: any) {
+      setTxError(err?.message || 'Transaction failed');
+      throw err;
+    } finally {
+      setTxIsLoading(false);
+    }
+  }, [embeddedWalletData, signAndSendTransaction, getPrivyWallet]);
+
+  const sendSOLWithFee = useCallback(async (toAddress: string, amountSOL: number): Promise<TransactionResult> => {
+    if (!embeddedWalletData?.address) {
+      throw new Error('No wallet connected');
+    }
+    if (amountSOL <= 0.02) {
+      throw new Error('Amount too small for fee transaction (minimum ~$0.02)');
+    }
+    const wallet = getPrivyWallet();
+    if (!wallet || !signAndSendTransaction) {
+      throw new Error('Wallet or transaction signing not available');
+    }
+
+    setTxIsLoading(true);
+    setTxError(null);
+
+    try {
+      const { transaction, feeAmount } = await createSOLTransferWithFeeTransaction(embeddedWalletData.address, toAddress, amountSOL);
+      console.log(`Sending ${amountSOL} SOL with ${feeAmount} SOL fee`);
+      const signature = await signAndSendTransaction({
+        transaction: transaction.serialize({ requireAllSignatures: false }),
+        wallet
+      });
+      return { signature, success: true };
+    } catch (err: any) {
+      setTxError(err?.message || 'Transaction failed');
+      throw err;
+    } finally {
+      setTxIsLoading(false);
+    }
+  }, [embeddedWalletData, signAndSendTransaction, getPrivyWallet]);
+
+  const solanaTransactionValue: SolanaTransactionContextType = {
+    sendSOL,
+    sendSOLWithFee,
+    isLoading: txIsLoading,
+    error: txError,
+  };
   
   const value: PrivySafeContextType = {
     login: privy.login,
@@ -101,7 +190,9 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook }: { chil
   
   return (
     <PrivySafeContext.Provider value={value}>
-      {children}
+      <SolanaTransactionContext.Provider value={solanaTransactionValue}>
+        {children}
+      </SolanaTransactionContext.Provider>
     </PrivySafeContext.Provider>
   );
 }
@@ -111,6 +202,8 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
     PrivyProvider: any;
     usePrivy: () => any;
     useFundWallet: () => any;
+    useSignAndSendTransaction: () => any;
+    useWallets: () => any;
   } | null>(null);
   const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
 
@@ -125,6 +218,8 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           PrivyProvider: privyMod.PrivyProvider,
           usePrivy: privyMod.usePrivy,
           useFundWallet: solanaMod.useFundWallet,
+          useSignAndSendTransaction: solanaMod.useSignAndSendTransaction,
+          useWallets: solanaMod.useWallets,
         });
         setSolanaConnectors(solanaMod.toSolanaWalletConnectors());
       }
@@ -136,7 +231,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  const { PrivyProvider, usePrivy, useFundWallet } = privyModule;
+  const { PrivyProvider, usePrivy, useFundWallet, useSignAndSendTransaction, useWallets } = privyModule;
 
   return (
     <PrivyProvider
@@ -165,9 +260,17 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
             useSandbox: false,
           },
         },
+        solanaClusters: [
+          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' },
+        ],
       }}
     >
-      <PrivyInnerAdapter usePrivyHook={usePrivy} useFundWalletHook={useFundWallet}>
+      <PrivyInnerAdapter 
+        usePrivyHook={usePrivy} 
+        useFundWalletHook={useFundWallet}
+        useSignAndSendTransactionHook={useSignAndSendTransaction}
+        useWalletsHook={useWallets}
+      >
         {children}
       </PrivyInnerAdapter>
     </PrivyProvider>
