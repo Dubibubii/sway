@@ -19,6 +19,8 @@ interface DisplayMarket {
   volume: string;
   yesPrice: number;
   noPrice: number;
+  yesLabel: string;
+  noLabel: string;
   endDate: string;
   imageUrl?: string;
 }
@@ -31,6 +33,8 @@ function formatMarket(m: Market): DisplayMarket {
     volume: `$${(m.volume / 1000).toFixed(0)}K`,
     yesPrice: m.yesPrice,
     noPrice: m.noPrice,
+    yesLabel: m.yesLabel || 'Yes',
+    noLabel: m.noLabel || 'No',
     endDate: new Date(m.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     imageUrl: m.imageUrl,
   };

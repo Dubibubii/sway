@@ -13,6 +13,8 @@ interface MarketData {
   volume: string;
   yesPrice: number;
   noPrice: number;
+  yesLabel: string;
+  noLabel: string;
   endDate: string;
   imageUrl?: string;
 }
@@ -200,24 +202,28 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
           </h2>
 
           <div className="grid grid-cols-2 gap-3 mt-2">
-            <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-2 border border-destructive/30 flex flex-col items-center">
-              <span className="text-[10px] font-medium text-rose-200 uppercase tracking-wider">No Chance</span>
-              <div className="flex flex-col items-center gap-0">
-                <div className="flex items-center gap-1">
-                   <TrendingDown size={16} className="text-rose-400" />
-                   <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
-                </div>
-                <span className="text-[10px] font-medium text-rose-200/80">Payout: ${(settings.noWager / market.noPrice).toFixed(2)}</span>
+            <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-3 border border-destructive/30 flex flex-col items-center gap-2">
+              <span className="text-[10px] font-medium text-rose-200 uppercase tracking-wider line-clamp-1 max-w-full px-1">{market.noLabel}</span>
+              <div className="flex items-center gap-1">
+                <TrendingDown size={16} className="text-rose-400" />
+                <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-zinc-400">${settings.noWager}</span>
+                <span className="text-zinc-500">→</span>
+                <span className="text-rose-400 font-semibold">${(settings.noWager / market.noPrice).toFixed(0)}</span>
               </div>
             </div>
-            <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-2 border border-primary/30 flex flex-col items-center">
-              <span className="text-[10px] font-medium text-emerald-200 uppercase tracking-wider">Yes Chance</span>
-              <div className="flex flex-col items-center gap-0">
-                <div className="flex items-center gap-1">
-                   <TrendingUp size={16} className="text-emerald-400" />
-                   <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
-                </div>
-                <span className="text-[10px] font-medium text-emerald-200/80">Payout: ${(settings.yesWager / market.yesPrice).toFixed(2)}</span>
+            <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center gap-2">
+              <span className="text-[10px] font-medium text-emerald-200 uppercase tracking-wider line-clamp-1 max-w-full px-1">{market.yesLabel}</span>
+              <div className="flex items-center gap-1">
+                <TrendingUp size={16} className="text-emerald-400" />
+                <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-zinc-400">${settings.yesWager}</span>
+                <span className="text-zinc-500">→</span>
+                <span className="text-emerald-400 font-semibold">${(settings.yesWager / market.yesPrice).toFixed(0)}</span>
               </div>
             </div>
           </div>

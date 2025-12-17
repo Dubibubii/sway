@@ -50,6 +50,8 @@ export interface SimplifiedMarket {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesLabel: string;
+  noLabel: string;
   volume: number;
   endDate: string;
   status: string;
@@ -217,6 +219,8 @@ function transformMarket(market: PondMarket, event?: PondEvent): SimplifiedMarke
     category: formatCategory(category),
     yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
     noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesLabel: market.yesSubTitle || 'Yes',
+    noLabel: market.noSubTitle || 'No',
     volume: market.volume || event?.volume || 0,
     endDate: market.closeTime 
       ? new Date(market.closeTime * 1000).toISOString() 
@@ -353,6 +357,8 @@ function getMockMarkets(): SimplifiedMarket[] {
       category: 'Crypto',
       yesPrice: 0.72,
       noPrice: 0.28,
+      yesLabel: 'Yes',
+      noLabel: 'No',
       volume: 125000,
       endDate: '2024-12-31T23:59:59Z',
       status: 'active',
@@ -364,6 +370,8 @@ function getMockMarkets(): SimplifiedMarket[] {
       category: 'Crypto',
       yesPrice: 0.45,
       noPrice: 0.55,
+      yesLabel: 'Yes',
+      noLabel: 'No',
       volume: 89000,
       endDate: '2025-03-31T23:59:59Z',
       status: 'active',
@@ -375,6 +383,8 @@ function getMockMarkets(): SimplifiedMarket[] {
       category: 'Economics',
       yesPrice: 0.38,
       noPrice: 0.62,
+      yesLabel: 'Yes',
+      noLabel: 'No',
       volume: 234000,
       endDate: '2025-01-31T23:59:59Z',
       status: 'active',
@@ -386,6 +396,8 @@ function getMockMarkets(): SimplifiedMarket[] {
       category: 'Crypto',
       yesPrice: 0.48,
       noPrice: 0.52,
+      yesLabel: 'Yes',
+      noLabel: 'No',
       volume: 98000,
       endDate: '2025-03-31T23:59:59Z',
       status: 'active',

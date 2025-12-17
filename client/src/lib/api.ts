@@ -33,6 +33,8 @@ export interface Market {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesLabel: string;
+  noLabel: string;
   volume: number;
   endDate: string;
   status: string;
