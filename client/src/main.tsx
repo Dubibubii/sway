@@ -7,6 +7,7 @@ import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransf
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
+const PRIVY_CLIENT_ID = import.meta.env.VITE_PRIVY_CLIENT_ID;
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
