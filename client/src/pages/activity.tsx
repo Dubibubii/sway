@@ -5,8 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
+import { useSolanaTransaction } from '@/hooks/use-solana-transaction';
+import { useSolanaBalance } from '@/hooks/use-solana-balance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { FEE_CONFIG } from '@shared/schema';
 
 interface Trade {
   id: string;
@@ -26,7 +32,16 @@ interface Trade {
 
 export default function Activity() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { getAccessToken, authenticated } = usePrivySafe();
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<Trade | null>(null);
+  const [addAmount, setAddAmount] = useState('5');
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
+  const { sendSOLWithFee } = useSolanaTransaction();
+  const { balance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
     queryKey: ['positions'],
@@ -76,6 +91,112 @@ export default function Activity() {
       hour: 'numeric',
       minute: '2-digit'
     });
+  };
+
+  const handleAddClick = (e: React.MouseEvent, position: Trade) => {
+    e.stopPropagation();
+    setSelectedPosition(position);
+    setAddAmount('5');
+    setAddModalOpen(true);
+  };
+
+  const handleCloseClick = (e: React.MouseEvent, position: Trade) => {
+    e.stopPropagation();
+    setSelectedPosition(position);
+    setCloseModalOpen(true);
+  };
+
+  const handleAddPosition = async () => {
+    if (!selectedPosition || !embeddedWallet?.address) return;
+    
+    const amount = parseFloat(addAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    const solAmount = amount / 100;
+    if (balance !== null && solAmount > balance) {
+      toast.error('Insufficient balance');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const result = await sendSOLWithFee(FEE_CONFIG.FEE_RECIPIENT, solAmount);
+      
+      if (result.success) {
+        const token = await getAccessToken();
+        const price = parseFloat(selectedPosition.price);
+        
+        await fetch('/api/trades', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({
+            marketId: selectedPosition.marketId,
+            marketTitle: selectedPosition.marketTitle,
+            marketCategory: selectedPosition.marketCategory,
+            direction: selectedPosition.direction,
+            wagerAmount: amount,
+            price: price,
+          }),
+        });
+        
+        await queryClient.invalidateQueries({ queryKey: ['positions'] });
+        await queryClient.invalidateQueries({ queryKey: ['trades'] });
+        await refetchBalance();
+        
+        toast.success(`Added $${amount.toFixed(2)} to position`);
+        setAddModalOpen(false);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add to position');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClosePosition = async () => {
+    if (!selectedPosition || !embeddedWallet?.address) return;
+    
+    setIsProcessing(true);
+    try {
+      const shares = parseFloat(selectedPosition.shares);
+      const price = parseFloat(selectedPosition.price);
+      const currentValue = shares * price;
+      const costBasis = selectedPosition.wagerAmount;
+      const pnl = currentValue - costBasis;
+      
+      const token = await getAccessToken();
+      const res = await fetch(`/api/trades/${selectedPosition.id}/close`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          pnl: pnl.toFixed(2),
+          payout: currentValue,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to close position');
+
+      await queryClient.invalidateQueries({ queryKey: ['positions'] });
+      await queryClient.invalidateQueries({ queryKey: ['trades'] });
+      await refetchBalance();
+      
+      const netPayout = currentValue * (1 - FEE_CONFIG.FEE_PERCENTAGE);
+      toast.success(`Position closed! ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)}`);
+      setCloseModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to close position');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (!authenticated) {
