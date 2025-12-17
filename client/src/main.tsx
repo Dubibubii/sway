@@ -4,6 +4,7 @@ import App from "./App";
 import "./index.css";
 import { PrivySafeProvider, PrivySafeContext, PrivySafeContextType, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
 import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransferTransaction, createSOLTransferWithFeeTransaction, TransactionResult } from "@/hooks/use-solana-transaction";
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
 
@@ -65,33 +66,26 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
   };
 
   const fundWalletWrapper = async (address: string) => {
-    try {
-      console.log('Opening Privy funding modal for address:', address);
-      console.log('Embedded wallet data:', embeddedWalletData);
-      console.log('privyFundWallet function:', privyFundWallet);
-      
-      if (!privyFundWallet) {
-        console.error('fundWallet function not available from Privy');
-        alert('Funding not available. Please check Privy dashboard configuration.');
-        return;
-      }
-      
-      const result = await privyFundWallet({ 
-        address,
-        options: {
-          defaultFundingMethod: 'manual',
-          uiConfig: {
-            receiveFundsTitle: 'Deposit SOL to Pulse',
-            receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
-          }
-        }
-      });
-      console.log('Fund wallet result:', result);
-    } catch (error: any) {
-      console.error('Failed to open funding modal:', error);
-      console.error('Error details:', error?.message, error?.stack);
-      alert(`Funding error: ${error?.message || 'Unknown error'}`);
+    console.log('Opening Privy funding modal for address:', address);
+    console.log('Embedded wallet data:', embeddedWalletData);
+    console.log('privyFundWallet function:', privyFundWallet);
+    
+    if (!privyFundWallet) {
+      console.error('fundWallet function not available from Privy');
+      throw new Error('Funding modal not available');
     }
+    
+    const result = await privyFundWallet({ 
+      address,
+      options: {
+        defaultFundingMethod: 'manual',
+        uiConfig: {
+          receiveFundsTitle: 'Deposit SOL to Pulse',
+          receiveFundsSubtitle: 'Scan this QR code or copy your wallet address to receive SOL on Solana mainnet.'
+        }
+      }
+    });
+    console.log('Fund wallet result:', result);
   };
 
   const exportWalletWrapper = async () => {
@@ -207,6 +201,17 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   } | null>(null);
   const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
 
+  const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
+  const rpcUrl = heliusApiKey 
+    ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+    : 'https://api.mainnet-beta.solana.com';
+  const wssUrl = heliusApiKey
+    ? `wss://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+    : 'wss://api.mainnet-beta.solana.com';
+
+  const solanaRpc = useMemo(() => createSolanaRpc(rpcUrl), [rpcUrl]);
+  const solanaRpcSubscriptions = useMemo(() => createSolanaRpcSubscriptions(wssUrl), [wssUrl]);
+
   useEffect(() => {
     let mounted = true;
     Promise.all([
@@ -260,14 +265,14 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
             useSandbox: false,
           },
         },
-        solanaClusters: [
-          { 
-            name: 'mainnet-beta', 
-            rpcUrl: import.meta.env.VITE_HELIUS_API_KEY 
-              ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}`
-              : 'https://api.mainnet-beta.solana.com' 
+        solana: {
+          rpcs: {
+            'solana:mainnet': {
+              rpc: solanaRpc,
+              rpcSubscriptions: solanaRpcSubscriptions,
+            },
           },
-        ],
+        },
       }}
     >
       <PrivyInnerAdapter 
