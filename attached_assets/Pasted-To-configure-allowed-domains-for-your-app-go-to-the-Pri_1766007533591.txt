@@ -1,0 +1,37 @@
+To configure allowed domains for your app, go to the Privy dashboard and select your production app from the dropdown in the left sidebar. Then, navigate to the Configuration > App settings page > Domains tab.
+Under Allowed Origins, list the domains that will use your production Privy App ID, separated by commas, spaces, or breaks.
+Please note:
+The protocol (https) is required.
+Trailing paths (/path) are not supported.
+Wildcards (*) are only supported as a subdomain (*.domain.com), but not as a domain alone (*.com).
+Partial wildcards of the form *-sometext.domain.com are not supported.
+Localhost (http://localhost:port) is supported but you must specify the port number. Though supported, we do not recommend listing localhost as an allowed domain for production apps. If you need to temporarily list localhost as an allowed domain for your production app ID, please take care to remove it when not developing.
+Many hosting providers and their corresponding DNS configurations treat https://www.example.com and https://example.com interchangeably. If these URLs are equivalent for your app setup, we recommend adding both (with and without the www subdomain) domains as allowed origins to the dashboard.
+Setting allowed domains restricts client-side access to your Privy app ID only. Privy’s REST API endpoints that you would query from your backend are gated by your app secret, which should never be exposed on a user’s client.
+​
+Supporting preview URLs
+Many hosting providers (e.g. Vercel) support preview deployment URLs to make it easy to test changes, like:
+// Matches the pattern *.netlify.app, which anyone with a free Netlify account can deploy to
+deploy-preview-id--yoursitename.netlify.app
+For security reasons, we do not allow whitelisting domains with a generic pattern that are commonly used for these preview deployments, such as:
+https://*.netlify.app / https://*.vercel.app
+https://*-projectname.netlify.app / https://*-projectname.vercel.app
+Any project can deploy to a domain that matches https://*.netlify.app, https://*.vercel.app, or similar. If you were to whitelist this domain for your production App ID, any actor could set up any arbitrary deployment with your hosting provider and can use your production App ID within their site.
+If you’d like to secure your Privy App ID on preview deployment URLs, please check if your hosting provider allows you to map preview deployments to a stable subdomain that only you control, like:
+// Matches the pattern *.yoursitename.netlify.app, which only members of your Netlify account
+// (or hosting provider) can deploy to
+deploy-preview-42<b>.yoursitename.netlify.app</b>
+This allows you to list https://*.yoursitename.netlify.app under allowed domains, which arbitrary actors cannot deploy to. See instructions to set this up with Vercel or Netlify.
+Allowed domains are primarily recommended for production applications. If your preview deployments use a development Privy app ID, feel free to leave Allowed Origins empty to support use of your app ID in previews without the setup above.
+​
+App clients and allowed domains
+Within an app client, you can override Allowed origins on your app while still sharing the same user base. To add a client, go to the Configuration > App settings page > Clients tab, and find the Add app client button. Create a client and add Allowed origins.
+​
+Allowed OAuth redirect URLs
+Similar to allowed domains, you can configure allowed OAuth redirect URLs to restrict where users can be redirected after they log in with an external OAuth provider. This is a security best practice that prevents users from being redirected to malicious sites with their authentication token. To configure allowed OAuth redirect URLs, navigate to Configuration > App settings > Advanced on the dashboard. Add the OAuth providers are allowed to redirect to after authentication.
+Please note:
+The URL must be an exact match for the redirect URL; query params and trailing slashes will error.
+The URL must be at a domain listed in allowed domains.
+The protocol (https) is required.
+Wildcards (*) are not supported.
+If no URLs are listed, users can be redirected to any URL.

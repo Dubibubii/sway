@@ -5,33 +5,21 @@ import "./index.css";
 import { PrivySafeProvider, PrivySafeContext, PrivySafeContextType, PRIVY_ENABLED } from "@/hooks/use-privy-safe";
 import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransferTransaction, createSOLTransferWithFeeTransaction, TransactionResult } from "@/hooks/use-solana-transaction";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+import { PrivyProvider, usePrivy, useFundWallet } from "@privy-io/react-auth";
+import { useSignAndSendTransaction, useWallets, toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
-const PRIVY_CLIENT_ID = import.meta.env.VITE_PRIVY_CLIENT_ID;
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-[#0a0a0f]" />
 );
 
-const useNoopHook = () => ({ signAndSendTransaction: null, wallets: [] });
-
-function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignAndSendTransactionHook = useNoopHook, useWalletsHook = useNoopHook }: { 
-  children: ReactNode; 
-  usePrivyHook: () => any; 
-  useFundWalletHook: () => any;
-  useSignAndSendTransactionHook?: () => any;
-  useWalletsHook?: () => any;
-}) {
-  const privy = usePrivyHook();
-  const fundWalletHookResult = useFundWalletHook();
-  const privyFundWallet = typeof fundWalletHookResult === 'function' 
-    ? fundWalletHookResult 
-    : (fundWalletHookResult?.fundWallet || null);
+function PrivyInnerAdapter({ children }: { children: ReactNode }) {
+  const privy = usePrivy();
+  const { fundWallet } = useFundWallet();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { wallets: privyWallets } = useWallets();
   
-  const txHookResult = useSignAndSendTransactionHook();
-  const signAndSendTransaction = txHookResult?.signAndSendTransaction || null;
-  const walletsHookResult = useWalletsHook();
-  const privyWallets = walletsHookResult?.wallets || [];
   const [txIsLoading, setTxIsLoading] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
   
@@ -70,22 +58,13 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
 
   const fundWalletWrapper = async (address: string) => {
     console.log('Opening Privy funding modal for address:', address);
-    console.log('Embedded wallet data:', embeddedWalletData);
-    console.log('privyFundWallet function:', privyFundWallet);
     
-    if (!privyFundWallet) {
-      console.error('fundWallet function not available from Privy');
-      throw new Error('Funding modal not available');
+    try {
+      await fundWallet({ address });
+    } catch (err: any) {
+      console.error('Privy fundWallet error:', err);
+      throw err;
     }
-    
-    const result = await privyFundWallet({
-      address,
-      chain: { type: 'solana' },
-      options: {
-        cluster: { name: 'mainnet-beta' },
-      }
-    });
-    console.log('Fund wallet result:', result);
   };
 
   const exportWalletWrapper = async () => {
@@ -114,10 +93,11 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
 
     try {
       const { transaction } = await createSOLTransferTransaction(embeddedWalletData.address, toAddress, amountSOL);
-      const signature = await signAndSendTransaction({
+      const result = await signAndSendTransaction({
         transaction: transaction.serialize({ requireAllSignatures: false }),
         wallet
       });
+      const signature = typeof result === 'string' ? result : (result as any)?.signature || String(result);
       return { signature, success: true };
     } catch (err: any) {
       setTxError(err?.message || 'Transaction failed');
@@ -127,12 +107,12 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
     }
   }, [embeddedWalletData, signAndSendTransaction, getPrivyWallet]);
 
-  const sendSOLWithFee = useCallback(async (toAddress: string, amountSOL: number): Promise<TransactionResult> => {
+  const sendSOLWithFee = useCallback(async (toAddress: string, amountSOL: number, feePercent: number = 1): Promise<TransactionResult> => {
     if (!embeddedWalletData?.address) {
       throw new Error('No wallet connected');
     }
-    if (amountSOL <= 0.02) {
-      throw new Error('Amount too small for fee transaction (minimum ~$0.02)');
+    if (amountSOL <= 0.000001) {
+      throw new Error('Amount too small');
     }
     const wallet = getPrivyWallet();
     if (!wallet || !signAndSendTransaction) {
@@ -143,13 +123,19 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
     setTxError(null);
 
     try {
-      const { transaction, feeAmount } = await createSOLTransferWithFeeTransaction(embeddedWalletData.address, toAddress, amountSOL);
-      console.log(`Sending ${amountSOL} SOL with ${feeAmount} SOL fee`);
-      const signature = await signAndSendTransaction({
+      const { transaction, feeAmount } = await createSOLTransferWithFeeTransaction(
+        embeddedWalletData.address, 
+        toAddress, 
+        amountSOL
+      );
+      const recipientAmount = amountSOL - feeAmount;
+      console.log(`Sending ${recipientAmount} SOL to ${toAddress}, fee: ${feeAmount} SOL`);
+      const result = await signAndSendTransaction({
         transaction: transaction.serialize({ requireAllSignatures: false }),
         wallet
       });
-      return { signature, success: true };
+      const signature = typeof result === 'string' ? result : (result as any)?.signature || String(result);
+      return { signature, success: true, feeAmount, recipientAmount };
     } catch (err: any) {
       setTxError(err?.message || 'Transaction failed');
       throw err;
@@ -158,22 +144,11 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
     }
   }, [embeddedWalletData, signAndSendTransaction, getPrivyWallet]);
 
-  const solanaTransactionValue: SolanaTransactionContextType = {
-    sendSOL,
-    sendSOLWithFee,
-    isLoading: txIsLoading,
-    error: txError,
-  };
-  
-  const value: PrivySafeContextType = {
+  const privySafeValue: PrivySafeContextType = {
     login: privy.login,
     logout: privy.logout,
     authenticated: privy.authenticated,
-    user: privy.user ? {
-      id: privy.user.id,
-      wallet: privy.user.wallet ? { address: privy.user.wallet.address } : undefined,
-      email: privy.user.email ? { address: privy.user.email.address } : undefined,
-    } : null,
+    user: privy.user,
     getAccessToken: privy.getAccessToken,
     ready: privy.ready,
     embeddedWallet,
@@ -181,9 +156,16 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
     fundWallet: fundWalletWrapper,
     exportWallet: exportWalletWrapper,
   };
-  
+
+  const solanaTransactionValue: SolanaTransactionContextType = {
+    sendSOL,
+    sendSOLWithFee,
+    isLoading: txIsLoading,
+    error: txError,
+  };
+
   return (
-    <PrivySafeContext.Provider value={value}>
+    <PrivySafeContext.Provider value={privySafeValue}>
       <SolanaTransactionContext.Provider value={solanaTransactionValue}>
         {children}
       </SolanaTransactionContext.Provider>
@@ -191,16 +173,9 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
   );
 }
 
-function PrivyWrapperComponent({ children }: { children: ReactNode }) {
-  const [privyModule, setPrivyModule] = useState<{
-    PrivyProvider: any;
-    usePrivy: () => any;
-    useFundWallet: () => any;
-    useSignAndSendTransaction: () => any;
-    useWallets: () => any;
-  } | null>(null);
-  const [solanaConnectors, setSolanaConnectors] = useState<any>(null);
+const solanaConnectors = toSolanaWalletConnectors();
 
+function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
   const rpcUrl = heliusApiKey 
     ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
@@ -212,42 +187,16 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   const solanaRpc = useMemo(() => createSolanaRpc(rpcUrl), [rpcUrl]);
   const solanaRpcSubscriptions = useMemo(() => createSolanaRpcSubscriptions(wssUrl), [wssUrl]);
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([
-      import("@privy-io/react-auth"),
-      import("@privy-io/react-auth/solana")
-    ]).then(([privyMod, solanaMod]) => {
-      if (mounted) {
-        setPrivyModule({
-          PrivyProvider: privyMod.PrivyProvider,
-          usePrivy: privyMod.usePrivy,
-          useFundWallet: (privyMod as any).useFundWallet,
-          useSignAndSendTransaction: solanaMod.useSignAndSendTransaction,
-          useWallets: solanaMod.useWallets,
-        });
-        setSolanaConnectors(solanaMod.toSolanaWalletConnectors());
-      }
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  if (!privyModule || !solanaConnectors) {
-    return <LoadingScreen />;
-  }
-
-  const { PrivyProvider, usePrivy, useFundWallet, useSignAndSendTransaction, useWallets } = privyModule;
-
   return (
     <PrivyProvider
-      appId={PRIVY_APP_ID}
+      appId={PRIVY_APP_ID!}
       config={{
         appearance: {
           theme: 'dark',
           accentColor: '#10b981',
           showWalletLoginFirst: true,
           walletChainType: 'solana-only',
-          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack', 'magic_eden', 'jupiter'],
+          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack'],
         },
         loginMethods: ['wallet', 'email', 'google'],
         embeddedWallets: {
@@ -275,12 +224,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <PrivyInnerAdapter 
-        usePrivyHook={usePrivy} 
-        useFundWalletHook={useFundWallet}
-        useSignAndSendTransactionHook={useSignAndSendTransaction}
-        useWalletsHook={useWallets}
-      >
+      <PrivyInnerAdapter>
         {children}
       </PrivyInnerAdapter>
     </PrivyProvider>
@@ -304,3 +248,5 @@ const AppWithProviders = () => {
 };
 
 createRoot(document.getElementById("root")!).render(<AppWithProviders />);
+
+export { PRIVY_ENABLED };

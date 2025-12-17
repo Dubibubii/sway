@@ -11,6 +11,8 @@ const FEE_PERCENTAGE = 0.01;
 export interface TransactionResult {
   signature: string;
   success: boolean;
+  feeAmount?: number;
+  recipientAmount?: number;
 }
 
 export interface SolanaTransactionContextType {
