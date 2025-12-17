@@ -377,6 +377,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       volume: 125000,
       endDate: '2024-12-31T23:59:59Z',
       status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=600&fit=crop',
     },
     {
       id: 'ETH-ETF-Q1',
@@ -390,6 +391,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       volume: 89000,
       endDate: '2025-03-31T23:59:59Z',
       status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=600&fit=crop',
     },
     {
       id: 'FED-RATE-JAN',
@@ -403,6 +405,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       volume: 234000,
       endDate: '2025-01-31T23:59:59Z',
       status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
     },
     {
       id: 'SOL-200-Q1',
@@ -416,6 +419,7 @@ function getMockMarkets(): SimplifiedMarket[] {
       volume: 98000,
       endDate: '2025-03-31T23:59:59Z',
       status: 'active',
+      imageUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop',
     },
   ];
 }
