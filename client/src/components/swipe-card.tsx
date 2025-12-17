@@ -203,7 +203,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
 
           {market.yesLabel && market.yesLabel !== 'Yes' && (
             <div className="text-center">
-              <span className="text-xs text-white/70 bg-white/10 px-3 py-1 rounded-full">{market.yesLabel}</span>
+              <span className="text-sm font-medium text-white bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/20">{market.yesLabel}</span>
             </div>
           )}
           
