@@ -162,10 +162,19 @@ export async function getMarketsByCategory(category: string): Promise<Simplified
 }
 
 function transformMarket(market: PondMarket, event?: PondEvent): SimplifiedMarket {
-  const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : 50;
-  const yesBid = market.yesBid ? parseFloat(market.yesBid) : 50;
+  const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : null;
+  const yesBid = market.yesBid ? parseFloat(market.yesBid) : null;
   
-  const yesPrice = (yesAsk + yesBid) / 2 / 100;
+  let yesPrice: number;
+  if (yesAsk !== null && yesBid !== null) {
+    yesPrice = (yesAsk + yesBid) / 2 / 100;
+  } else if (yesAsk !== null) {
+    yesPrice = yesAsk / 100;
+  } else if (yesBid !== null) {
+    yesPrice = yesBid / 100;
+  } else {
+    yesPrice = 0.5;
+  }
   const noPrice = 1 - yesPrice;
   
   const category = event?.seriesTicker?.split('-')[0] || 

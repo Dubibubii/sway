@@ -201,9 +201,15 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
             {market.question}
           </h2>
 
+          {market.yesLabel && market.yesLabel !== 'Yes' && (
+            <div className="text-center">
+              <span className="text-xs text-white/70 bg-white/10 px-3 py-1 rounded-full">{market.yesLabel}</span>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-3 border border-destructive/30 flex flex-col items-center gap-2">
-              <span className="text-[10px] font-medium text-rose-200 uppercase tracking-wider line-clamp-1 max-w-full px-1">{market.noLabel}</span>
+              <span className="text-lg font-bold text-white">No</span>
               <div className="flex items-center gap-1">
                 <TrendingDown size={16} className="text-rose-400" />
                 <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
@@ -215,7 +221,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
               </div>
             </div>
             <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center gap-2">
-              <span className="text-[10px] font-medium text-emerald-200 uppercase tracking-wider line-clamp-1 max-w-full px-1">{market.yesLabel}</span>
+              <span className="text-lg font-bold text-white">Yes</span>
               <div className="flex items-center gap-1">
                 <TrendingUp size={16} className="text-emerald-400" />
                 <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
