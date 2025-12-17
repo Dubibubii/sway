@@ -24,7 +24,9 @@ function PrivyInnerAdapter({ children, usePrivyHook, useFundWalletHook, useSignA
 }) {
   const privy = usePrivyHook();
   const fundWalletHookResult = useFundWalletHook();
-  const privyFundWallet = fundWalletHookResult?.fundWallet || fundWalletHookResult?.openFunding;
+  const privyFundWallet = typeof fundWalletHookResult === 'function' 
+    ? fundWalletHookResult 
+    : (fundWalletHookResult?.fundWallet || null);
   
   const txHookResult = useSignAndSendTransactionHook();
   const signAndSendTransaction = txHookResult?.signAndSendTransaction || null;
