@@ -1,9 +1,11 @@
-import { ReactNode, useMemo } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { ReactNode, useMemo, useCallback } from 'react';
+import { usePrivy, useFundWallet, useExportAccount } from '@privy-io/react-auth';
 import { PrivySafeContext, PrivySafeContextType } from './use-privy-safe';
 
 export default function PrivyAdapter({ children }: { children: ReactNode }) {
   const privy = usePrivy();
+  const { fundWallet: privyFundWallet } = useFundWallet();
+  const { exportAccount: privyExportAccount } = useExportAccount();
   
   const embeddedWallet = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
@@ -32,6 +34,24 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     }
   };
   
+  const fundWalletWrapper = useCallback(async (address: string) => {
+    try {
+      await privyFundWallet(address, { chain: { id: 'solana:mainnet' } as any });
+    } catch (error) {
+      console.error('Failed to fund wallet:', error);
+    }
+  }, [privyFundWallet]);
+  
+  const exportWalletWrapper = useCallback(async () => {
+    try {
+      if (embeddedWallet?.address) {
+        await privyExportAccount({ address: embeddedWallet.address });
+      }
+    } catch (error) {
+      console.error('Failed to export wallet:', error);
+    }
+  }, [privyExportAccount, embeddedWallet?.address]);
+  
   const value: PrivySafeContextType = {
     login: privy.login,
     logout: privy.logout,
@@ -45,6 +65,8 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     ready: privy.ready,
     embeddedWallet,
     createWallet: createWalletWrapper,
+    fundWallet: fundWalletWrapper,
+    exportWallet: exportWalletWrapper,
   };
   
   return (
