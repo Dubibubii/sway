@@ -38,6 +38,12 @@ export const FEE_CONFIG = {
   FEE_RECIPIENT: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY',
 };
 
+// Solana network configuration
+export const SOLANA_CONFIG = {
+  NETWORK: 'devnet' as const, // 'devnet' | 'mainnet-beta'
+  RPC_URL: 'https://api.devnet.solana.com',
+};
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
