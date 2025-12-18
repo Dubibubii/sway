@@ -5,9 +5,13 @@ import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, type Simpli
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG } from "@shared/schema";
+import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
+const KALSHI_API_KEY_ID = process.env.KALSHI_API_KEY_ID || '';
+const KALSHI_PRIVATE_KEY = process.env.KALSHI_PRIVATE_KEY || '';
+const KALSHI_USE_DEMO = process.env.KALSHI_USE_DEMO === 'true';
 
 const privyClient = PRIVY_APP_ID && PRIVY_APP_SECRET 
   ? new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET)
@@ -245,6 +249,135 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Error closing trade:', error);
       res.status(500).json({ error: 'Failed to close trade' });
+    }
+  });
+
+  // Kalshi Trading API endpoints
+  app.get('/api/kalshi/status', async (req: AuthenticatedRequest, res: Response) => {
+    const hasCredentials = !!(KALSHI_API_KEY_ID && KALSHI_PRIVATE_KEY);
+    res.json({ 
+      configured: hasCredentials,
+      mode: KALSHI_USE_DEMO ? 'demo' : 'live'
+    });
+  });
+
+  app.get('/api/kalshi/balance', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!KALSHI_API_KEY_ID || !KALSHI_PRIVATE_KEY) {
+        return res.status(400).json({ error: 'Kalshi API credentials not configured' });
+      }
+
+      const balance = await getKalshiBalance({
+        apiKeyId: KALSHI_API_KEY_ID,
+        privateKey: KALSHI_PRIVATE_KEY,
+        useDemo: KALSHI_USE_DEMO,
+      });
+
+      res.json(balance);
+    } catch (error: any) {
+      console.error('Error fetching Kalshi balance:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch Kalshi balance' });
+    }
+  });
+
+  app.get('/api/kalshi/positions', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!KALSHI_API_KEY_ID || !KALSHI_PRIVATE_KEY) {
+        return res.status(400).json({ error: 'Kalshi API credentials not configured' });
+      }
+
+      const positions = await getKalshiPositions({
+        apiKeyId: KALSHI_API_KEY_ID,
+        privateKey: KALSHI_PRIVATE_KEY,
+        useDemo: KALSHI_USE_DEMO,
+      });
+
+      res.json(positions);
+    } catch (error: any) {
+      console.error('Error fetching Kalshi positions:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch Kalshi positions' });
+    }
+  });
+
+  app.post('/api/kalshi/order', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!KALSHI_API_KEY_ID || !KALSHI_PRIVATE_KEY) {
+        return res.status(400).json({ error: 'Kalshi API credentials not configured' });
+      }
+
+      const { ticker, side, count, price, type = 'limit' } = req.body;
+
+      if (!ticker || !side || !count) {
+        return res.status(400).json({ error: 'Missing required fields: ticker, side, count' });
+      }
+
+      const orderResult = await placeKalshiOrder(
+        {
+          apiKeyId: KALSHI_API_KEY_ID,
+          privateKey: KALSHI_PRIVATE_KEY,
+          useDemo: KALSHI_USE_DEMO,
+        },
+        {
+          ticker,
+          action: 'buy',
+          side: side.toLowerCase() as 'yes' | 'no',
+          count: parseInt(count),
+          type: type as 'limit' | 'market',
+          yesPrice: side.toLowerCase() === 'yes' ? Math.round(price * 100) : undefined,
+          noPrice: side.toLowerCase() === 'no' ? Math.round(price * 100) : undefined,
+        }
+      );
+
+      // Also record in our local database
+      if (req.userId) {
+        const entryFee = count * price * FEE_CONFIG.FEE_PERCENTAGE;
+        await storage.createTrade({
+          userId: req.userId,
+          marketId: ticker,
+          marketTitle: `Kalshi: ${ticker}`,
+          marketCategory: 'Kalshi',
+          direction: side.toUpperCase(),
+          wagerAmount: count * price,
+          price: price.toFixed(2),
+          shares: count.toString(),
+          estimatedPayout: count.toFixed(2),
+          entryFee: entryFee.toFixed(4),
+          exitFee: null,
+          isClosed: false,
+          closedAt: null,
+          pnl: null,
+        });
+      }
+
+      console.log(`Kalshi order placed: ${side} ${count} contracts on ${ticker} at ${price}`);
+      res.json({ order: orderResult, success: true });
+    } catch (error: any) {
+      console.error('Error placing Kalshi order:', error);
+      res.status(500).json({ error: error.message || 'Failed to place Kalshi order' });
+    }
+  });
+
+  app.delete('/api/kalshi/order/:orderId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!KALSHI_API_KEY_ID || !KALSHI_PRIVATE_KEY) {
+        return res.status(400).json({ error: 'Kalshi API credentials not configured' });
+      }
+
+      const { orderId } = req.params;
+
+      await cancelKalshiOrder(
+        {
+          apiKeyId: KALSHI_API_KEY_ID,
+          privateKey: KALSHI_PRIVATE_KEY,
+          useDemo: KALSHI_USE_DEMO,
+        },
+        orderId
+      );
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error canceling Kalshi order:', error);
+      res.status(500).json({ error: error.message || 'Failed to cancel Kalshi order' });
     }
   });
 
