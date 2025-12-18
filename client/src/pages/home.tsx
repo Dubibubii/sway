@@ -3,6 +3,7 @@ import { SwipeCard } from '@/components/swipe-card';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
+import { useSwipeHistory } from '@/hooks/use-swipe-history';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ function formatMarket(m: Market): DisplayMarket {
 export default function Home() {
   const queryClient = useQueryClient();
   const { login, authenticated, ready } = usePrivy();
+  const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
   
   const { data: marketsData, isLoading, refetch } = useQuery({
     queryKey: ['markets'],
@@ -80,9 +82,11 @@ export default function Home() {
   
   useEffect(() => {
     if (marketsData?.markets) {
-      setDisplayedMarkets(marketsData.markets.map(formatMarket));
+      const allMarkets = marketsData.markets.map(formatMarket);
+      const visibleMarkets = getVisibleCards(allMarkets);
+      setDisplayedMarkets(visibleMarkets);
     }
-  }, [marketsData]);
+  }, [marketsData, getVisibleCards]);
   
   const tradeMutation = useMutation({
     mutationFn: async (trade: { market: DisplayMarket; direction: 'YES' | 'NO'; wagerAmount: number }) => {
@@ -131,6 +135,8 @@ export default function Home() {
 
   const handleSwipe = (id: string, direction: 'left' | 'right' | 'down') => {
     const market = displayedMarkets.find(m => m.id === id);
+    
+    recordSwipe(id);
 
     setTimeout(() => {
       setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
@@ -223,6 +229,7 @@ export default function Home() {
   };
 
   const resetDeck = () => {
+    resetHistory();
     refetch();
   };
 
