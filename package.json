@@ -49,6 +49,7 @@
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.60.5",
     "@use-gesture/react": "^10.3.1",
+    "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

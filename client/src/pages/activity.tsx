@@ -107,7 +107,7 @@ export default function Activity() {
   };
 
   const handleAddPosition = async () => {
-    if (!selectedPosition || !embeddedWallet?.address) return;
+    if (!selectedPosition) return;
     
     const amount = parseFloat(addAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -115,43 +115,34 @@ export default function Activity() {
       return;
     }
 
-    const solAmount = amount / 100;
-    if (solBalance !== null && solAmount > solBalance) {
-      toast.error('Insufficient balance');
-      return;
-    }
-
     setIsProcessing(true);
     try {
-      const result = await sendSOLWithFee(FEE_CONFIG.FEE_RECIPIENT, solAmount);
+      const token = await getAccessToken();
+      const price = parseFloat(selectedPosition.price);
       
-      if (result.success) {
-        const token = await getAccessToken();
-        const price = parseFloat(selectedPosition.price);
-        
-        await fetch('/api/trades', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
-          },
-          body: JSON.stringify({
-            marketId: selectedPosition.marketId,
-            marketTitle: selectedPosition.marketTitle,
-            marketCategory: selectedPosition.marketCategory,
-            direction: selectedPosition.direction,
-            wagerAmount: amount,
-            price: price,
-          }),
-        });
-        
-        await queryClient.invalidateQueries({ queryKey: ['positions'] });
-        await queryClient.invalidateQueries({ queryKey: ['trades'] });
-        await refetchBalance();
-        
-        toast.success(`Added $${amount.toFixed(2)} to position`);
-        setAddModalOpen(false);
-      }
+      const res = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          marketId: selectedPosition.marketId,
+          marketTitle: selectedPosition.marketTitle,
+          marketCategory: selectedPosition.marketCategory,
+          direction: selectedPosition.direction,
+          wagerAmount: amount,
+          price: price,
+        }),
+      });
+      
+      if (!res.ok) throw new Error('Failed to add to position');
+      
+      await queryClient.invalidateQueries({ queryKey: ['positions'] });
+      await queryClient.invalidateQueries({ queryKey: ['trades'] });
+      
+      toast.success(`Added $${amount.toFixed(2)} to position`);
+      setAddModalOpen(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to add to position');
     } finally {
@@ -160,7 +151,7 @@ export default function Activity() {
   };
 
   const handleClosePosition = async () => {
-    if (!selectedPosition || !embeddedWallet?.address) return;
+    if (!selectedPosition) return;
     
     setIsProcessing(true);
     try {
@@ -187,9 +178,7 @@ export default function Activity() {
 
       await queryClient.invalidateQueries({ queryKey: ['positions'] });
       await queryClient.invalidateQueries({ queryKey: ['trades'] });
-      await refetchBalance();
       
-      const netPayout = currentValue * (1 - FEE_CONFIG.FEE_PERCENTAGE);
       toast.success(`Position closed! ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)}`);
       setCloseModalOpen(false);
     } catch (error: any) {
