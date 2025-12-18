@@ -14,6 +14,7 @@ import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { useAutoSwap } from '@/hooks/use-auto-swap';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { WithdrawModal } from '@/components/withdraw-modal';
 
 function ProfileContent() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
@@ -26,6 +27,7 @@ function ProfileContent() {
   const [depositAddress, setDepositAddress] = useState<string | null>(null);
   const [depositCopied, setDepositCopied] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const walletAddress = embeddedWallet?.address || user?.wallet?.address || null;
   const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(walletAddress);
   const { performAutoSwap, getSwapPreview, isSwapping, MIN_GAS_SOL } = useAutoSwap();
@@ -151,8 +153,8 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={exportWallet}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" 
+                       onClick={() => setWithdrawModalOpen(true)}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
                        data-testid="button-withdraw"
                      >
                        <ArrowUp size={12} /> Withdraw
@@ -186,8 +188,8 @@ function ProfileContent() {
                      <Button 
                        size="sm" 
                        variant="outline" 
-                       onClick={exportWallet}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5" 
+                       onClick={() => setWithdrawModalOpen(true)}
+                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
                        data-testid="button-withdraw"
                      >
                        <ArrowUp size={12} /> Withdraw
@@ -224,7 +226,7 @@ function ProfileContent() {
                      <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
                        <ArrowDown size={12} /> Deposit
                      </Button>
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-white/10 hover:bg-white/5">
+                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400">
                        <ArrowUp size={12} /> Withdraw
                      </Button>
                    </div>
@@ -501,6 +503,14 @@ function ProfileContent() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      <WithdrawModal
+        open={withdrawModalOpen}
+        onOpenChange={setWithdrawModalOpen}
+        solBalance={solBalance}
+        usdcBalance={usdcBalance}
+        onSuccess={refetchBalance}
+      />
       
     </Layout>
   );

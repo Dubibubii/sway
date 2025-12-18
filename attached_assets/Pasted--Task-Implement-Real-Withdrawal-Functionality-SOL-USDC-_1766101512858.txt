@@ -1,0 +1,45 @@
+# Task: Implement Real Withdrawal Functionality (SOL & USDC)
+
+## Context
+Currently, the "Withdraw" button in the `Profile` component only triggers a javascript `alert()` telling users to do it manually. I need to replace this with a functional withdrawal flow using the Privy embedded wallet.
+
+## Tech Stack
+- **Wallet:** Privy (`usePrivy`, `useWallets`)
+- **Blockchain:** Solana (`@solana/web3.js`)
+- **Tokens:** The user holds **SOL** (for gas) and **USDC** (for betting).
+
+## Requirements
+
+Please implement the following:
+
+### 1. Create a `WithdrawModal` Component
+Create a UI modal that opens when "Withdraw" is clicked. It should include:
+- **Input:** Recipient Wallet Address (Solana).
+- **Input:** Amount to withdraw.
+- **Selector:** Toggle between **USDC** and **SOL** (default to USDC since that is where the user funds are).
+- **Display:** Show available balance for the selected token.
+
+### 2. Implement Transfer Logic
+In `utils/withdraw.ts` (or similar), create a function `handleWithdrawal` that constructs the correct transaction based on the selected token.
+
+**Scenario A: Withdrawing SOL**
+- Use `SystemProgram.transfer`.
+- Create a transaction to send SOL from the Privy wallet to the recipient.
+
+**Scenario B: Withdrawing USDC (Critical)**
+- Since USDC is an SPL token, we cannot use a simple system transfer.
+- Use `@solana/spl-token` (or construct the instruction manually if the package isn't present) to create a `createTransferInstruction`.
+- **Note:** You will need to derive the **Associated Token Account (ATA)** for the recipient's address to ensure they can receive the USDC.
+
+### 3. Integration
+- Connect the `WithdrawModal` to the Privy `sendTransaction` hook.
+- Add basic validation (e.g., ensure the address is a valid Solana public key, ensure `amount <= balance`).
+- Close the modal and show a success toast upon completion.
+
+## Dependencies
+If `@solana/spl-token` is not installed, please install it or write the SPL transfer logic using raw web3.js instructions.
+
+## Action Plan
+1. Create the Modal UI.
+2. Write the transaction logic for both SOL and SPL Token (USDC) transfers.
+3. Replace the current `alert` placeholder with this new flow.
