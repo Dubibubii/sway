@@ -215,6 +215,102 @@ export default function Activity() {
 
   return (
     <Layout>
+      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>Add to Position</DialogTitle>
+            <DialogDescription>
+              Add more to your {selectedPosition?.direction} position on "{selectedPosition?.marketTitle}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Amount ($)</label>
+              <Input
+                type="number"
+                value={addAmount}
+                onChange={(e) => setAddAmount(e.target.value)}
+                placeholder="5"
+                min="1"
+                className="bg-zinc-800 border-zinc-700"
+                data-testid="input-add-amount"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setAddModalOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                onClick={handleAddPosition}
+                disabled={isProcessing}
+                data-testid="button-confirm-add"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Add ${addAmount}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={closeModalOpen} onOpenChange={setCloseModalOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>Close Position</DialogTitle>
+            <DialogDescription>
+              Close your {selectedPosition?.direction} position on "{selectedPosition?.marketTitle}"?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {selectedPosition && (
+              <div className="bg-zinc-800 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Shares</span>
+                  <span>{parseFloat(selectedPosition.shares).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Entry Price</span>
+                  <span>{(parseFloat(selectedPosition.price) * 100).toFixed(0)}¢</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Cost Basis</span>
+                  <span>${selectedPosition.wagerAmount.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                  <span>Current Value</span>
+                  <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setCloseModalOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-rose-500 hover:bg-rose-600"
+                onClick={handleClosePosition}
+                disabled={isProcessing}
+                data-testid="button-confirm-close"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Close Position
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold">Activity</h1>
