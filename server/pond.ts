@@ -638,9 +638,6 @@ function isBinaryMarket(title: string): boolean {
 }
 
 export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
-  const techBefore = markets.filter(m => m.category === 'Tech');
-  console.log('Tech markets before binary filter:', techBefore.length, techBefore.map(m => ({ title: m.title, id: m.id })));
-  
   const activeMarkets = markets.filter(m => {
     const yesPercent = m.yesPrice * 100;
     const noPercent = m.noPrice * 100;
@@ -653,9 +650,6 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   
   const binaryMarkets = activeMarkets.filter(m => isBinaryMarket(m.title));
   
-  const techAfterBinary = binaryMarkets.filter(m => m.category === 'Tech');
-  console.log('Tech markets after binary filter:', techAfterBinary.length);
-  
   const seenEventTickers = new Map<string, SimplifiedMarket>();
   
   for (const market of binaryMarkets) {
@@ -665,7 +659,7 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
       seenEventTickers.set(parentKey, market);
     } else {
       const existing = seenEventTickers.get(parentKey)!;
-      if (market.volume > existing.volume) {
+      if ((market.volume24h || 0) > (existing.volume24h || 0)) {
         seenEventTickers.set(parentKey, market);
       }
     }
@@ -673,29 +667,32 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   
   const uniqueMarkets = Array.from(seenEventTickers.values());
   
-  for (let i = uniqueMarkets.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [uniqueMarkets[i], uniqueMarkets[j]] = [uniqueMarkets[j], uniqueMarkets[i]];
-  }
-  
-  const categories = new Map<string, SimplifiedMarket[]>();
-  for (const market of uniqueMarkets) {
-    const cat = market.category;
-    if (!categories.has(cat)) {
-      categories.set(cat, []);
-    }
-    categories.get(cat)!.push(market);
-  }
+  uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
   const diversified: SimplifiedMarket[] = [];
-  const categoryQueues = Array.from(categories.values());
+  const remaining = [...uniqueMarkets];
   
-  while (categoryQueues.some(q => q.length > 0)) {
-    for (const queue of categoryQueues) {
-      if (queue.length > 0) {
-        diversified.push(queue.shift()!);
+  while (remaining.length > 0) {
+    const recentCategories: string[] = [];
+    for (let i = diversified.length - 1; i >= 0 && recentCategories.length < 2; i--) {
+      recentCategories.push(diversified[i].category);
+    }
+    
+    let bestIndex = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const market = remaining[i];
+      if (!recentCategories.includes(market.category)) {
+        bestIndex = i;
+        break;
       }
     }
+    
+    if (bestIndex === -1) {
+      bestIndex = 0;
+    }
+    
+    diversified.push(remaining[bestIndex]);
+    remaining.splice(bestIndex, 1);
   }
   
   return diversified;

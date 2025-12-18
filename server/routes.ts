@@ -59,9 +59,6 @@ export async function registerRoutes(
       
       markets = diversifyMarketFeed(markets);
       
-      // Sort by 24h volume for trending (most recent activity)
-      markets.sort((a, b) => b.volume24h - a.volume24h);
-      
       const trendingCount = Math.min(50, markets.length);
       const trendingMarkets = markets.slice(0, trendingCount);
       
