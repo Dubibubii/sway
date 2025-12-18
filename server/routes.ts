@@ -6,12 +6,14 @@ import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, SOLANA_TOKENS } from "./pond-trading";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
 const KALSHI_API_KEY_ID = process.env.KALSHI_API_KEY_ID || '';
 const KALSHI_PRIVATE_KEY = process.env.KALSHI_PRIVATE_KEY || '';
 const KALSHI_USE_DEMO = process.env.KALSHI_USE_DEMO === 'true';
+const DFLOW_API_KEY = process.env.DFLOW_API_KEY || '';
 
 const privyClient = PRIVY_APP_ID && PRIVY_APP_SECRET 
   ? new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET)
@@ -378,6 +380,77 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('Error canceling Kalshi order:', error);
       res.status(500).json({ error: error.message || 'Failed to cancel Kalshi order' });
+    }
+  });
+
+  // Pond/DFlow Trading API - Trade Kalshi markets on Solana
+  app.get('/api/pond/market/:marketId/tokens', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { marketId } = req.params;
+      const tokens = await getMarketTokens(marketId);
+      
+      if (!tokens) {
+        return res.status(404).json({ error: 'Market tokens not found' });
+      }
+      
+      res.json(tokens);
+    } catch (error: any) {
+      console.error('Error fetching market tokens:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch market tokens' });
+    }
+  });
+
+  app.post('/api/pond/quote', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { marketId, side, amountUSDC, userPublicKey, slippageBps = 100 } = req.body;
+
+      if (!marketId || !side || !amountUSDC || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required fields: marketId, side, amountUSDC, userPublicKey' });
+      }
+
+      // Get market token mints
+      const tokens = await getMarketTokens(marketId);
+      if (!tokens) {
+        return res.status(404).json({ error: 'Market tokens not found for this market' });
+      }
+
+      // Determine which token to buy (YES or NO outcome)
+      const outputMint = side.toLowerCase() === 'yes' ? tokens.yesMint : tokens.noMint;
+      
+      // Convert USDC amount to lamports (USDC has 6 decimals)
+      const amountLamports = Math.floor(amountUSDC * 1_000_000);
+
+      // Get quote from DFlow
+      const quote = await getPondQuote(
+        SOLANA_TOKENS.USDC,
+        outputMint,
+        amountLamports,
+        userPublicKey,
+        slippageBps,
+        DFLOW_API_KEY || undefined
+      );
+
+      res.json({
+        quote,
+        marketId,
+        side,
+        outputMint,
+        inputMint: SOLANA_TOKENS.USDC,
+      });
+    } catch (error: any) {
+      console.error('Error getting Pond quote:', error);
+      res.status(500).json({ error: error.message || 'Failed to get quote' });
+    }
+  });
+
+  app.get('/api/pond/order-status/:signature', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { signature } = req.params;
+      const status = await getOrderStatus(signature, DFLOW_API_KEY || undefined);
+      res.json(status);
+    } catch (error: any) {
+      console.error('Error getting order status:', error);
+      res.status(500).json({ error: error.message || 'Failed to get order status' });
     }
   });
 
