@@ -17,13 +17,17 @@ export function usePondTrading() {
   const placeTrade = useCallback(async (
     marketId: string,
     side: 'yes' | 'no',
-    amountUSDC: number
+    amountUSDC: number,
+    usdcBalance?: number
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
 
     try {
-      // Get Solana wallet address from Privy user
+      if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
+        throw new Error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amountUSDC.toFixed(2)}. Convert SOL to USDC first.`);
+      }
+
       const solanaWallet = user?.linkedAccounts?.find(
         (account: any) => account.type === 'wallet' && account.chainType === 'solana'
       );

@@ -1,0 +1,44 @@
+# Task: Refactor Wallet Logic for Auto-Swap to USDC on Deposit
+
+## Context
+I am building a Tinder-style Solana betting app.
+- **Current State:** Users deposit SOL into their Privy embedded wallet. The app currently displays the SOL balance.
+- **The Problem:** The betting API (Pond) requires **USDC** to place bets. However, we still need **SOL** to pay for gas fees on every swipe.
+- **The Goal:** I want to implement an "Auto-Swap" strategy. When a user deposits SOL, we keep a small "gas tank" (e.g., 0.02 SOL) and swap the rest immediately into USDC.
+
+## Tech Stack
+- Frontend: React / Next.js
+- Wallet: Privy (Embedded Wallets)
+- Blockchain: Solana (web3.js)
+- Swap Aggregator: Jupiter API (v6)
+
+## Requirements
+
+Please help me implement the following changes:
+
+### 1. Create a Swap Utility
+Create a new utility function (e.g., `utils/swap.ts`) that uses the **Jupiter Aggregator API** to swap SOL to USDC.
+- **Input:** Amount of SOL to swap, User's Public Key.
+- **Output:** A serialized transaction ready to be signed by the Privy wallet.
+- **Logic:** It should fetch a quote for `SOL -> USDC` and get the swap instructions.
+
+### 2. Implement "Gas Tank" Logic
+In the code where we handle deposits (or a new "Convert Funds" button/hook), implement the following math:
+- Check `currentSolBalance`.
+- Define `MIN_GAS_SOL = 0.02` (Reserve for fees).
+- `swapAmount = currentSolBalance - MIN_GAS_SOL`.
+- If `swapAmount > 0`, trigger the Jupiter swap function created in Step 1.
+
+### 3. Update the Profile UI (`Profile.tsx`)
+Currently, the Profile component (see screenshot context) displays the SOL balance.
+- Fetch both `solBalance` and `usdcBalance`.
+- Create a `totalPortfolioValue` variable: `(usdcBalance) + (solBalance * currentSolPrice)`.
+- Display this Total Value as the main "Balance" number so the user sees one unified dollar amount.
+- **Optional:** Add a small badge or sub-text showing the breakdown (e.g., "$2.30 USDC + 0.02 SOL Gas").
+
+### 4. Update the Betting Flow
+- Ensure the betting function now checks the **USDC Balance** instead of the SOL balance to authorize the wager.
+- The transaction sending flow remains the same (Privy signs the transaction, gas is paid in SOL).
+
+## Immediate Action
+Please start by analyzing the current `Profile` component and creating the `utils/jupiterSwap.ts` file.
