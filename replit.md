@@ -57,6 +57,13 @@ Preferred communication style: Simple, everyday language.
   - Provides market metadata, prices, and volume data
   - No API key required for public endpoints
 
+- **DFlow Pond API**: Solana-native Kalshi trading
+  - Base URL: `https://quote-api.dflow.net` (Trading)
+  - Metadata URL: `https://api.pond.dflow.net` (Market tokens)
+  - Enables trading Kalshi markets on Solana using USDC
+  - Flow: Get quote → Sign Solana transaction → Submit to network
+  - Optional env var: `DFLOW_API_KEY` (helps with rate limits)
+
 ### Database
 - **PostgreSQL**: Primary data store
   - Required env var: `DATABASE_URL`
