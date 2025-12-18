@@ -64,6 +64,13 @@ Preferred communication style: Simple, everyday language.
   - Flow: Get quote → Sign Solana transaction → Submit to network
   - Optional env var: `DFLOW_API_KEY` (helps with rate limits)
 
+- **Jupiter Aggregator**: SOL to USDC swaps
+  - Quote API: `https://quote-api.jup.ag/v6/quote`
+  - Swap API: `https://quote-api.jup.ag/v6/swap`
+  - Used for auto-converting SOL deposits to USDC
+  - Gas Tank Logic: Keeps 0.025 SOL reserved for transaction fees
+  - No API key required
+
 ### Database
 - **PostgreSQL**: Primary data store
   - Required env var: `DATABASE_URL`
