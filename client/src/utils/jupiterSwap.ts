@@ -5,7 +5,19 @@ const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-export const MIN_GAS_SOL = 0.025;
+
+export const GAS_RESERVE_MICRO = 0.004;
+export const GAS_RESERVE_STANDARD = 0.02;
+export const MICRO_DEPOSIT_THRESHOLD = 0.1;
+
+export function getDynamicGasReserve(solBalance: number): number {
+  if (solBalance < MICRO_DEPOSIT_THRESHOLD) {
+    return GAS_RESERVE_MICRO;
+  }
+  return GAS_RESERVE_STANDARD;
+}
+
+export const MIN_GAS_SOL = 0.004;
 
 export interface JupiterQuote {
   inputMint: string;
@@ -135,7 +147,8 @@ export async function prepareSwapSolToUsdc(
 }
 
 export function calculateSwapAmount(currentSolBalance: number): number {
-  const swapAmount = currentSolBalance - MIN_GAS_SOL;
+  const gasReserve = getDynamicGasReserve(currentSolBalance);
+  const swapAmount = currentSolBalance - gasReserve;
   return swapAmount > 0.001 ? swapAmount : 0;
 }
 
@@ -144,11 +157,12 @@ export async function prepareAutoSwap(
   userPublicKey: string
 ): Promise<SwapResult> {
   const swapAmount = calculateSwapAmount(currentSolBalance);
+  const gasReserve = getDynamicGasReserve(currentSolBalance);
   
   if (swapAmount <= 0) {
     return {
       success: false,
-      error: `Balance too low. Need at least ${MIN_GAS_SOL} SOL for gas reserve.`,
+      error: `Balance too low. Need at least ${gasReserve} SOL for gas reserve.`,
     };
   }
 

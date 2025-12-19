@@ -26,31 +26,34 @@ function ProfileContent() {
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [depositAddress, setDepositAddress] = useState<string | null>(null);
   const [depositCopied, setDepositCopied] = useState(false);
-  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const walletAddress = embeddedWallet?.address || user?.wallet?.address || null;
   const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(walletAddress);
-  const { performAutoSwap, getSwapPreview, isSwapping, MIN_GAS_SOL } = useAutoSwap();
-  
-  const swapPreview = getSwapPreview(solBalance);
-  
-  const handleConvertToUsdc = async () => {
-    const result = await performAutoSwap(solBalance);
-    if (result.success) {
-      toast({
-        title: "Conversion Successful",
-        description: `Swapped ${swapPreview.swapAmount.toFixed(4)} SOL for ~$${result.usdcReceived?.toFixed(2) || '0'} USDC`,
-      });
-      setConvertDialogOpen(false);
-      refetchBalance();
-    } else {
-      toast({
-        title: "Conversion Failed",
-        description: result.error,
-        variant: "destructive",
-      });
+  const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
+
+  useEffect(() => {
+    if (walletAddress && solBalance > 0) {
+      checkAndAutoSwap(
+        solBalance, 
+        walletAddress,
+        () => toast({ title: "Processing Deposit...", description: "Converting SOL to USDC for betting" }),
+        (result) => {
+          if (result.success) {
+            toast({ title: "Deposit Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
+            refetchBalance();
+          } else if (result.error) {
+            toast({ title: "Swap Failed", description: result.error, variant: "destructive" });
+          }
+        }
+      );
     }
-  };
+  }, [solBalance, walletAddress]);
+
+  useEffect(() => {
+    if (walletAddress && solBalance > 0) {
+      resetPreviousBalance(solBalance);
+    }
+  }, [walletAddress]);
   
   const calculateBetsLeft = (wagerAmount: number) => {
     if (usdcBalance <= 0 || wagerAmount <= 0) return 0;
@@ -255,14 +258,10 @@ function ProfileContent() {
                    <span className="text-emerald-400">${usdcBalance.toFixed(2)} USDC</span>
                    <span>{solBalance.toFixed(4)} SOL</span>
                  </div>
-                 {swapPreview.canSwap && (
-                   <button 
-                     onClick={() => setConvertDialogOpen(true)}
-                     className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded flex items-center gap-1 ml-auto"
-                     data-testid="button-convert-usdc"
-                   >
-                     <ArrowRightLeft size={10} /> Convert to USDC
-                   </button>
+                 {isSwapping && (
+                   <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto">
+                     <Loader2 size={10} className="animate-spin" /> Converting...
+                   </div>
                  )}
                </div>
             ) : null}
@@ -437,68 +436,6 @@ function ProfileContent() {
               className="w-full"
             >
               Done - Refresh Balance
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <ArrowRightLeft className="text-blue-400" size={20} />
-              Convert SOL to USDC
-            </DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Convert your SOL balance to USDC for betting. A small amount will be kept for gas fees.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 pt-4">
-            <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-zinc-400 text-sm">Converting</span>
-                <span className="text-white font-mono">{swapPreview.swapAmount.toFixed(4)} SOL</span>
-              </div>
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-zinc-400 text-sm">Gas Reserve</span>
-                <span className="text-zinc-500 font-mono">{MIN_GAS_SOL} SOL</span>
-              </div>
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-zinc-400 text-sm">Est. USDC Out</span>
-                <span className="text-emerald-400 font-mono">~${(swapPreview.swapAmount * solPrice).toFixed(2)}</span>
-              </div>
-              <div className="h-px bg-zinc-700 my-3" />
-              <div className="text-[10px] text-zinc-500">
-                Powered by Jupiter aggregator. 0.5% max slippage.
-              </div>
-            </div>
-            
-            <Button 
-              onClick={handleConvertToUsdc}
-              disabled={isSwapping || !swapPreview.canSwap}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-              data-testid="button-confirm-convert"
-            >
-              {isSwapping ? (
-                <>
-                  <Loader2 size={16} className="mr-2 animate-spin" />
-                  Converting...
-                </>
-              ) : (
-                <>
-                  <ArrowRightLeft size={16} className="mr-2" />
-                  Convert to USDC
-                </>
-              )}
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => setConvertDialogOpen(false)}
-              className="w-full"
-            >
-              Cancel
             </Button>
           </div>
         </DialogContent>
