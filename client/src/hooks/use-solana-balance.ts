@@ -91,7 +91,7 @@ export function useSolanaBalance(walletAddress: string | null | undefined): Sola
 
   useEffect(() => {
     fetchBalance();
-    const interval = setInterval(fetchBalance, 30000);
+    const interval = setInterval(fetchBalance, 5000);
     return () => clearInterval(interval);
   }, [fetchBalance]);
 
