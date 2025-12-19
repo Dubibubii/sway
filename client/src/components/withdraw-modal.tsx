@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowUp, Loader2, AlertCircle, Wallet, ChevronDown, Edit2 } from 'lucide-react';
+import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2 } from 'lucide-react';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
@@ -29,23 +29,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const [error, setError] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
 
-  const externalWallets = useMemo(() => {
-    return wallets.filter((w: any) => 
-      w.walletClientType !== 'privy' && 
-      (w.chainType === 'solana' || w.type === 'solana')
-    );
-  }, [wallets]);
-
   const privyWallet = useMemo(() => {
     return wallets.find((w: any) => w.walletClientType === 'privy');
   }, [wallets]);
 
   useEffect(() => {
-    if (open && externalWallets.length > 0 && !recipient) {
-      setRecipient(externalWallets[0].address);
+    if (open && walletAddress && !recipient) {
+      setRecipient(walletAddress);
       setShowManualEntry(false);
     }
-  }, [open, externalWallets]);
+  }, [open, walletAddress]);
 
   const availableBalance = token === 'SOL' 
     ? Math.max(0, solBalance - MIN_SOL_RESERVE) 
@@ -58,11 +51,6 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
 
   const handleMaxClick = () => {
     setAmount(availableBalance.toFixed(token === 'SOL' ? 6 : 2));
-  };
-
-  const handleSelectWallet = (address: string) => {
-    setRecipient(address);
-    setShowManualEntry(false);
   };
 
   const handleWithdraw = async () => {
@@ -216,10 +204,10 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                   }`}
                   data-testid="input-recipient"
                 />
-                {externalWallets.length > 0 && (
+                {walletAddress && (
                   <button
                     onClick={() => {
-                      setRecipient(externalWallets[0].address);
+                      setRecipient(walletAddress);
                       setShowManualEntry(false);
                     }}
                     className="text-xs text-zinc-500 hover:text-zinc-400"
@@ -228,36 +216,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                   </button>
                 )}
               </div>
-            ) : externalWallets.length > 0 ? (
-              <div className="space-y-2">
-                {externalWallets.map((wallet: any) => (
-                  <button
-                    key={wallet.address}
-                    onClick={() => handleSelectWallet(wallet.address)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                      recipient === wallet.address
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700'
-                    }`}
-                    data-testid={`button-wallet-${wallet.address.slice(0, 8)}`}
-                  >
-                    <Wallet size={18} className={recipient === wallet.address ? 'text-emerald-400' : 'text-zinc-400'} />
-                    <div className="flex-1 text-left">
-                      <div className="text-sm font-medium">
-                        {wallet.walletClientType === 'phantom' ? 'Phantom' : 
-                         wallet.walletClientType === 'solflare' ? 'Solflare' :
-                         wallet.walletClientType === 'backpack' ? 'Backpack' :
-                         'External Wallet'}
-                      </div>
-                      <div className="text-xs text-zinc-500 font-mono">
-                        {formatAddress(wallet.address)}
-                      </div>
-                    </div>
-                    {recipient === wallet.address && (
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                    )}
-                  </button>
-                ))}
+            ) : walletAddress ? (
+              <div className="w-full flex items-center gap-3 p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30">
+                <Wallet size={18} className="text-emerald-400" />
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium text-emerald-400">Connected Wallet</div>
+                  <div className="text-xs text-zinc-400 font-mono">
+                    {formatAddress(walletAddress)}
+                  </div>
+                </div>
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
               </div>
             ) : (
               <div className="space-y-2">
@@ -271,9 +239,6 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                   }`}
                   data-testid="input-recipient"
                 />
-                <p className="text-[10px] text-zinc-500">
-                  Connect an external wallet (Phantom, Solflare) to auto-select it
-                </p>
               </div>
             )}
             
