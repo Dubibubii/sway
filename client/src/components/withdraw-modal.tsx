@@ -13,10 +13,11 @@ interface WithdrawModalProps {
   onOpenChange: (open: boolean) => void;
   solBalance: number;
   usdcBalance: number;
+  walletAddress: string | null;
   onSuccess: () => void;
 }
 
-export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, onSuccess }: WithdrawModalProps) {
+export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, onSuccess }: WithdrawModalProps) {
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { toast } = useToast();
@@ -47,15 +48,17 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, onS
     setError(null);
 
     try {
-      const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy' || w.type === 'solana');
-      if (!solanaWallet) {
+      const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy' || w.type === 'solana' || w.chainType === 'solana');
+      
+      const fromAddress = walletAddress || solanaWallet?.address;
+      if (!fromAddress) {
         throw new Error('No Solana wallet connected');
       }
 
       const result = await buildWithdrawalTransaction(
         token,
         numAmount,
-        solanaWallet.address,
+        fromAddress,
         recipient
       );
 
@@ -63,9 +66,14 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, onS
         throw new Error(result.error || 'Failed to build transaction');
       }
 
+      const walletForSigning = solanaWallet || wallets[0];
+      if (!walletForSigning) {
+        throw new Error('No wallet available for signing');
+      }
+
       const txResult = await signAndSendTransaction({
         transaction: result.transaction.serialize(),
-        wallet: solanaWallet,
+        wallet: walletForSigning,
       });
 
       const signature = (txResult as any)?.hash || (txResult as any)?.signature || 'unknown';

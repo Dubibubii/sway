@@ -509,6 +509,7 @@ function ProfileContent() {
         onOpenChange={setWithdrawModalOpen}
         solBalance={solBalance}
         usdcBalance={usdcBalance}
+        walletAddress={walletAddress}
         onSuccess={refetchBalance}
       />
       
