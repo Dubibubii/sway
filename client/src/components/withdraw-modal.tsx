@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowUp, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowUp, Loader2, AlertCircle, Wallet, ChevronDown, Edit2 } from 'lucide-react';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,25 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const [amount, setAmount] = useState('');
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
+  const externalWallets = useMemo(() => {
+    return wallets.filter((w: any) => 
+      w.walletClientType !== 'privy' && 
+      (w.chainType === 'solana' || w.type === 'solana')
+    );
+  }, [wallets]);
+
+  const privyWallet = useMemo(() => {
+    return wallets.find((w: any) => w.walletClientType === 'privy');
+  }, [wallets]);
+
+  useEffect(() => {
+    if (open && externalWallets.length > 0 && !recipient) {
+      setRecipient(externalWallets[0].address);
+      setShowManualEntry(false);
+    }
+  }, [open, externalWallets]);
 
   const availableBalance = token === 'SOL' 
     ? Math.max(0, solBalance - MIN_SOL_RESERVE) 
@@ -39,6 +58,11 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
 
   const handleMaxClick = () => {
     setAmount(availableBalance.toFixed(token === 'SOL' ? 6 : 2));
+  };
+
+  const handleSelectWallet = (address: string) => {
+    setRecipient(address);
+    setShowManualEntry(false);
   };
 
   const handleWithdraw = async () => {
@@ -66,7 +90,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error(result.error || 'Failed to build transaction');
       }
 
-      const walletForSigning = solanaWallet || wallets[0];
+      const walletForSigning = privyWallet || solanaWallet || wallets[0];
       if (!walletForSigning) {
         throw new Error('No wallet available for signing');
       }
@@ -107,6 +131,8 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
     }
   };
 
+  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
@@ -116,7 +142,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             Withdraw Funds
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Send SOL or USDC to another Solana wallet
+            Send SOL or USDC to your external wallet
           </DialogDescription>
         </DialogHeader>
         
@@ -164,17 +190,93 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="recipient" className="text-sm text-zinc-400">Recipient Address</Label>
-            <Input
-              id="recipient"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="Enter Solana wallet address"
-              className={`bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 ${
-                recipient.length > 0 && !isValidAddress ? 'border-red-500' : ''
-              }`}
-              data-testid="input-recipient"
-            />
+            <div className="flex justify-between items-center">
+              <Label className="text-sm text-zinc-400">Withdraw To</Label>
+              {!showManualEntry && (
+                <button
+                  onClick={() => setShowManualEntry(true)}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  data-testid="button-enter-custom"
+                >
+                  <Edit2 size={10} />
+                  Enter custom
+                </button>
+              )}
+            </div>
+            
+            {showManualEntry ? (
+              <div className="space-y-2">
+                <Input
+                  id="recipient"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder="Enter Solana wallet address"
+                  className={`bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 ${
+                    recipient.length > 0 && !isValidAddress ? 'border-red-500' : ''
+                  }`}
+                  data-testid="input-recipient"
+                />
+                {externalWallets.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setRecipient(externalWallets[0].address);
+                      setShowManualEntry(false);
+                    }}
+                    className="text-xs text-zinc-500 hover:text-zinc-400"
+                  >
+                    Use connected wallet instead
+                  </button>
+                )}
+              </div>
+            ) : externalWallets.length > 0 ? (
+              <div className="space-y-2">
+                {externalWallets.map((wallet: any) => (
+                  <button
+                    key={wallet.address}
+                    onClick={() => handleSelectWallet(wallet.address)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      recipient === wallet.address
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700'
+                    }`}
+                    data-testid={`button-wallet-${wallet.address.slice(0, 8)}`}
+                  >
+                    <Wallet size={18} className={recipient === wallet.address ? 'text-emerald-400' : 'text-zinc-400'} />
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium">
+                        {wallet.walletClientType === 'phantom' ? 'Phantom' : 
+                         wallet.walletClientType === 'solflare' ? 'Solflare' :
+                         wallet.walletClientType === 'backpack' ? 'Backpack' :
+                         'External Wallet'}
+                      </div>
+                      <div className="text-xs text-zinc-500 font-mono">
+                        {formatAddress(wallet.address)}
+                      </div>
+                    </div>
+                    {recipient === wallet.address && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  id="recipient"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder="Enter Solana wallet address"
+                  className={`bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 ${
+                    recipient.length > 0 && !isValidAddress ? 'border-red-500' : ''
+                  }`}
+                  data-testid="input-recipient"
+                />
+                <p className="text-[10px] text-zinc-500">
+                  Connect an external wallet (Phantom, Solflare) to auto-select it
+                </p>
+              </div>
+            )}
+            
             {recipient.length > 0 && !isValidAddress && (
               <div className="flex items-center gap-1 text-red-400 text-xs">
                 <AlertCircle size={12} />
