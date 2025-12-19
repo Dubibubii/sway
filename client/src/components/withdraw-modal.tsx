@@ -43,11 +43,13 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const availableBalance = token === 'SOL' 
     ? Math.max(0, solBalance - MIN_SOL_RESERVE) 
     : usdcBalance;
+  
+  const hasEnoughSolForFees = solBalance >= MIN_SOL_RESERVE;
 
   const isValidAddress = recipient.length > 0 ? validateSolanaAddress(recipient) : true;
   const numAmount = parseFloat(amount) || 0;
   const isValidAmount = numAmount > 0 && numAmount <= availableBalance;
-  const canSubmit = isValidAddress && isValidAmount && recipient.length > 0 && !isWithdrawing;
+  const canSubmit = isValidAddress && isValidAmount && recipient.length > 0 && !isWithdrawing && hasEnoughSolForFees;
 
   const handleMaxClick = () => {
     setAmount(availableBalance.toFixed(token === 'SOL' ? 6 : 2));
@@ -279,6 +281,15 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
               </div>
             )}
           </div>
+
+          {!hasEnoughSolForFees && (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-orange-400 text-xs">
+                <AlertCircle size={14} />
+                Need at least {MIN_SOL_RESERVE} SOL for transaction fees. Current: {solBalance.toFixed(4)} SOL
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
