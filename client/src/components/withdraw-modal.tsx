@@ -62,11 +62,19 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
     setError(null);
 
     try {
-      const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy' || w.type === 'solana' || w.chainType === 'solana');
-      
-      const fromAddress = walletAddress || solanaWallet?.address;
+      const fromAddress = walletAddress;
       if (!fromAddress) {
         throw new Error('No Solana wallet connected');
+      }
+
+      const solanaWallet = wallets.find((w: any) => 
+        w.walletClientType === 'privy' && w.chainType === 'solana'
+      ) || wallets.find((w: any) => 
+        w.address === fromAddress
+      ) || privyWallet;
+
+      if (!solanaWallet) {
+        throw new Error('Wallet not ready. Please reconnect your wallet.');
       }
 
       const result = await buildWithdrawalTransaction(
@@ -80,22 +88,25 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error(result.error || 'Failed to build transaction');
       }
 
-      const walletForSigning = privyWallet || solanaWallet || wallets[0];
-      if (!walletForSigning) {
-        throw new Error('No wallet available for signing');
-      }
+      console.log('Sending withdrawal transaction...', { token, amount: numAmount, from: fromAddress, to: recipient });
 
       const txResult = await signAndSendTransaction({
         transaction: result.transaction.serialize(),
-        wallet: walletForSigning,
+        wallet: solanaWallet,
       });
 
-      const signature = (txResult as any)?.hash || (txResult as any)?.signature;
+      console.log('Transaction result:', txResult);
       
-      if (signature && signature !== 'unknown') {
+      const signature = (txResult as any)?.hash || (txResult as any)?.signature || (txResult as any)?.transactionHash;
+      
+      if (!signature) {
+        console.warn('No signature returned from signAndSendTransaction');
+      } else {
+        console.log('Transaction signature:', signature);
         const confirmed = await confirmTransaction(signature);
+        console.log('Confirmation result:', confirmed);
         if (!confirmed.success) {
-          throw new Error(confirmed.error || 'Transaction failed on-chain');
+          throw new Error(confirmed.error || 'Transaction failed on-chain. You may need more SOL for fees.');
         }
       }
 
