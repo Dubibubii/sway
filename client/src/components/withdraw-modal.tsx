@@ -97,16 +97,29 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
 
       console.log('Transaction result:', txResult);
       
-      const signature = (txResult as any)?.hash || (txResult as any)?.signature || (txResult as any)?.transactionHash;
+      let signature: string | null = null;
       
-      if (!signature) {
-        console.warn('No signature returned from signAndSendTransaction');
+      if (typeof txResult === 'string') {
+        signature = txResult;
+      } else if (txResult && typeof txResult === 'object') {
+        signature = (txResult as any).hash || (txResult as any).signature || (txResult as any).transactionHash;
+        if (signature && typeof signature === 'object') {
+          signature = (signature as any).signature || (signature as any).hash || JSON.stringify(signature);
+        }
+      }
+      
+      if (!signature || typeof signature !== 'string') {
+        console.warn('No valid signature returned:', txResult);
       } else {
         console.log('Transaction signature:', signature);
-        const confirmed = await confirmTransaction(signature);
-        console.log('Confirmation result:', confirmed);
-        if (!confirmed.success) {
-          throw new Error(confirmed.error || 'Transaction failed on-chain. You may need more SOL for fees.');
+        try {
+          const confirmed = await confirmTransaction(signature);
+          console.log('Confirmation result:', confirmed);
+          if (!confirmed.success) {
+            throw new Error(confirmed.error || 'Transaction failed on-chain. You may need more SOL for fees.');
+          }
+        } catch (confirmError: any) {
+          console.error('Confirmation error:', confirmError);
         }
       }
 
