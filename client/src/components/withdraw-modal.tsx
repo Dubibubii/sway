@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2 } from 'lucide-react';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
-import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE } from '@/utils/withdraw';
+import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE, confirmTransaction } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
 
 interface WithdrawModalProps {
@@ -90,7 +90,14 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         wallet: walletForSigning,
       });
 
-      const signature = (txResult as any)?.hash || (txResult as any)?.signature || 'unknown';
+      const signature = (txResult as any)?.hash || (txResult as any)?.signature;
+      
+      if (signature && signature !== 'unknown') {
+        const confirmed = await confirmTransaction(signature);
+        if (!confirmed.success) {
+          throw new Error(confirmed.error || 'Transaction failed on-chain');
+        }
+      }
 
       toast({
         title: "Withdrawal Successful",

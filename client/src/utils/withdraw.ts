@@ -14,7 +14,7 @@ const SOLANA_RPC_URL = heliusApiKey
   ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
   : 'https://api.mainnet-beta.solana.com';
 
-export const MIN_SOL_RESERVE = 0.005;
+export const MIN_SOL_RESERVE = 0.001;
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
@@ -203,5 +203,33 @@ export async function buildWithdrawalTransaction(
     return buildSolWithdrawal(fromPubkey, toPubkey, amount);
   } else {
     return buildUsdcWithdrawal(fromPubkey, toPubkey, amount);
+  }
+}
+
+export async function confirmTransaction(signature: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+    
+    const result = await connection.getSignatureStatus(signature, {
+      searchTransactionHistory: true,
+    });
+    
+    if (result.value?.err) {
+      return { success: false, error: `Transaction failed: ${JSON.stringify(result.value.err)}` };
+    }
+    
+    if (result.value?.confirmationStatus === 'confirmed' || result.value?.confirmationStatus === 'finalized') {
+      return { success: true };
+    }
+    
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    
+    if (confirmation.value.err) {
+      return { success: false, error: `Transaction failed: ${JSON.stringify(confirmation.value.err)}` };
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to confirm transaction' };
   }
 }
