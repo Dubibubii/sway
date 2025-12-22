@@ -78,11 +78,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const isValidAddress = recipient.length > 0 ? validateSolanaAddress(recipient) : true;
   const isSameAddress = walletAddress && recipient.toLowerCase() === walletAddress.toLowerCase();
   const numAmount = parseFloat(amount) || 0;
-  const isValidAmount = numAmount > 0 && numAmount <= availableBalance;
+  // Add small tolerance (0.001) to handle floating point precision issues
+  const isValidAmount = numAmount > 0 && numAmount <= availableBalance + 0.001;
   const canSubmit = isValidAddress && isValidAmount && recipient.length > 0 && !isWithdrawing && hasEnoughSolForFees && !isSameAddress;
 
   const handleMaxClick = () => {
-    setAmount(availableBalance.toFixed(token === 'SOL' ? 6 : 2));
+    // Round DOWN to avoid exceeding actual balance
+    const decimals = token === 'SOL' ? 6 : 2;
+    const multiplier = Math.pow(10, decimals);
+    const roundedDown = Math.floor(availableBalance * multiplier) / multiplier;
+    setAmount(roundedDown.toFixed(decimals));
   };
 
   const handleWithdraw = async () => {
