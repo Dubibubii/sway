@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { 
   prepareAutoSwap, 
@@ -19,6 +19,17 @@ export interface AutoSwapResult {
 
 const MIN_SWAP_THRESHOLD = 0.005;
 const SWAP_COOLDOWN_MS = 30000;
+const DEPOSIT_DETECTION_THRESHOLD = 0.001;
+
+function logError(context: string, err: unknown) {
+  console.error(`[AutoSwap] ${context}:`, 
+    err instanceof Error ? err.message : JSON.stringify(err, Object.getOwnPropertyNames(err as object))
+  );
+  if (err instanceof Error && err.stack) {
+    console.error('[AutoSwap] Stack:', err.stack);
+  }
+  console.dir(err);
+}
 
 export function useAutoSwap() {
   const { wallets, ready: walletsReady } = useWallets();
@@ -27,8 +38,9 @@ export function useAutoSwap() {
   const [error, setError] = useState<string | null>(null);
   
   const lastSwapTimeRef = useRef<number>(0);
-  const lastAttemptedBalanceRef = useRef<number>(0);
   const previousBalanceRef = useRef<number>(0);
+  const swapAttemptedForDepositRef = useRef<boolean>(false);
+  const pendingSwapRef = useRef<{balance: number, address: string, onComplete?: (result: AutoSwapResult) => void} | null>(null);
 
   const performAutoSwap = useCallback(async (
     currentSolBalance: number,
@@ -42,10 +54,15 @@ export function useAutoSwap() {
     setError(null);
 
     try {
+      console.log('[AutoSwap] Starting swap attempt...');
+      console.log('[AutoSwap] Wallets ready:', walletsReady);
+      console.log('[AutoSwap] Wallet count:', wallets.length);
+      console.log('[AutoSwap] Embedded wallet address:', embeddedWalletAddress);
+      
       if (!walletsReady) {
-        console.log('[AutoSwap] Wallets not ready yet');
+        console.log('[AutoSwap] Wallets not ready, will retry when ready');
         setIsSwapping(false);
-        return { success: false };
+        return { success: false, error: 'Wallets not ready' };
       }
       
       let walletToUse = embeddedWalletAddress 
@@ -60,12 +77,14 @@ export function useAutoSwap() {
       }
       
       if (!walletToUse && embeddedWalletAddress) {
-        console.log('[AutoSwap] Embedded wallet not in useWallets() array');
+        console.log('[AutoSwap] Embedded wallet not found in useWallets array');
+        console.log('[AutoSwap] Available wallets:', wallets.map((w: any) => w.address));
         setIsSwapping(false);
-        return { success: false, error: 'Wallet not ready' };
+        return { success: false, error: 'Wallet not found' };
       }
       
-      if (!walletToUse && wallets.length > 0 && !embeddedWalletAddress) {
+      if (!walletToUse && wallets.length > 0) {
+        console.log('[AutoSwap] Using first available wallet as fallback');
         walletToUse = wallets[0];
       }
       
@@ -84,12 +103,14 @@ export function useAutoSwap() {
         throw new Error(`Need at least ${gasReserve} SOL reserved for gas fees`);
       }
 
+      console.log('[AutoSwap] Preparing swap for', swapAmount.toFixed(6), 'SOL');
       const swapResult = await prepareAutoSwap(currentSolBalance, userPublicKey);
 
       if (!swapResult.success || !swapResult.transactionBase64) {
         throw new Error(swapResult.error || 'Failed to prepare swap');
       }
 
+      console.log('[AutoSwap] Signing and sending transaction...');
       const transactionBytes = base64ToUint8Array(swapResult.transactionBase64);
 
       const result = await signAndSendTransaction({
@@ -98,6 +119,7 @@ export function useAutoSwap() {
       });
 
       const signature = (result as any)?.hash || (result as any)?.signature || 'unknown';
+      console.log('[AutoSwap] Swap successful! Signature:', signature);
       
       lastSwapTimeRef.current = Date.now();
 
@@ -107,8 +129,9 @@ export function useAutoSwap() {
         signature,
         usdcReceived: swapResult.expectedUsdcOut,
       };
-    } catch (err: any) {
-      const errorMessage = err.message || 'Auto-swap failed';
+    } catch (err: unknown) {
+      logError('Swap failed', err);
+      const errorMessage = err instanceof Error ? err.message : 'Auto-swap failed';
       setError(errorMessage);
       setIsSwapping(false);
       
@@ -119,6 +142,21 @@ export function useAutoSwap() {
     }
   }, [wallets, walletsReady, signAndSendTransaction, isSwapping]);
 
+  useEffect(() => {
+    if (walletsReady && pendingSwapRef.current && !isSwapping) {
+      console.log('[AutoSwap] Wallets now ready, executing pending swap');
+      const { balance, address, onComplete } = pendingSwapRef.current;
+      pendingSwapRef.current = null;
+      
+      performAutoSwap(balance, address).then((result) => {
+        if (result.success) {
+          console.log('[AutoSwap] Pending swap completed successfully');
+        }
+        onComplete?.(result);
+      });
+    }
+  }, [walletsReady, isSwapping, performAutoSwap]);
+
   const checkAndAutoSwap = useCallback(async (
     currentSolBalance: number,
     embeddedWalletAddress: string | null,
@@ -128,45 +166,53 @@ export function useAutoSwap() {
   ): Promise<boolean> => {
     const swapAmount = calculateSwapAmount(currentSolBalance);
     const previousBalance = previousBalanceRef.current;
-    const lastAttemptedBalance = lastAttemptedBalanceRef.current;
     const balanceIncrease = currentSolBalance - previousBalance;
-    
-    const roundedBalance = Math.round(currentSolBalance * 1_000_000) / 1_000_000;
-    const roundedLastAttempted = Math.round(lastAttemptedBalance * 1_000_000) / 1_000_000;
     
     if (!embeddedWalletAddress || isSwapping) {
       return false;
     }
     
+    if (swapAmount <= MIN_SWAP_THRESHOLD) {
+      previousBalanceRef.current = currentSolBalance;
+      swapAttemptedForDepositRef.current = false;
+      return false;
+    }
+
+    const isNewDeposit = balanceIncrease >= DEPOSIT_DETECTION_THRESHOLD;
+    const isFirstDeposit = previousBalance === 0 && currentSolBalance > MIN_SWAP_THRESHOLD;
+    
+    if (isNewDeposit || isFirstDeposit) {
+      swapAttemptedForDepositRef.current = false;
+      console.log('[AutoSwap] New deposit detected! Increase:', balanceIncrease.toFixed(6), 'SOL');
+    }
+
+    if (swapAttemptedForDepositRef.current && !forceSwap) {
+      return false;
+    }
+
     const now = Date.now();
     const timeSinceLastSwap = now - lastSwapTimeRef.current;
     if (timeSinceLastSwap < SWAP_COOLDOWN_MS && !forceSwap) {
       return false;
     }
-
-    if (swapAmount <= MIN_SWAP_THRESHOLD) {
-      previousBalanceRef.current = currentSolBalance;
-      return false;
-    }
-
-    if (roundedBalance === roundedLastAttempted && !forceSwap) {
-      console.log('[AutoSwap] SKIP: Already attempted swap at this balance:', roundedBalance);
-      return false;
-    }
-
-    const isFirstDeposit = previousBalance === 0 && currentSolBalance > MIN_SWAP_THRESHOLD;
-    const isTopUp = balanceIncrease > 0.001 && previousBalance > 0;
     
-    if (forceSwap || isFirstDeposit || isTopUp) {
-      console.log('[AutoSwap] Triggering swap for balance:', roundedBalance);
+    if (forceSwap || isFirstDeposit || isNewDeposit) {
+      console.log('[AutoSwap] Triggering swap for', currentSolBalance.toFixed(6), 'SOL');
       
-      lastAttemptedBalanceRef.current = currentSolBalance;
+      swapAttemptedForDepositRef.current = true;
+      previousBalanceRef.current = currentSolBalance;
+      
+      if (!walletsReady) {
+        console.log('[AutoSwap] Wallets not ready, queueing swap for when ready');
+        pendingSwapRef.current = { balance: currentSolBalance, address: embeddedWalletAddress, onComplete };
+        return false;
+      }
       
       onStart?.();
       const result = await performAutoSwap(currentSolBalance, embeddedWalletAddress);
       
       if (result.success) {
-        previousBalanceRef.current = currentSolBalance;
+        console.log('[AutoSwap] Swap completed successfully');
       }
       
       onComplete?.(result);
@@ -175,7 +221,7 @@ export function useAutoSwap() {
 
     previousBalanceRef.current = currentSolBalance;
     return false;
-  }, [isSwapping, performAutoSwap]);
+  }, [isSwapping, performAutoSwap, walletsReady]);
 
   const getSwapPreview = useCallback((currentSolBalance: number) => {
     const gasReserve = getDynamicGasReserve(currentSolBalance);
@@ -190,6 +236,7 @@ export function useAutoSwap() {
 
   const resetPreviousBalance = useCallback((balance: number) => {
     previousBalanceRef.current = balance;
+    swapAttemptedForDepositRef.current = false;
   }, []);
 
   return {
