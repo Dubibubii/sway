@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { 
   prepareAutoSwap, 
   calculateSwapAmount, 
@@ -33,7 +33,6 @@ function logError(context: string, err: unknown) {
 
 export function useAutoSwap() {
   const { wallets, ready: walletsReady } = useWallets();
-  const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isSwapping, setIsSwapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -113,12 +112,33 @@ export function useAutoSwap() {
       console.log('[AutoSwap] Signing and sending transaction...');
       const transactionBytes = base64ToUint8Array(swapResult.transactionBase64);
 
-      const result = await signAndSendTransaction({
-        transaction: transactionBytes,
-        wallet: walletToUse,
-      });
+      // Find the embedded wallet from the wallets list
+      const embeddedWallet = wallets.find(
+        (w: any) => w.walletClientType === 'privy' && w.address === userPublicKey
+      );
+      
+      let signature: string;
+      
+      if (embeddedWallet) {
+        // Use embedded wallet's provider for automatic signing (no confirmation modal)
+        console.log('[AutoSwap] Using embedded wallet provider for automatic signing');
+        const provider = await (embeddedWallet as any).getProvider();
+        
+        // Sign the transaction message using the provider
+        const { signature: sig } = await provider.request({
+          method: 'signAndSendTransaction',
+          params: {
+            transaction: swapResult.transactionBase64,
+            sendOptions: { skipPreflight: false }
+          }
+        });
+        signature = sig;
+      } else {
+        // Fallback: This shouldn't happen for embedded wallets
+        console.log('[AutoSwap] Warning: Embedded wallet not found, cannot auto-sign');
+        throw new Error('Automatic signing only available for embedded wallets');
+      }
 
-      const signature = (result as any)?.hash || (result as any)?.signature || 'unknown';
       console.log('[AutoSwap] Swap successful! Signature:', signature);
       
       lastSwapTimeRef.current = Date.now();
@@ -140,7 +160,7 @@ export function useAutoSwap() {
         error: errorMessage,
       };
     }
-  }, [wallets, walletsReady, signAndSendTransaction, isSwapping]);
+  }, [wallets, walletsReady, isSwapping]);
 
   useEffect(() => {
     if (walletsReady && pendingSwapRef.current && !isSwapping) {
