@@ -444,6 +444,43 @@ export async function registerRoutes(
     }
   });
 
+  // New endpoint that accepts token mints directly (client fetches them to bypass 403)
+  app.post('/api/pond/order', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { inputMint, outputMint, amountUSDC, userPublicKey, slippageBps = 100 } = req.body;
+
+      if (!inputMint || !outputMint || !amountUSDC || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required fields: inputMint, outputMint, amountUSDC, userPublicKey' });
+      }
+
+      // Convert USDC amount to atomic units (USDC has 6 decimals)
+      const amountAtomic = Math.floor(amountUSDC * 1_000_000);
+
+      console.log('[Pond Order] Getting order for:', { inputMint, outputMint, amountAtomic, userPublicKey });
+
+      // Get order from DFlow
+      const orderResponse = await getPondQuote(
+        inputMint,
+        outputMint,
+        amountAtomic,
+        userPublicKey,
+        slippageBps,
+        DFLOW_API_KEY || undefined
+      );
+
+      console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
+
+      res.json({
+        transaction: orderResponse.transaction,
+        quote: orderResponse.quote,
+        executionMode: orderResponse.executionMode,
+      });
+    } catch (error: any) {
+      console.error('Error getting Pond order:', error);
+      res.status(500).json({ error: error.message || 'Failed to get order' });
+    }
+  });
+
   app.get('/api/pond/order-status/:signature', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { signature } = req.params;

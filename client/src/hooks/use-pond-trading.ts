@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 
+const POND_METADATA_API = 'https://prediction-markets-api.dflow.net';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
 export interface PondTradeResult {
   success: boolean;
   signature?: string;
@@ -17,6 +20,46 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+async function getMarketTokensFromClient(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
+  const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
+  console.log('[PondTrading] Fetching market tokens (client-side) from:', url);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    
+    console.log('[PondTrading] Market token response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[PondTrading] Failed to fetch market tokens:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('[PondTrading] Market data received:', JSON.stringify(data).slice(0, 500));
+    
+    const accounts = data.accounts || {};
+    const yesMint = accounts.yesTokenMint || accounts.yes_token_mint || data.yesMint || data.yes_token_mint;
+    const noMint = accounts.noTokenMint || accounts.no_token_mint || data.noMint || data.no_token_mint;
+    
+    if (!yesMint || !noMint) {
+      console.error('[PondTrading] Market tokens not found in response. Accounts:', JSON.stringify(accounts));
+      return null;
+    }
+    
+    console.log('[PondTrading] Found token mints - YES:', yesMint, 'NO:', noMint);
+    return { yesMint, noMint };
+  } catch (error) {
+    console.error('[PondTrading] Error fetching market tokens:', error);
+    return null;
+  }
 }
 
 export function usePondTrading() {
@@ -59,49 +102,58 @@ export function usePondTrading() {
       console.log('[PondTrading] Amount USDC:', amountUSDC);
       console.log('[PondTrading] User wallet:', userPublicKey);
 
+      const marketTokens = await getMarketTokensFromClient(marketId);
+      
+      if (!marketTokens) {
+        throw new Error('This market is not yet available for on-chain trading. Try a different market.');
+      }
+
+      const outputMint = side === 'yes' ? marketTokens.yesMint : marketTokens.noMint;
+      console.log('[PondTrading] Output mint:', outputMint);
+
       const token = await getAccessToken();
 
-      const quoteResponse = await fetch('/api/pond/quote', {
+      const quoteResponse = await fetch('/api/pond/order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          marketId,
-          side,
+          inputMint: USDC_MINT,
+          outputMint,
           amountUSDC,
           userPublicKey,
           slippageBps: 100,
         }),
       });
 
-      console.log('[PondTrading] Quote response status:', quoteResponse.status);
+      console.log('[PondTrading] Order response status:', quoteResponse.status);
 
       if (!quoteResponse.ok) {
         const errorText = await quoteResponse.text();
-        console.error('[PondTrading] Quote failed:', errorText);
+        console.error('[PondTrading] Order failed:', errorText);
         let errorData;
         try {
           errorData = JSON.parse(errorText);
         } catch {
           throw new Error(`Server error: ${quoteResponse.status} - ${errorText}`);
         }
-        throw new Error(errorData.error || 'Failed to get quote from Pond API');
+        throw new Error(errorData.error || 'Failed to get order from DFlow API');
       }
 
-      const quoteData = await quoteResponse.json();
-      console.log('[PondTrading] Quote received:', JSON.stringify(quoteData).slice(0, 300));
+      const orderData = await quoteResponse.json();
+      console.log('[PondTrading] Order received:', JSON.stringify(orderData).slice(0, 300));
       
-      const { quote, executionMode } = quoteData;
+      const { transaction, executionMode, quote } = orderData;
 
-      if (!quote?.transaction) {
-        throw new Error('No transaction returned from Pond API');
+      if (!transaction) {
+        throw new Error('No transaction returned from DFlow API');
       }
 
       console.log('[PondTrading] Trade prepared, signing transaction...');
       
-      const transactionBytes = base64ToUint8Array(quote.transaction);
+      const transactionBytes = base64ToUint8Array(transaction);
 
       console.log('[PondTrading] Available wallets:', wallets.map((w: any) => ({
         address: w.address,
@@ -139,7 +191,7 @@ export function usePondTrading() {
 
       console.log('[PondTrading] Trade executed! Signature:', signature);
 
-      const expectedShares = quote.outAmount
+      const expectedShares = quote?.outAmount
         ? parseInt(quote.outAmount) / 1_000_000
         : undefined;
       
