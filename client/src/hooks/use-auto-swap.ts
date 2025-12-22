@@ -41,9 +41,12 @@ export function useAutoSwap() {
     setError(null);
 
     try {
-      const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy' || w.type === 'solana');
+      // Only use embedded Privy wallet for auto-swap (external wallets manage their own funds)
+      const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy');
       if (!solanaWallet) {
-        throw new Error('No Solana wallet connected');
+        // Not an error - user may only have external wallet, which doesn't need auto-swap
+        setIsSwapping(false);
+        return { success: false };
       }
 
       const userPublicKey = solanaWallet.address;

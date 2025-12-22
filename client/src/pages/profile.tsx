@@ -32,22 +32,24 @@ function ProfileContent() {
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
 
   useEffect(() => {
-    if (walletAddress && solBalance > 0) {
+    // Only auto-swap for embedded wallet (external wallets manage their own funds)
+    if (embeddedWallet?.address && solBalance > 0) {
       checkAndAutoSwap(
         solBalance, 
-        walletAddress,
+        embeddedWallet.address,
         () => toast({ title: "Processing Deposit...", description: "Converting SOL to USDC for betting" }),
         (result) => {
           if (result.success) {
             toast({ title: "Deposit Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
             refetchBalance();
-          } else if (result.error) {
+          } else if (result.error && !result.error.includes('already in progress')) {
+            // Only show error for actual failures
             toast({ title: "Swap Failed", description: result.error, variant: "destructive" });
           }
         }
       );
     }
-  }, [solBalance, walletAddress]);
+  }, [solBalance, embeddedWallet?.address]);
 
   useEffect(() => {
     if (walletAddress && solBalance > 0) {
