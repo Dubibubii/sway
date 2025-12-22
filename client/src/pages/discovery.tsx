@@ -6,7 +6,7 @@ import { Search, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarkets, type Market } from "@/lib/api";
 
-const CATEGORIES = ["All", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
+const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
 export default function Discovery() {
   const [searchQuery, setSearchQuery] = useState("");
