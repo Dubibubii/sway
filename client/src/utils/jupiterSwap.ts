@@ -16,8 +16,9 @@ export function getDynamicGasReserve(solBalance: number): number {
 
 export const MIN_GAS_SOL = 0.004;
 
-const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
-const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+// Use server-side proxy to avoid CORS issues
+const JUPITER_QUOTE_API = '/api/jupiter/quote';
+const JUPITER_SWAP_API = '/api/jupiter/swap';
 
 export interface JupiterQuote {
   inputMint: string;
@@ -118,16 +119,10 @@ export async function getSwapTransaction(
   console.log('[Jupiter] Quote inAmount:', quote.inAmount);
   console.log('[Jupiter] Quote outAmount:', quote.outAmount);
   
+  // Server proxy handles the additional swap options
   const requestBody = {
     quoteResponse: quote,
     userPublicKey,
-    wrapAndUnwrapSol: true,
-    dynamicComputeUnitLimit: true,
-    prioritizationFeeLamports: 'auto',
-    dynamicSlippage: {
-      minBps: 50,
-      maxBps: 300,
-    },
   };
   
   try {
