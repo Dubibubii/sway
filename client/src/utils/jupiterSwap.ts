@@ -3,8 +3,9 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
-export const GAS_RESERVE_MICRO = 0.004;
-export const GAS_RESERVE_STANDARD = 0.02;
+// Reserve more SOL for gas + rent (USDC account creation costs ~0.002 SOL)
+export const GAS_RESERVE_MICRO = 0.008;
+export const GAS_RESERVE_STANDARD = 0.025;
 export const MICRO_DEPOSIT_THRESHOLD = 0.1;
 
 export function getDynamicGasReserve(solBalance: number): number {
