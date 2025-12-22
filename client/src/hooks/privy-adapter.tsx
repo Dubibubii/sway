@@ -27,12 +27,9 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   }, [privy.user?.linkedAccounts]);
   
   const externalWalletAddress = useMemo(() => {
-    if (privy.user?.wallet?.address) {
-      return privy.user.wallet.address;
-    }
-    
     if (!privy.user?.linkedAccounts) return null;
     
+    // First check for external wallets in linkedAccounts (Phantom, Solflare, etc.)
     const externalWallet = privy.user.linkedAccounts.find(
       (account: any) => 
         account.type === 'wallet' && 
@@ -43,8 +40,15 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     if (externalWallet && 'address' in externalWallet) {
       return (externalWallet as any).address;
     }
+    
+    // Fallback: use user.wallet if it's different from embedded wallet
+    const embeddedAddress = embeddedWallet?.address;
+    if (privy.user?.wallet?.address && privy.user.wallet.address !== embeddedAddress) {
+      return privy.user.wallet.address;
+    }
+    
     return null;
-  }, [privy.user?.wallet?.address, privy.user?.linkedAccounts]);
+  }, [privy.user?.wallet?.address, privy.user?.linkedAccounts, embeddedWallet?.address]);
   
   const createWalletWrapper = async () => {
     try {
