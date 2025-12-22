@@ -1,11 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { USDC_MINT } from '@/utils/jupiterSwap';
 
-const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
-const SOLANA_RPC_URL = heliusApiKey 
-  ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
-  : 'https://api.mainnet-beta.solana.com';
 const SOL_PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
 
 interface SolanaBalance {
@@ -40,13 +34,19 @@ export function useSolanaBalance(walletAddress: string | null | undefined): Sola
     setError(null);
 
     try {
-      const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
-      const publicKey = new PublicKey(walletAddress);
+      // Fetch balance via backend (uses Helius RPC)
+      const balanceResponse = await fetch(`/api/solana/balance/${walletAddress}`);
+      if (!balanceResponse.ok) {
+        throw new Error('Failed to fetch balance');
+      }
+      const balanceData = await balanceResponse.json();
+      const sol = balanceData.solBalance || 0;
+      const usdc = balanceData.usdcBalance || 0;
       
-      const lamports = await connection.getBalance(publicKey);
-      const sol = lamports / LAMPORTS_PER_SOL;
       setSolBalance(sol);
+      setUsdcBalance(usdc);
 
+      // Fetch SOL price
       let currentSolPrice = 0;
       try {
         const priceResponse = await fetch(SOL_PRICE_API);
@@ -59,25 +59,6 @@ export function useSolanaBalance(walletAddress: string | null | undefined): Sola
       }
       
       setUsdBalance(sol * currentSolPrice);
-
-      try {
-        const usdcMint = new PublicKey(USDC_MINT);
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-          mint: usdcMint,
-        });
-        
-        let totalUsdc = 0;
-        for (const account of tokenAccounts.value) {
-          const tokenAmount = account.account.data.parsed?.info?.tokenAmount;
-          if (tokenAmount) {
-            totalUsdc += parseFloat(tokenAmount.uiAmountString || '0');
-          }
-        }
-        setUsdcBalance(totalUsdc);
-      } catch (usdcError) {
-        console.error('Error fetching USDC balance:', usdcError);
-        setUsdcBalance(0);
-      }
     } catch (err) {
       console.error('Error fetching Solana balance:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch balance');

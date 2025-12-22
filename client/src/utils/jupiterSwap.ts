@@ -1,8 +1,5 @@
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6';
-const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
-
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -59,15 +56,14 @@ export async function getJupiterQuote(
       outputMint,
       amount: amountLamports.toString(),
       slippageBps: slippageBps.toString(),
-      restrictIntermediateTokens: 'true',
     });
 
-    console.log('[Jupiter] Requesting quote:', params.toString());
-    const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params.toString()}`);
+    console.log('[Jupiter] Requesting quote via backend:', params.toString());
+    const response = await fetch(`/api/jupiter/quote?${params.toString()}`);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Jupiter quote error:', response.status, errorText);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Jupiter quote error:', response.status, errorData);
       return null;
     }
 
@@ -86,7 +82,7 @@ export async function getSwapTransaction(
 ): Promise<{ swapTransaction: string } | null> {
   try {
     console.log('[Jupiter] Requesting swap transaction for:', userPublicKey);
-    const response = await fetch(JUPITER_SWAP_API, {
+    const response = await fetch('/api/jupiter/swap', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -94,19 +90,12 @@ export async function getSwapTransaction(
       body: JSON.stringify({
         quoteResponse: quote,
         userPublicKey,
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: 'auto',
-        dynamicSlippage: {
-          minBps: 50,
-          maxBps: 300,
-        },
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Jupiter swap error:', response.status, errorText);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Jupiter swap error:', response.status, errorData);
       return null;
     }
 

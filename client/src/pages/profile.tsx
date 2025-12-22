@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -33,19 +33,18 @@ function ProfileContent() {
 
   useEffect(() => {
     // Only auto-swap for embedded wallet (external wallets manage their own funds)
+    // Silent auto-swap - no notifications unless successful
     if (embeddedWallet?.address && solBalance > 0) {
       checkAndAutoSwap(
         solBalance, 
         embeddedWallet.address,
-        () => toast({ title: "Processing Deposit...", description: "Converting SOL to USDC for betting" }),
+        undefined, // No onStart notification - silent operation
         (result) => {
           if (result.success) {
             toast({ title: "Deposit Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
             refetchBalance();
-          } else if (result.error && !result.error.includes('already in progress')) {
-            // Only show error for actual failures
-            toast({ title: "Swap Failed", description: result.error, variant: "destructive" });
           }
+          // Don't show error toasts for auto-swap failures - only show success
         }
       );
     }
@@ -257,32 +256,6 @@ function ProfileContent() {
                    <span className="text-emerald-400">${usdcBalance.toFixed(2)} USDC</span>
                    <span>{solBalance.toFixed(4)} SOL</span>
                  </div>
-                 {solBalance > 0.005 && !isSwapping && (
-                   <button
-                     onClick={() => {
-                       if (embeddedWallet?.address) {
-                         checkAndAutoSwap(
-                           solBalance,
-                           embeddedWallet.address,
-                           () => toast({ title: "Converting SOL...", description: "Swapping to USDC for betting" }),
-                           (result) => {
-                             if (result.success) {
-                               toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
-                               refetchBalance();
-                             } else if (result.error) {
-                               toast({ title: "Conversion Failed", description: result.error, variant: "destructive" });
-                             }
-                           },
-                           true // forceSwap - bypass first deposit/top-up check for manual button
-                         );
-                       }
-                     }}
-                     className="mt-2 text-[10px] px-3 py-1.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-purple-300 rounded-lg flex items-center gap-1.5 ml-auto transition-all border border-purple-500/30"
-                     data-testid="button-convert-usdc"
-                   >
-                     <ArrowRightLeft size={10} /> Convert SOL → USDC
-                   </button>
-                 )}
                  {isSwapping && (
                    <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto">
                      <Loader2 size={10} className="animate-spin" /> Converting...

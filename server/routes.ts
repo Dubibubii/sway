@@ -7,6 +7,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, SOLANA_TOKENS } from "./pond-trading";
+import fetch from "node-fetch";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
@@ -451,6 +452,159 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('Error getting order status:', error);
       res.status(500).json({ error: error.message || 'Failed to get order status' });
+    }
+  });
+
+  // Helius RPC endpoint for Solana
+  const HELIUS_API_KEY = process.env.HELIUS_API_KEY || '';
+  const HELIUS_RPC_URL = HELIUS_API_KEY 
+    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : 'https://api.mainnet-beta.solana.com';
+
+  // Solana balance endpoint using Helius RPC
+  app.get('/api/solana/balance/:address', async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address) {
+        return res.status(400).json({ error: 'Missing wallet address' });
+      }
+
+      // Fetch SOL balance
+      const solResponse = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getBalance',
+          params: [address]
+        })
+      });
+      const solData = await solResponse.json() as any;
+      const solBalance = (solData.result?.value || 0) / 1e9;
+
+      // Fetch USDC balance using getTokenAccountsByOwner
+      const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      const usdcResponse = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'getTokenAccountsByOwner',
+          params: [
+            address,
+            { mint: USDC_MINT },
+            { encoding: 'jsonParsed' }
+          ]
+        })
+      });
+      const usdcData = await usdcResponse.json() as any;
+      
+      let usdcBalance = 0;
+      if (usdcData.result?.value) {
+        for (const account of usdcData.result.value) {
+          const tokenAmount = account.account?.data?.parsed?.info?.tokenAmount;
+          if (tokenAmount) {
+            usdcBalance += parseFloat(tokenAmount.uiAmountString || '0');
+          }
+        }
+      }
+
+      console.log(`[Helius] Balance for ${address}: ${solBalance} SOL, ${usdcBalance} USDC`);
+      res.json({ solBalance, usdcBalance });
+    } catch (error: any) {
+      console.error('[Helius] Balance fetch error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch balance' });
+    }
+  });
+
+  // Jupiter swap proxy endpoints (to avoid CORS issues)
+  const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6';
+  const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+
+  app.get('/api/jupiter/quote', async (req: Request, res: Response) => {
+    try {
+      const { inputMint, outputMint, amount, slippageBps } = req.query;
+      
+      if (!inputMint || !outputMint || !amount) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+
+      const params = new URLSearchParams({
+        inputMint: inputMint as string,
+        outputMint: outputMint as string,
+        amount: amount as string,
+        slippageBps: (slippageBps as string) || '50',
+        restrictIntermediateTokens: 'true',
+      });
+
+      const url = `${JUPITER_QUOTE_API}/quote?${params.toString()}`;
+      console.log('[Jupiter] Fetching quote from:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Pulse-Prediction-Markets/1.0',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Jupiter] Quote error:', response.status, errorText);
+        return res.status(response.status).json({ error: errorText });
+      }
+
+      const quote = await response.json() as any;
+      console.log('[Jupiter] Quote received, outAmount:', quote.outAmount);
+      res.json(quote);
+    } catch (error: any) {
+      console.error('[Jupiter] Quote fetch error:', error.message, error.cause);
+      res.status(500).json({ error: error.message || 'Failed to get Jupiter quote' });
+    }
+  });
+
+  app.post('/api/jupiter/swap', async (req: Request, res: Response) => {
+    try {
+      const { quoteResponse, userPublicKey } = req.body;
+      
+      if (!quoteResponse || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+
+      console.log('[Jupiter] Creating swap transaction for:', userPublicKey);
+      const response = await fetch(JUPITER_SWAP_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          quoteResponse,
+          userPublicKey,
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto',
+          dynamicSlippage: {
+            minBps: 50,
+            maxBps: 300,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Jupiter] Swap error:', response.status, errorText);
+        return res.status(response.status).json({ error: errorText });
+      }
+
+      const result = await response.json();
+      console.log('[Jupiter] Swap transaction created');
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Jupiter] Swap fetch error:', error);
+      res.status(500).json({ error: error.message || 'Failed to create swap transaction' });
     }
   });
 
