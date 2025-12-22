@@ -174,14 +174,22 @@ export async function prepareSwapSolToUsdc(
   try {
     const amountLamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
     
+    console.log('[Jupiter] prepareSwapSolToUsdc called:');
+    console.log('[Jupiter]   solAmount:', solAmount);
+    console.log('[Jupiter]   amountLamports:', amountLamports);
+    console.log('[Jupiter]   userPublicKey:', userPublicKey);
+    
     if (amountLamports <= 0) {
-      return { success: false, error: 'Amount too small to swap' };
+      console.error('[Jupiter] Amount too small! amountLamports:', amountLamports);
+      return { success: false, error: `Amount too small to swap (${amountLamports} lamports)` };
     }
 
+    console.log('[Jupiter] Calling getJupiterQuote...');
     const quote = await getJupiterQuote(SOL_MINT, USDC_MINT, amountLamports, slippageBps);
     
     if (!quote) {
-      return { success: false, error: 'Failed to get quote from Jupiter' };
+      console.error('[Jupiter] getJupiterQuote returned null - check logs above for API response');
+      return { success: false, error: 'Jupiter quote failed - check browser console for details' };
     }
 
     const swapData = await getSwapTransaction(quote, userPublicKey);
