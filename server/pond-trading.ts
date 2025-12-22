@@ -1,5 +1,5 @@
 const DFLOW_API_BASE = 'https://quote-api.dflow.net';
-const POND_METADATA_API = 'https://api.pond.dflow.net';
+const POND_METADATA_API = 'https://prediction-markets-api.dflow.net';
 
 export interface PondQuote {
   inputMint: string;
@@ -65,20 +65,33 @@ export async function getPondQuote(
 
 export async function getMarketTokens(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
   try {
-    const response = await fetch(`${POND_METADATA_API}/v1/markets/${marketId}`);
+    const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
+    console.log('[Pond] Fetching market tokens from:', url);
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
-      console.error('Failed to fetch market tokens:', response.status);
+      console.error('[Pond] Failed to fetch market tokens:', response.status, await response.text());
       return null;
     }
 
     const data = await response.json();
-    return {
-      yesMint: data.yes_token_mint || data.yesMint,
-      noMint: data.no_token_mint || data.noMint,
-    };
+    console.log('[Pond] Market data received:', JSON.stringify(data).slice(0, 500));
+    
+    // Token mints are in the accounts object
+    const accounts = data.accounts || {};
+    const yesMint = accounts.yesTokenMint || accounts.yes_token_mint || data.yesMint || data.yes_token_mint;
+    const noMint = accounts.noTokenMint || accounts.no_token_mint || data.noMint || data.no_token_mint;
+    
+    if (!yesMint || !noMint) {
+      console.error('[Pond] Market tokens not found in response. Accounts:', JSON.stringify(accounts));
+      return null;
+    }
+    
+    console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint);
+    return { yesMint, noMint };
   } catch (error) {
-    console.error('Error fetching market tokens:', error);
+    console.error('[Pond] Error fetching market tokens:', error);
     return null;
   }
 }
