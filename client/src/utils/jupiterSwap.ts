@@ -53,18 +53,22 @@ export async function getJupiterQuote(
   amountLamports: number,
   slippageBps: number = 50
 ): Promise<JupiterQuote | null> {
-  try {
-    const params = new URLSearchParams({
-      inputMint,
-      outputMint,
-      amount: amountLamports.toString(),
-      slippageBps: slippageBps.toString(),
-      restrictIntermediateTokens: 'true',
-    });
+  const params = new URLSearchParams({
+    inputMint,
+    outputMint,
+    amount: amountLamports.toString(),
+    slippageBps: slippageBps.toString(),
+    restrictIntermediateTokens: 'true',
+  });
 
-    const url = `${JUPITER_QUOTE_API}?${params.toString()}`;
-    console.log('[Jupiter] Fetching quote from browser:', url);
-    
+  const url = `${JUPITER_QUOTE_API}?${params.toString()}`;
+  console.log('[Jupiter] ========== QUOTE REQUEST ==========');
+  console.log('[Jupiter] URL:', url);
+  console.log('[Jupiter] Input:', inputMint);
+  console.log('[Jupiter] Output:', outputMint);
+  console.log('[Jupiter] Amount (lamports):', amountLamports);
+  
+  try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -72,17 +76,35 @@ export async function getJupiterQuote(
       },
     });
     
+    console.log('[Jupiter] Response status:', response.status, response.statusText);
+    
+    const responseText = await response.text();
+    console.log('[Jupiter] Response body:', responseText.substring(0, 500));
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Jupiter] Quote error:', response.status, errorText);
+      console.error('[Jupiter] QUOTE FAILED!');
+      console.error('[Jupiter] Status:', response.status);
+      console.error('[Jupiter] Status Text:', response.statusText);
+      console.error('[Jupiter] Full Response:', responseText);
       return null;
     }
 
-    const quote = await response.json();
-    console.log('[Jupiter] Quote received:', { outAmount: quote.outAmount, priceImpact: quote.priceImpactPct });
+    const quote = JSON.parse(responseText);
+    console.log('[Jupiter] Quote SUCCESS:', { 
+      outAmount: quote.outAmount, 
+      priceImpact: quote.priceImpactPct,
+      routeCount: quote.routePlan?.length 
+    });
     return quote;
-  } catch (error) {
-    console.error('[Jupiter] Error fetching quote:', error);
+  } catch (error: unknown) {
+    console.error('[Jupiter] FETCH ERROR (network/parse issue):');
+    if (error instanceof Error) {
+      console.error('[Jupiter] Error name:', error.name);
+      console.error('[Jupiter] Error message:', error.message);
+      console.error('[Jupiter] Error stack:', error.stack);
+    } else {
+      console.error('[Jupiter] Raw error:', error);
+    }
     return null;
   }
 }
@@ -91,38 +113,55 @@ export async function getSwapTransaction(
   quote: JupiterQuote,
   userPublicKey: string
 ): Promise<{ swapTransaction: string } | null> {
+  console.log('[Jupiter] ========== SWAP REQUEST ==========');
+  console.log('[Jupiter] User public key:', userPublicKey);
+  console.log('[Jupiter] Quote inAmount:', quote.inAmount);
+  console.log('[Jupiter] Quote outAmount:', quote.outAmount);
+  
+  const requestBody = {
+    quoteResponse: quote,
+    userPublicKey,
+    wrapAndUnwrapSol: true,
+    dynamicComputeUnitLimit: true,
+    prioritizationFeeLamports: 'auto',
+    dynamicSlippage: {
+      minBps: 50,
+      maxBps: 300,
+    },
+  };
+  
   try {
-    console.log('[Jupiter] Requesting swap transaction for:', userPublicKey);
-    
     const response = await fetch(JUPITER_SWAP_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        quoteResponse: quote,
-        userPublicKey,
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: 'auto',
-        dynamicSlippage: {
-          minBps: 50,
-          maxBps: 300,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    console.log('[Jupiter] Swap response status:', response.status, response.statusText);
+    
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Jupiter] Swap error:', response.status, errorText);
+      console.error('[Jupiter] SWAP FAILED!');
+      console.error('[Jupiter] Status:', response.status);
+      console.error('[Jupiter] Full Response:', responseText);
       return null;
     }
 
-    const result = await response.json();
-    console.log('[Jupiter] Swap transaction received');
+    const result = JSON.parse(responseText);
+    console.log('[Jupiter] Swap transaction received, length:', result.swapTransaction?.length);
     return result;
-  } catch (error) {
-    console.error('[Jupiter] Error getting swap transaction:', error);
+  } catch (error: unknown) {
+    console.error('[Jupiter] SWAP FETCH ERROR:');
+    if (error instanceof Error) {
+      console.error('[Jupiter] Error name:', error.name);
+      console.error('[Jupiter] Error message:', error.message);
+      console.error('[Jupiter] Error stack:', error.stack);
+    } else {
+      console.error('[Jupiter] Raw error:', error);
+    }
     return null;
   }
 }
