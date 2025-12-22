@@ -112,31 +112,66 @@ export function useAutoSwap() {
       console.log('[AutoSwap] Signing and sending transaction...');
       const transactionBytes = base64ToUint8Array(swapResult.transactionBase64);
 
-      // Find the embedded wallet from the wallets list
-      const embeddedWallet = wallets.find(
-        (w: any) => w.walletClientType === 'privy' && w.address === userPublicKey
-      );
+      // Find the embedded wallet - try multiple matching strategies
+      console.log('[AutoSwap] Looking for embedded wallet, available wallets:', wallets.map((w: any) => ({
+        address: w.address,
+        walletClientType: w.walletClientType,
+        connectorType: w.connectorType,
+        standardWallet: w.standardWallet?.name
+      })));
+      
+      // Strategy 1: Find wallet by matching address
+      let embeddedWallet = wallets.find((w: any) => w.address === userPublicKey);
+      
+      // Strategy 2: Find any privy/embedded wallet
+      if (!embeddedWallet) {
+        embeddedWallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || 
+          w.standardWallet?.name === 'Privy' ||
+          w.connectorType === 'embedded'
+        );
+      }
+      
+      // Strategy 3: Use any available wallet
+      if (!embeddedWallet && wallets.length > 0) {
+        console.log('[AutoSwap] Using first available wallet');
+        embeddedWallet = wallets[0];
+      }
       
       let signature: string;
       
       if (embeddedWallet) {
-        // Use embedded wallet's provider for automatic signing (no confirmation modal)
-        console.log('[AutoSwap] Using embedded wallet provider for automatic signing');
-        const provider = await (embeddedWallet as any).getProvider();
-        
-        // Sign the transaction message using the provider
-        const { signature: sig } = await provider.request({
-          method: 'signAndSendTransaction',
-          params: {
-            transaction: swapResult.transactionBase64,
-            sendOptions: { skipPreflight: false }
-          }
-        });
-        signature = sig;
+        // Try using getProvider first (for embedded wallets)
+        if (typeof (embeddedWallet as any).getProvider === 'function') {
+          console.log('[AutoSwap] Using wallet provider for signing');
+          const provider = await (embeddedWallet as any).getProvider();
+          const { signature: sig } = await provider.request({
+            method: 'signAndSendTransaction',
+            params: {
+              transaction: swapResult.transactionBase64,
+              sendOptions: { skipPreflight: false }
+            }
+          });
+          signature = sig;
+        } else if (typeof (embeddedWallet as any).signAndSendTransaction === 'function') {
+          // Direct signAndSendTransaction method
+          console.log('[AutoSwap] Using wallet.signAndSendTransaction');
+          const result = await (embeddedWallet as any).signAndSendTransaction(transactionBytes);
+          signature = result.signature || result;
+        } else if (typeof (embeddedWallet as any).sendTransaction === 'function') {
+          // Try sendTransaction
+          console.log('[AutoSwap] Using wallet.sendTransaction');
+          const result = await (embeddedWallet as any).sendTransaction(transactionBytes);
+          signature = result.signature || result;
+        } else {
+          console.log('[AutoSwap] Available wallet methods:', Object.keys(embeddedWallet as any));
+          throw new Error('Wallet does not support automatic signing. Use the manual convert button.');
+        }
       } else {
-        // Fallback: This shouldn't happen for embedded wallets
-        console.log('[AutoSwap] Warning: Embedded wallet not found, cannot auto-sign');
-        throw new Error('Automatic signing only available for embedded wallets');
+        // No wallet available at all
+        console.log('[AutoSwap] No wallet found in useWallets array');
+        console.log('[AutoSwap] Target address:', userPublicKey);
+        throw new Error('Embedded wallet not available. Use the manual convert button.');
       }
 
       console.log('[AutoSwap] Swap successful! Signature:', signature);

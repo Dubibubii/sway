@@ -261,16 +261,16 @@ function ProfileContent() {
                      <Loader2 size={10} className="animate-spin" /> Converting...
                    </div>
                  )}
-                 {embeddedWallet && solBalance > 0 && !isSwapping && (
+                 {embeddedWallet && solBalance > 0.01 && !isSwapping && (
                    <Button
                      size="sm"
-                     variant="outline"
+                     variant={externalWalletAddress ? "default" : "outline"}
                      onClick={() => {
                        console.log('[ForceConvert] Button clicked, SOL balance:', solBalance);
                        checkAndAutoSwap(
                          solBalance,
                          embeddedWallet.address,
-                         () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.004).toFixed(4)} SOL` }),
+                         () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
                          (result) => {
                            if (result.success) {
                              toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
@@ -282,10 +282,14 @@ function ProfileContent() {
                          true
                        );
                      }}
-                     className="mt-2 h-6 px-2 text-[10px] gap-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-400"
+                     className={`mt-2 h-7 px-3 text-[11px] gap-1.5 ${
+                       externalWalletAddress 
+                         ? 'bg-blue-600 hover:bg-blue-700 text-white border-0 animate-pulse' 
+                         : 'border-blue-500/30 hover:bg-blue-500/10 text-blue-400'
+                     }`}
                      data-testid="button-force-convert"
                    >
-                     <RefreshCw size={10} /> Force Convert
+                     <RefreshCw size={12} /> Convert SOL → USDC
                    </Button>
                  )}
                </div>
