@@ -1,16 +1,20 @@
 import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { preparePondTrade, base64ToUint8Array } from '@/utils/pondTrade';
 
 export interface PondTradeResult {
   success: boolean;
   signature?: string;
   error?: string;
   executionMode?: 'sync' | 'async';
-  quote?: any;
+  expectedShares?: number;
 }
 
 export function usePondTrading() {
-  const { getAccessToken, user } = usePrivy();
+  const { user } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isTrading, setIsTrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,44 +45,72 @@ export function usePondTrading() {
         throw new Error('Could not get Solana wallet address');
       }
 
-      const token = await getAccessToken();
+      console.log('[PondTrading] ========== EXECUTING TRADE ==========');
+      console.log('[PondTrading] Market:', marketId);
+      console.log('[PondTrading] Side:', side);
+      console.log('[PondTrading] Amount USDC:', amountUSDC);
+      console.log('[PondTrading] User wallet:', userPublicKey);
 
-      // 1. Get quote and transaction from backend
-      const quoteResponse = await fetch('/api/pond/quote', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          marketId,
-          side,
-          amountUSDC,
-          userPublicKey,
-          slippageBps: 100,
-        }),
-      });
+      const tradeResult = await preparePondTrade(
+        marketId,
+        side,
+        amountUSDC,
+        userPublicKey
+      );
 
-      if (!quoteResponse.ok) {
-        const errorData = await quoteResponse.json();
-        throw new Error(errorData.error || 'Failed to get quote from Pond API');
+      if (!tradeResult.success || !tradeResult.transactionBase64) {
+        throw new Error(tradeResult.error || 'Failed to prepare trade');
       }
 
-      const quoteData = await quoteResponse.json();
-      const { quote, executionMode } = quoteData;
+      console.log('[PondTrading] Trade prepared successfully, signing transaction...');
+      
+      const transactionBytes = base64ToUint8Array(tradeResult.transactionBase64);
 
-      // Note: For now, we return the quote data for the user to review
-      // Full transaction signing requires Privy's signAndSendTransaction which needs
-      // to be called in a specific context. The backend has the transaction ready.
+      console.log('[PondTrading] Looking for wallet, available wallets:', wallets.map((w: any) => ({
+        address: w.address,
+        walletClientType: w.walletClientType,
+      })));
+
+      let wallet = wallets.find((w: any) => w.address === userPublicKey);
+      
+      if (!wallet) {
+        wallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || 
+          w.connectorType === 'embedded'
+        );
+      }
+      
+      if (!wallet && wallets.length > 0) {
+        wallet = wallets[0];
+      }
+      
+      if (!wallet) {
+        throw new Error('No wallet available for signing. Please reconnect your wallet.');
+      }
+
+      console.log('[PondTrading] Using wallet:', wallet.address);
+      console.log('[PondTrading] Signing and sending transaction...');
+
+      const result = await signAndSendTransaction({
+        transaction: transactionBytes,
+        wallet: wallet,
+      });
+
+      const signature = typeof result === 'string' 
+        ? result 
+        : (result as any).signature || (result as any).hash || String(result);
+
+      console.log('[PondTrading] Trade executed! Signature:', signature);
       
       setIsTrading(false);
       return {
         success: true,
-        executionMode,
-        quote,
-        error: 'Quote received - transaction signing pending wallet integration',
+        signature,
+        executionMode: tradeResult.orderResponse?.executionMode,
+        expectedShares: tradeResult.expectedShares,
       };
     } catch (err: any) {
+      console.error('[PondTrading] Trade failed:', err);
       const errorMessage = err.message || 'Trade failed';
       setError(errorMessage);
       setIsTrading(false);
@@ -87,7 +119,7 @@ export function usePondTrading() {
         error: errorMessage,
       };
     }
-  }, [user, getAccessToken]);
+  }, [user, wallets, walletsReady, signAndSendTransaction]);
 
   return {
     placeTrade,
