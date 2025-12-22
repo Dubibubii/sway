@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2 } from 'lucide-react';
+import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2, CheckCircle2 } from 'lucide-react';
+import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE, confirmTransaction } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
@@ -18,7 +19,8 @@ interface WithdrawModalProps {
   onSuccess: () => void;
 }
 
-export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, externalWalletAddress, onSuccess }: WithdrawModalProps) {
+export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, externalWalletAddress: _externalWalletAddress, onSuccess }: WithdrawModalProps) {
+  const { user } = usePrivy();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { toast } = useToast();
@@ -33,6 +35,27 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const privyWallet = useMemo(() => {
     return wallets.find((w: any) => w.walletClientType === 'privy');
   }, [wallets]);
+
+  // Find external wallet directly from linkedAccounts
+  const { externalWalletAddress, externalWalletName } = useMemo(() => {
+    if (!user?.linkedAccounts) {
+      return { externalWalletAddress: null, externalWalletName: null };
+    }
+    
+    const externalWallet = user.linkedAccounts.find(
+      (account: any) => account.type === 'wallet' && account.walletClientType !== 'privy'
+    );
+    
+    if (externalWallet && 'address' in externalWallet) {
+      const walletType = (externalWallet as any).walletClientType || 'External';
+      const walletName = walletType.charAt(0).toUpperCase() + walletType.slice(1);
+      return { 
+        externalWalletAddress: (externalWallet as any).address as string,
+        externalWalletName: walletName
+      };
+    }
+    return { externalWalletAddress: null, externalWalletName: null };
+  }, [user?.linkedAccounts]);
 
   useEffect(() => {
     if (open) {
@@ -217,22 +240,38 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-sm text-zinc-400">Withdraw To</Label>
-              {!showManualEntry && (
+          <div className="space-y-3">
+            <Label className="text-sm text-zinc-400">Sending To</Label>
+            
+            {/* Show detected external wallet prominently */}
+            {externalWalletAddress && !showManualEntry ? (
+              <div className="space-y-2">
+                <div className="w-full p-4 rounded-xl border-2 bg-gradient-to-r from-emerald-500/10 to-purple-500/10 border-emerald-500/40">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-purple-500 flex items-center justify-center">
+                      <Wallet size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-semibold text-white">{externalWalletName} Wallet</span>
+                        <CheckCircle2 size={16} className="text-emerald-400" />
+                      </div>
+                      <div className="text-sm text-zinc-400 font-mono mt-0.5">
+                        {externalWalletAddress.slice(0, 8)}...{externalWalletAddress.slice(-6)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={() => setShowManualEntry(true)}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-xs text-zinc-500 hover:text-zinc-400 flex items-center gap-1"
                   data-testid="button-enter-custom"
                 >
                   <Edit2 size={10} />
-                  Enter custom
+                  Send to different address
                 </button>
-              )}
-            </div>
-            
-            {showManualEntry ? (
+              </div>
+            ) : (
               <div className="space-y-2">
                 <Input
                   id="recipient"
@@ -250,35 +289,12 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                       setRecipient(externalWalletAddress);
                       setShowManualEntry(false);
                     }}
-                    className="text-xs text-zinc-500 hover:text-zinc-400"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                   >
-                    Use external wallet instead
+                    <Wallet size={10} />
+                    Use my {externalWalletName} wallet
                   </button>
                 )}
-              </div>
-            ) : externalWalletAddress ? (
-              <div className="w-full flex items-center gap-3 p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30">
-                <Wallet size={18} className="text-emerald-400" />
-                <div className="flex-1 text-left">
-                  <div className="text-sm font-medium text-emerald-400">Your External Wallet</div>
-                  <div className="text-xs text-zinc-400 font-mono">
-                    {formatAddress(externalWalletAddress)}
-                  </div>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Input
-                  id="recipient"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  placeholder="Enter Solana wallet address"
-                  className={`bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 ${
-                    recipient.length > 0 && !isValidAddress ? 'border-red-500' : ''
-                  }`}
-                  data-testid="input-recipient"
-                />
               </div>
             )}
             
