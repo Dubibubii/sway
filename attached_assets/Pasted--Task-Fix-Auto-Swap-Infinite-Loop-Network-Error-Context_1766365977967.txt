@@ -1,0 +1,32 @@
+# Task: Fix Auto-Swap "Infinite Loop" & Network Error
+
+## Context
+I am still seeing random "Swap Failed" pop-ups every few minutes, and the logs show repeated `ENOTFOUND` errors when trying to fetch the Jupiter quote.
+
+## Diagnosis
+1.  **The Loop Bug:** The `useAutoDeposit` hook keeps trying to swap because my balance stays at `0.081 SOL`. The logic likely checks `if (balance > threshold)`. Since the swap fails, the balance never drops, so it retries infinitely on every re-render or polling interval.
+2.  **The Network Bug (`ENOTFOUND`):** The error `getaddrinfo ENOTFOUND quote-api.jup.ag` is a Node.js server error. This implies you are running the Jupiter API call on the **Server Side** (Next.js API route) where Replit's DNS might be flaky or restricted.
+
+## Requirements
+
+### 1. Fix the "Infinite Retry" Loop
+We must stop retrying a failed swap on the same balance.
+- **Logic Change:** Use a `useRef` to track `lastAttemptedBalance`.
+- **Condition:** Only trigger the swap if:
+  `currentBalance > threshold` **AND** `currentBalance !== lastAttemptedBalance`.
+- This ensures we only try **once** per deposit. If it fails, we wait for the *next* deposit to try again.
+
+### 2. Move Quote Fetching to Client-Side
+To fix the `ENOTFOUND` error, move the `getJupiterQuote` logic to run entirely in the **Browser (Client Side)**.
+- Browsers do not have the same DNS/Network restrictions as the Replit container backend.
+- Use standard `window.fetch` inside the component or utility, ensuring it runs on the client.
+
+### 3. Silence Background Errors
+The user should **never** see a red "Swap Failed" toast for an automatic background task. It is annoying.
+- **Update:** Remove the `toast.error` call in the `catch` block of the auto-swap.
+- **Keep:** Only show `toast.success` ("Deposit Converted!") if it works.
+
+## Action Plan
+1. Refactor `useAutoDeposit` to check `currentBalance !== lastAttemptedBalance.current`.
+2. Verify `utils/jupiter.ts` uses client-side `fetch` (remove any server-side proxy code if it exists).
+3. Remove the error toast notification.

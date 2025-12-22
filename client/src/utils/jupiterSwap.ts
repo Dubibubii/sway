@@ -16,6 +16,9 @@ export function getDynamicGasReserve(solBalance: number): number {
 
 export const MIN_GAS_SOL = 0.004;
 
+const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
+const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+
 export interface JupiterQuote {
   inputMint: string;
   outputMint: string;
@@ -56,14 +59,22 @@ export async function getJupiterQuote(
       outputMint,
       amount: amountLamports.toString(),
       slippageBps: slippageBps.toString(),
+      restrictIntermediateTokens: 'true',
     });
 
-    console.log('[Jupiter] Requesting quote via backend:', params.toString());
-    const response = await fetch(`/api/jupiter/quote?${params.toString()}`);
+    const url = `${JUPITER_QUOTE_API}?${params.toString()}`;
+    console.log('[Jupiter] Fetching quote from browser:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Jupiter quote error:', response.status, errorData);
+      const errorText = await response.text();
+      console.error('[Jupiter] Quote error:', response.status, errorText);
       return null;
     }
 
@@ -71,7 +82,7 @@ export async function getJupiterQuote(
     console.log('[Jupiter] Quote received:', { outAmount: quote.outAmount, priceImpact: quote.priceImpactPct });
     return quote;
   } catch (error) {
-    console.error('Error fetching Jupiter quote:', error);
+    console.error('[Jupiter] Error fetching quote:', error);
     return null;
   }
 }
@@ -82,7 +93,8 @@ export async function getSwapTransaction(
 ): Promise<{ swapTransaction: string } | null> {
   try {
     console.log('[Jupiter] Requesting swap transaction for:', userPublicKey);
-    const response = await fetch('/api/jupiter/swap', {
+    
+    const response = await fetch(JUPITER_SWAP_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -90,12 +102,19 @@ export async function getSwapTransaction(
       body: JSON.stringify({
         quoteResponse: quote,
         userPublicKey,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 'auto',
+        dynamicSlippage: {
+          minBps: 50,
+          maxBps: 300,
+        },
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Jupiter swap error:', response.status, errorData);
+      const errorText = await response.text();
+      console.error('[Jupiter] Swap error:', response.status, errorText);
       return null;
     }
 
@@ -103,7 +122,7 @@ export async function getSwapTransaction(
     console.log('[Jupiter] Swap transaction received');
     return result;
   } catch (error) {
-    console.error('Error getting swap transaction:', error);
+    console.error('[Jupiter] Error getting swap transaction:', error);
     return null;
   }
 }
