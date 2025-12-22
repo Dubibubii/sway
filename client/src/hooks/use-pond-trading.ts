@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
-import { preparePondTrade, base64ToUint8Array } from '@/utils/pondTrade';
 
 export interface PondTradeResult {
   success: boolean;
@@ -11,9 +10,18 @@ export interface PondTradeResult {
   expectedShares?: number;
 }
 
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function usePondTrading() {
-  const { user } = usePrivy();
-  const { wallets, ready: walletsReady } = useWallets();
+  const { getAccessToken, user } = usePrivy();
+  const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isTrading, setIsTrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,22 +59,51 @@ export function usePondTrading() {
       console.log('[PondTrading] Amount USDC:', amountUSDC);
       console.log('[PondTrading] User wallet:', userPublicKey);
 
-      const tradeResult = await preparePondTrade(
-        marketId,
-        side,
-        amountUSDC,
-        userPublicKey
-      );
+      const token = await getAccessToken();
 
-      if (!tradeResult.success || !tradeResult.transactionBase64) {
-        throw new Error(tradeResult.error || 'Failed to prepare trade');
+      const quoteResponse = await fetch('/api/pond/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          marketId,
+          side,
+          amountUSDC,
+          userPublicKey,
+          slippageBps: 100,
+        }),
+      });
+
+      console.log('[PondTrading] Quote response status:', quoteResponse.status);
+
+      if (!quoteResponse.ok) {
+        const errorText = await quoteResponse.text();
+        console.error('[PondTrading] Quote failed:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Server error: ${quoteResponse.status} - ${errorText}`);
+        }
+        throw new Error(errorData.error || 'Failed to get quote from Pond API');
       }
 
-      console.log('[PondTrading] Trade prepared successfully, signing transaction...');
+      const quoteData = await quoteResponse.json();
+      console.log('[PondTrading] Quote received:', JSON.stringify(quoteData).slice(0, 300));
       
-      const transactionBytes = base64ToUint8Array(tradeResult.transactionBase64);
+      const { quote, executionMode } = quoteData;
 
-      console.log('[PondTrading] Looking for wallet, available wallets:', wallets.map((w: any) => ({
+      if (!quote?.transaction) {
+        throw new Error('No transaction returned from Pond API');
+      }
+
+      console.log('[PondTrading] Trade prepared, signing transaction...');
+      
+      const transactionBytes = base64ToUint8Array(quote.transaction);
+
+      console.log('[PondTrading] Available wallets:', wallets.map((w: any) => ({
         address: w.address,
         walletClientType: w.walletClientType,
       })));
@@ -101,13 +138,17 @@ export function usePondTrading() {
         : (result as any).signature || (result as any).hash || String(result);
 
       console.log('[PondTrading] Trade executed! Signature:', signature);
+
+      const expectedShares = quote.outAmount
+        ? parseInt(quote.outAmount) / 1_000_000
+        : undefined;
       
       setIsTrading(false);
       return {
         success: true,
         signature,
-        executionMode: tradeResult.orderResponse?.executionMode,
-        expectedShares: tradeResult.expectedShares,
+        executionMode,
+        expectedShares,
       };
     } catch (err: any) {
       console.error('[PondTrading] Trade failed:', err);
@@ -119,7 +160,7 @@ export function usePondTrading() {
         error: errorMessage,
       };
     }
-  }, [user, wallets, walletsReady, signAndSendTransaction]);
+  }, [user, getAccessToken, wallets, signAndSendTransaction]);
 
   return {
     placeTrade,

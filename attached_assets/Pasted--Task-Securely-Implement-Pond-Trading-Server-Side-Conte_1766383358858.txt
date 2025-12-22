@@ -1,0 +1,28 @@
+# Task: Securely Implement Pond Trading (Server-Side)
+
+## Context
+We previously attempted to move the Pond Trade API call to the Client-Side to avoid network issues.
+However, we discovered that **Pond requires an API Key** (returning 403 Forbidden).
+Because API Keys are secrets, we **cannot** expose them in the Client-Side code.
+
+## Requirements
+
+### 1. Revert to Server-Side Proxy
+Please modify `src/hooks/use-pond-trade.ts` (or the swipe handler).[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQGkIlVJHR7ddfGaYJRSQQ_e4TIWITHlLDeaW_Xcyg-MXYoxSCbEQHRBXj6X8WsRrxWoqa0sTfqYUTDOEO_iTcGvg9qzJRAAwmOvgEnbZxeu1WUzBR4RmqE%3D)]
+- **Instead of:** Fetching `https://api.pond.fun/v1/trade` directly.[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQGkIlVJHR7ddfGaYJRSQQ_e4TIWITHlLDeaW_Xcyg-MXYoxSCbEQHRBXj6X8WsRrxWoqa0sTfqYUTDOEO_iTcGvg9qzJRAAwmOvgEnbZxeu1WUzBR4RmqE%3D)]
+- **Do This:** Fetch our own internal API route: `/api/trade/place-bet`.[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQGkIlVJHR7ddfGaYJRSQQ_e4TIWITHlLDeaW_Xcyg-MXYoxSCbEQHRBXj6X8WsRrxWoqa0sTfqYUTDOEO_iTcGvg9qzJRAAwmOvgEnbZxeu1WUzBR4RmqE%3D)]
+- **Payload:** Send `marketId`, `side`, and `amount` (USD) to our backend.
+
+### 2. Update/Create the API Route
+Update `src/pages/api/trade/place-bet.ts` (or create it if missing).[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQGkIlVJHR7ddfGaYJRSQQ_e4TIWITHlLDeaW_Xcyg-MXYoxSCbEQHRBXj6X8WsRrxWoqa0sTfqYUTDOEO_iTcGvg9qzJRAAwmOvgEnbZxeu1WUzBR4RmqE%3D)]
+- **Logic:** This route handles the secure communication with DFlow/Pond.
+- **Headers:** It must inject the API Key from the environment variables.
+  ```javascript
+  const response = await fetch('https://api.pond.fun/v1/trade', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.DFLOW_API_KEY}` // Check docs if it is Bearer or X-API-KEY
+    },
+    body: JSON.stringify({ ...req.body, inputToken: 'USDC' }) // Ensure params are forwarded
+  });
