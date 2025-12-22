@@ -41,13 +41,22 @@ export function useAutoSwap() {
     setError(null);
 
     try {
+      // Debug: Log available wallets
+      console.log('[AutoSwap] Available wallets:', wallets.map((w: any) => ({ 
+        address: w.address?.slice(0, 8) + '...', 
+        type: w.walletClientType,
+        chainType: w.chainType 
+      })));
+      
       // Only use embedded Privy wallet for auto-swap (external wallets manage their own funds)
       const solanaWallet = wallets.find((w: any) => w.walletClientType === 'privy');
       if (!solanaWallet) {
-        // Not an error - user may only have external wallet, which doesn't need auto-swap
+        console.log('[AutoSwap] No embedded Privy wallet found - user may need to wait for wallet init');
         setIsSwapping(false);
         return { success: false };
       }
+      
+      console.log('[AutoSwap] Using wallet:', solanaWallet.address);
 
       const userPublicKey = solanaWallet.address;
       const swapAmount = calculateSwapAmount(currentSolBalance);
@@ -98,32 +107,56 @@ export function useAutoSwap() {
     onStart?: () => void,
     onComplete?: (result: AutoSwapResult) => void
   ): Promise<boolean> => {
-    if (!walletAddress || isSwapping) return false;
-    
-    const now = Date.now();
-    if (now - lastSwapTimeRef.current < SWAP_COOLDOWN_MS) {
-      return false;
-    }
-
+    const gasReserve = getDynamicGasReserve(currentSolBalance);
+    const swapAmount = calculateSwapAmount(currentSolBalance);
     const previousBalance = previousBalanceRef.current;
     const balanceIncrease = currentSolBalance - previousBalance;
     
+    // Debug logging
+    console.log('[AutoSwap] ========== CHECK ==========');
+    console.log('[AutoSwap] Current SOL Balance:', currentSolBalance.toFixed(6));
+    console.log('[AutoSwap] Previous Balance:', previousBalance.toFixed(6));
+    console.log('[AutoSwap] Balance Increase:', balanceIncrease.toFixed(6));
+    console.log('[AutoSwap] Threshold Check: Is', swapAmount.toFixed(6), '>', MIN_SWAP_THRESHOLD, '?', swapAmount > MIN_SWAP_THRESHOLD);
+    console.log('[AutoSwap] Calculated Gas Reserve:', gasReserve);
+    console.log('[AutoSwap] Calculated Swap Amount:', swapAmount.toFixed(6));
+    console.log('[AutoSwap] Wallet Address:', walletAddress);
+    console.log('[AutoSwap] Is Swapping:', isSwapping);
+    
+    if (!walletAddress || isSwapping) {
+      console.log('[AutoSwap] SKIP: No wallet or already swapping');
+      return false;
+    }
+    
+    const now = Date.now();
+    const timeSinceLastSwap = now - lastSwapTimeRef.current;
+    if (timeSinceLastSwap < SWAP_COOLDOWN_MS) {
+      console.log('[AutoSwap] SKIP: Cooldown active, wait', ((SWAP_COOLDOWN_MS - timeSinceLastSwap) / 1000).toFixed(0), 'seconds');
+      return false;
+    }
+
+    // Update previous balance AFTER reading it
     previousBalanceRef.current = currentSolBalance;
 
-    const swapAmount = calculateSwapAmount(currentSolBalance);
     if (swapAmount <= MIN_SWAP_THRESHOLD) {
+      console.log('[AutoSwap] SKIP: Swap amount too low');
       return false;
     }
 
     const balanceKey = `${walletAddress}-${currentSolBalance.toFixed(6)}`;
     if (hasAutoSwappedRef.current.has(balanceKey)) {
+      console.log('[AutoSwap] SKIP: Already swapped at this balance');
       return false;
     }
 
     const isFirstDeposit = previousBalance === 0 && currentSolBalance > MIN_SWAP_THRESHOLD;
     const isTopUp = balanceIncrease > 0.001 && previousBalance > 0;
     
+    console.log('[AutoSwap] Is First Deposit?', isFirstDeposit, '(prev=0 && current>', MIN_SWAP_THRESHOLD, ')');
+    console.log('[AutoSwap] Is Top-Up?', isTopUp, '(increase > 0.001 && prev > 0)');
+    
     if (isFirstDeposit || isTopUp) {
+      console.log('[AutoSwap] TRIGGERING SWAP!');
       onStart?.();
       const result = await performAutoSwap(currentSolBalance);
       
@@ -136,10 +169,12 @@ export function useAutoSwap() {
         }
       }
       
+      console.log('[AutoSwap] Result:', result);
       onComplete?.(result);
       return result.success;
     }
 
+    console.log('[AutoSwap] SKIP: Not a new deposit or top-up');
     return false;
   }, [isSwapping, performAutoSwap]);
 

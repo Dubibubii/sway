@@ -51,11 +51,8 @@ function ProfileContent() {
     }
   }, [solBalance, embeddedWallet?.address]);
 
-  useEffect(() => {
-    if (walletAddress && solBalance > 0) {
-      resetPreviousBalance(solBalance);
-    }
-  }, [walletAddress]);
+  // Note: Removed resetPreviousBalance on wallet connect - it was preventing 
+  // first deposit detection by setting previous = current before the check ran
   
   const calculateBetsLeft = (wagerAmount: number) => {
     if (usdcBalance <= 0 || wagerAmount <= 0) return 0;
