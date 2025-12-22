@@ -261,7 +261,7 @@ function ProfileContent() {
                      <Loader2 size={10} className="animate-spin" /> Converting...
                    </div>
                  )}
-                 {embeddedWallet && solBalance > 0.005 && !isSwapping && (
+                 {embeddedWallet && solBalance > 0 && !isSwapping && (
                    <Button
                      size="sm"
                      variant="outline"
