@@ -149,7 +149,13 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             throw new Error(confirmed.error || 'Transaction failed on-chain. You may need more SOL for fees.');
           }
         } catch (confirmError: any) {
-          console.error('Confirmation error:', confirmError);
+          console.error('Confirmation error details:', 
+            confirmError instanceof Error ? confirmError.message : JSON.stringify(confirmError, Object.getOwnPropertyNames(confirmError))
+          );
+          if (confirmError instanceof Error && confirmError.stack) {
+            console.error('Confirmation error stack:', confirmError.stack);
+          }
+          console.dir(confirmError);
         }
       }
 

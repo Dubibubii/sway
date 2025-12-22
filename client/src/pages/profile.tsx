@@ -261,6 +261,33 @@ function ProfileContent() {
                      <Loader2 size={10} className="animate-spin" /> Converting...
                    </div>
                  )}
+                 {embeddedWallet && solBalance > 0.005 && !isSwapping && (
+                   <Button
+                     size="sm"
+                     variant="outline"
+                     onClick={() => {
+                       console.log('[ForceConvert] Button clicked, SOL balance:', solBalance);
+                       checkAndAutoSwap(
+                         solBalance,
+                         embeddedWallet.address,
+                         () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.004).toFixed(4)} SOL` }),
+                         (result) => {
+                           if (result.success) {
+                             toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
+                             refetchBalance();
+                           } else {
+                             toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
+                           }
+                         },
+                         true
+                       );
+                     }}
+                     className="mt-2 h-6 px-2 text-[10px] gap-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-400"
+                     data-testid="button-force-convert"
+                   >
+                     <RefreshCw size={10} /> Force Convert
+                   </Button>
+                 )}
                </div>
             ) : null}
           </CardContent>
