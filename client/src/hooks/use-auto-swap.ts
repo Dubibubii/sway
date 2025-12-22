@@ -154,9 +154,9 @@ export function useAutoSwap() {
           });
           signature = sig;
         } else if (typeof (embeddedWallet as any).signAndSendTransaction === 'function') {
-          // Direct signAndSendTransaction method
+          // Direct signAndSendTransaction method - pass base64 string, not bytes
           console.log('[AutoSwap] Using wallet.signAndSendTransaction');
-          const result = await (embeddedWallet as any).signAndSendTransaction(transactionBytes);
+          const result = await (embeddedWallet as any).signAndSendTransaction(swapResult.transactionBase64);
           signature = result.signature || result;
         } else if (typeof (embeddedWallet as any).sendTransaction === 'function') {
           // Try sendTransaction
