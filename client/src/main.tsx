@@ -209,6 +209,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
         },
         loginMethods: ['wallet', 'email', 'google'],
         embeddedWallets: {
+          showWalletUIs: false,
           solana: {
             createOnLogin: 'all-users',
           },
