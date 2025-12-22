@@ -521,8 +521,9 @@ export async function registerRoutes(
   });
 
   // Jupiter swap proxy endpoints (to avoid CORS issues)
-  const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6';
-  const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+  // Using public.jupiterapi.com as alternative (jup.ag has DNS issues on some servers)
+  const JUPITER_QUOTE_API = 'https://public.jupiterapi.com';
+  const JUPITER_SWAP_API = 'https://public.jupiterapi.com/swap';
 
   app.get('/api/jupiter/quote', async (req: Request, res: Response) => {
     try {
