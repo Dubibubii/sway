@@ -14,10 +14,11 @@ interface WithdrawModalProps {
   solBalance: number;
   usdcBalance: number;
   walletAddress: string | null;
+  externalWalletAddress: string | null;
   onSuccess: () => void;
 }
 
-export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, onSuccess }: WithdrawModalProps) {
+export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, externalWalletAddress, onSuccess }: WithdrawModalProps) {
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { toast } = useToast();
@@ -34,11 +35,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   }, [wallets]);
 
   useEffect(() => {
-    if (open && walletAddress && !recipient) {
-      setRecipient(walletAddress);
-      setShowManualEntry(false);
+    if (open) {
+      if (externalWalletAddress) {
+        setRecipient(externalWalletAddress);
+        setShowManualEntry(false);
+      } else {
+        setRecipient('');
+        setShowManualEntry(true);
+      }
     }
-  }, [open, walletAddress]);
+  }, [open, externalWalletAddress]);
 
   const availableBalance = token === 'SOL' 
     ? Math.max(0, solBalance - MIN_SOL_RESERVE) 
@@ -47,9 +53,10 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const hasEnoughSolForFees = solBalance >= MIN_SOL_RESERVE;
 
   const isValidAddress = recipient.length > 0 ? validateSolanaAddress(recipient) : true;
+  const isSameAddress = walletAddress && recipient.toLowerCase() === walletAddress.toLowerCase();
   const numAmount = parseFloat(amount) || 0;
   const isValidAmount = numAmount > 0 && numAmount <= availableBalance;
-  const canSubmit = isValidAddress && isValidAmount && recipient.length > 0 && !isWithdrawing && hasEnoughSolForFees;
+  const canSubmit = isValidAddress && isValidAmount && recipient.length > 0 && !isWithdrawing && hasEnoughSolForFees && !isSameAddress;
 
   const handleMaxClick = () => {
     setAmount(availableBalance.toFixed(token === 'SOL' ? 6 : 2));
@@ -163,7 +170,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             Withdraw Funds
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Send SOL or USDC to your external wallet
+            Send SOL or USDC to an external wallet (Phantom, Solflare, etc.)
           </DialogDescription>
         </DialogHeader>
         
@@ -237,25 +244,25 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                   }`}
                   data-testid="input-recipient"
                 />
-                {walletAddress && (
+                {externalWalletAddress && (
                   <button
                     onClick={() => {
-                      setRecipient(walletAddress);
+                      setRecipient(externalWalletAddress);
                       setShowManualEntry(false);
                     }}
                     className="text-xs text-zinc-500 hover:text-zinc-400"
                   >
-                    Use connected wallet instead
+                    Use external wallet instead
                   </button>
                 )}
               </div>
-            ) : walletAddress ? (
+            ) : externalWalletAddress ? (
               <div className="w-full flex items-center gap-3 p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30">
                 <Wallet size={18} className="text-emerald-400" />
                 <div className="flex-1 text-left">
-                  <div className="text-sm font-medium text-emerald-400">Connected Wallet</div>
+                  <div className="text-sm font-medium text-emerald-400">Your External Wallet</div>
                   <div className="text-xs text-zinc-400 font-mono">
-                    {formatAddress(walletAddress)}
+                    {formatAddress(externalWalletAddress)}
                   </div>
                 </div>
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -279,6 +286,12 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
               <div className="flex items-center gap-1 text-red-400 text-xs">
                 <AlertCircle size={12} />
                 Invalid Solana address
+              </div>
+            )}
+            {isSameAddress && (
+              <div className="flex items-center gap-1 text-orange-400 text-xs">
+                <AlertCircle size={12} />
+                Enter a different wallet address - this is already your Pulse wallet
               </div>
             )}
           </div>

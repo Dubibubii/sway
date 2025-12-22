@@ -26,6 +26,22 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     return null;
   }, [privy.user?.linkedAccounts]);
   
+  const externalWalletAddress = useMemo(() => {
+    if (!privy.user?.linkedAccounts) return null;
+    
+    const externalWallet = privy.user.linkedAccounts.find(
+      (account: any) => 
+        account.type === 'wallet' && 
+        account.walletClientType !== 'privy' &&
+        account.chainType === 'solana'
+    );
+    
+    if (externalWallet && 'address' in externalWallet) {
+      return (externalWallet as any).address;
+    }
+    return null;
+  }, [privy.user?.linkedAccounts]);
+  
   const createWalletWrapper = async () => {
     try {
       await (privy.createWallet as any)({ chainType: 'solana' });
@@ -63,6 +79,7 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     getAccessToken: privy.getAccessToken,
     ready: privy.ready,
     embeddedWallet,
+    externalWalletAddress,
     createWallet: createWalletWrapper,
     fundWallet: fundWalletWrapper,
     exportWallet: exportWalletWrapper,

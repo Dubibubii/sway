@@ -18,7 +18,7 @@ import { WithdrawModal } from '@/components/withdraw-modal';
 
 function ProfileContent() {
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
-  const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, createWallet, fundWallet, exportWallet } = usePrivySafe();
+  const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, externalWalletAddress, createWallet, fundWallet, exportWallet } = usePrivySafe();
   const { toast } = useToast();
   const [unifiedWager, setUnifiedWager] = useState(true);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
@@ -447,6 +447,7 @@ function ProfileContent() {
         solBalance={solBalance}
         usdcBalance={usdcBalance}
         walletAddress={walletAddress}
+        externalWalletAddress={externalWalletAddress}
         onSuccess={refetchBalance}
       />
       
