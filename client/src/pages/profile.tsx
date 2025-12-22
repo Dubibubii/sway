@@ -257,6 +257,32 @@ function ProfileContent() {
                    <span className="text-emerald-400">${usdcBalance.toFixed(2)} USDC</span>
                    <span>{solBalance.toFixed(4)} SOL</span>
                  </div>
+                 {solBalance > 0.005 && !isSwapping && (
+                   <button
+                     onClick={() => {
+                       if (embeddedWallet?.address) {
+                         checkAndAutoSwap(
+                           solBalance,
+                           embeddedWallet.address,
+                           () => toast({ title: "Converting SOL...", description: "Swapping to USDC for betting" }),
+                           (result) => {
+                             if (result.success) {
+                               toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
+                               refetchBalance();
+                             } else if (result.error) {
+                               toast({ title: "Conversion Failed", description: result.error, variant: "destructive" });
+                             }
+                           },
+                           true // forceSwap - bypass first deposit/top-up check for manual button
+                         );
+                       }
+                     }}
+                     className="mt-2 text-[10px] px-3 py-1.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-purple-300 rounded-lg flex items-center gap-1.5 ml-auto transition-all border border-purple-500/30"
+                     data-testid="button-convert-usdc"
+                   >
+                     <ArrowRightLeft size={10} /> Convert SOL → USDC
+                   </button>
+                 )}
                  {isSwapping && (
                    <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto">
                      <Loader2 size={10} className="animate-spin" /> Converting...

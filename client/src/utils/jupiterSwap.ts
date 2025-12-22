@@ -59,16 +59,21 @@ export async function getJupiterQuote(
       outputMint,
       amount: amountLamports.toString(),
       slippageBps: slippageBps.toString(),
+      restrictIntermediateTokens: 'true',
     });
 
+    console.log('[Jupiter] Requesting quote:', params.toString());
     const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params.toString()}`);
     
     if (!response.ok) {
-      console.error('Jupiter quote error:', response.status);
+      const errorText = await response.text();
+      console.error('Jupiter quote error:', response.status, errorText);
       return null;
     }
 
-    return await response.json();
+    const quote = await response.json();
+    console.log('[Jupiter] Quote received:', { outAmount: quote.outAmount, priceImpact: quote.priceImpactPct });
+    return quote;
   } catch (error) {
     console.error('Error fetching Jupiter quote:', error);
     return null;
@@ -80,6 +85,7 @@ export async function getSwapTransaction(
   userPublicKey: string
 ): Promise<{ swapTransaction: string } | null> {
   try {
+    console.log('[Jupiter] Requesting swap transaction for:', userPublicKey);
     const response = await fetch(JUPITER_SWAP_API, {
       method: 'POST',
       headers: {
@@ -91,15 +97,22 @@ export async function getSwapTransaction(
         wrapAndUnwrapSol: true,
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto',
+        dynamicSlippage: {
+          minBps: 50,
+          maxBps: 300,
+        },
       }),
     });
 
     if (!response.ok) {
-      console.error('Jupiter swap error:', response.status);
+      const errorText = await response.text();
+      console.error('Jupiter swap error:', response.status, errorText);
       return null;
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('[Jupiter] Swap transaction received');
+    return result;
   } catch (error) {
     console.error('Error getting swap transaction:', error);
     return null;
