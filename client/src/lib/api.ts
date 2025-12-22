@@ -36,9 +36,11 @@ export interface Market {
   yesLabel: string;
   noLabel: string;
   volume: number;
+  volume24h?: number;
   endDate: string;
   status: string;
   imageUrl?: string;
+  eventTicker?: string;
 }
 
 export interface Trade {

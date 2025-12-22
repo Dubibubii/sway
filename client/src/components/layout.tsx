@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, User, Activity } from "lucide-react";
+import { Home, User, Activity, Search } from "lucide-react";
 import { useSettings } from "@/hooks/use-settings";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -16,16 +16,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       
       {/* Top Navigation */}
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-sm glass-panel rounded-full px-4 py-2 flex justify-between items-center z-50">
-        <Link href="/" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-          <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
+        <Link href="/" data-testid="nav-home" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Home size={22} strokeWidth={isActive('/') ? 2.5 : 2} />
         </Link>
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <Link href="/activity" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            <Activity size={24} strokeWidth={isActive('/activity') ? 2.5 : 2} />
-          </Link>
-        </div>
-        <Link href="/profile" className={`flex items-center gap-3 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-          <User size={24} strokeWidth={isActive('/profile') ? 2.5 : 2} />
+        <Link href="/discovery" data-testid="nav-discovery" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/discovery') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Search size={22} strokeWidth={isActive('/discovery') ? 2.5 : 2} />
+        </Link>
+        <Link href="/activity" data-testid="nav-activity" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/activity') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Activity size={22} strokeWidth={isActive('/activity') ? 2.5 : 2} />
+        </Link>
+        <Link href="/profile" data-testid="nav-profile" className={`flex items-center gap-3 transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <User size={22} strokeWidth={isActive('/profile') ? 2.5 : 2} />
           <div className="flex gap-1.5">
              {settings.yesWager === settings.noWager ? (
                <div className="w-auto min-w-[20px] px-1 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
