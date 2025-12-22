@@ -27,14 +27,22 @@ function ProfileContent() {
   const [depositAddress, setDepositAddress] = useState<string | null>(null);
   const [depositCopied, setDepositCopied] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
-  const walletAddress = embeddedWallet?.address || user?.wallet?.address || null;
-  const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(walletAddress);
+  
+  // Prioritize external wallet when connected (e.g., Phantom) so signing works
+  // Only use embedded wallet when no external wallet is connected
+  const activeWalletAddress = externalWalletAddress || embeddedWallet?.address || user?.wallet?.address || null;
+  const isUsingExternalWallet = !!externalWalletAddress;
+  
+  // Legacy reference for display purposes
+  const walletAddress = activeWalletAddress;
+  
+  const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(activeWalletAddress);
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
 
   useEffect(() => {
-    // Only auto-swap for embedded wallet (external wallets manage their own funds)
-    // Silent auto-swap - no notifications unless successful
-    if (embeddedWallet?.address && solBalance > 0) {
+    // Auto-swap only when NOT using external wallet (embedded wallet can auto-sign)
+    // External wallets (Phantom) need manual approval
+    if (!isUsingExternalWallet && embeddedWallet?.address && solBalance > 0) {
       checkAndAutoSwap(
         solBalance, 
         embeddedWallet.address,
@@ -48,7 +56,7 @@ function ProfileContent() {
         }
       );
     }
-  }, [solBalance, embeddedWallet?.address]);
+  }, [solBalance, embeddedWallet?.address, isUsingExternalWallet]);
 
   // Note: Removed resetPreviousBalance on wallet connect - it was preventing 
   // first deposit detection by setting previous = current before the check ran
@@ -261,15 +269,15 @@ function ProfileContent() {
                      <Loader2 size={10} className="animate-spin" /> Converting...
                    </div>
                  )}
-                 {embeddedWallet && solBalance > 0.01 && !isSwapping && (
+                 {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
                    <Button
                      size="sm"
-                     variant={externalWalletAddress ? "default" : "outline"}
+                     variant={isUsingExternalWallet ? "default" : "outline"}
                      onClick={() => {
-                       console.log('[ForceConvert] Button clicked, SOL balance:', solBalance);
+                       console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
                        checkAndAutoSwap(
                          solBalance,
-                         embeddedWallet.address,
+                         activeWalletAddress,
                          () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
                          (result) => {
                            if (result.success) {
@@ -283,7 +291,7 @@ function ProfileContent() {
                        );
                      }}
                      className={`mt-2 h-7 px-3 text-[11px] gap-1.5 ${
-                       externalWalletAddress 
+                       isUsingExternalWallet 
                          ? 'bg-blue-600 hover:bg-blue-700 text-white border-0 animate-pulse' 
                          : 'border-blue-500/30 hover:bg-blue-500/10 text-blue-400'
                      }`}
