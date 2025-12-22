@@ -36,27 +36,35 @@ function ProfileContent() {
   // Legacy reference for display purposes
   const walletAddress = activeWalletAddress;
   
+  // Track the ACTIVE wallet balance for display (external or embedded)
   const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(activeWalletAddress);
+  
+  // Also track EMBEDDED wallet balance separately for auto-swap detection
+  // This is needed because deposits always go to embedded wallet, even when using external wallet
+  const { solBalance: embeddedSolBalance, refetch: refetchEmbeddedBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
 
+  // Auto-swap: triggered by EMBEDDED wallet balance changes (where deposits go)
   useEffect(() => {
-    // Auto-swap only when NOT using external wallet (embedded wallet can auto-sign)
-    // External wallets (Phantom) need manual approval
-    if (!isUsingExternalWallet && embeddedWallet?.address && solBalance > 0) {
+    // Auto-swap for embedded wallet deposits - always enabled when embedded wallet exists
+    if (embeddedWallet?.address && embeddedSolBalance > 0) {
+      console.log('[Profile] Checking auto-swap for embedded wallet, SOL balance:', embeddedSolBalance);
       checkAndAutoSwap(
-        solBalance, 
+        embeddedSolBalance, 
         embeddedWallet.address,
         undefined, // No onStart notification - silent operation
         (result) => {
           if (result.success) {
             toast({ title: "Deposit Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
             refetchBalance();
+            refetchEmbeddedBalance();
           }
           // Don't show error toasts for auto-swap failures - only show success
         }
       );
     }
-  }, [solBalance, embeddedWallet?.address, isUsingExternalWallet]);
+  }, [embeddedSolBalance, embeddedWallet?.address]);
 
   // Note: Removed resetPreviousBalance on wallet connect - it was preventing 
   // first deposit detection by setting previous = current before the check ran
