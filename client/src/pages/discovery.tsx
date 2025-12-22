@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { Market } from "@/lib/api";
+import { getMarkets, type Market } from "@/lib/api";
 
 const CATEGORIES = ["All", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -14,6 +14,7 @@ export default function Discovery() {
 
   const { data: marketsData, isLoading } = useQuery<{ markets: Market[] }>({
     queryKey: ['/api/markets'],
+    queryFn: () => getMarkets(),
   });
 
   const markets = marketsData?.markets || [];
