@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { 
   prepareAutoSwap, 
   calculateSwapAmount, 
@@ -33,6 +33,7 @@ function logError(context: string, err: unknown) {
 
 export function useAutoSwap() {
   const { wallets, ready: walletsReady } = useWallets();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isSwapping, setIsSwapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -138,41 +139,20 @@ export function useAutoSwap() {
         embeddedWallet = wallets[0];
       }
       
-      let signature: string;
-      
-      if (embeddedWallet) {
-        // Try using getProvider first (for embedded wallets)
-        if (typeof (embeddedWallet as any).getProvider === 'function') {
-          console.log('[AutoSwap] Using wallet provider for signing');
-          const provider = await (embeddedWallet as any).getProvider();
-          const { signature: sig } = await provider.request({
-            method: 'signAndSendTransaction',
-            params: {
-              transaction: swapResult.transactionBase64,
-              sendOptions: { skipPreflight: false }
-            }
-          });
-          signature = sig;
-        } else if (typeof (embeddedWallet as any).signAndSendTransaction === 'function') {
-          // Direct signAndSendTransaction method - pass base64 string, not bytes
-          console.log('[AutoSwap] Using wallet.signAndSendTransaction');
-          const result = await (embeddedWallet as any).signAndSendTransaction(swapResult.transactionBase64);
-          signature = result.signature || result;
-        } else if (typeof (embeddedWallet as any).sendTransaction === 'function') {
-          // Try sendTransaction
-          console.log('[AutoSwap] Using wallet.sendTransaction');
-          const result = await (embeddedWallet as any).sendTransaction(transactionBytes);
-          signature = result.signature || result;
-        } else {
-          console.log('[AutoSwap] Available wallet methods:', Object.keys(embeddedWallet as any));
-          throw new Error('Wallet does not support automatic signing. Use the manual convert button.');
-        }
-      } else {
-        // No wallet available at all
+      if (!embeddedWallet) {
         console.log('[AutoSwap] No wallet found in useWallets array');
         console.log('[AutoSwap] Target address:', userPublicKey);
         throw new Error('Embedded wallet not available. Use the manual convert button.');
       }
+
+      // Use Privy's signAndSendTransaction hook with the transaction bytes
+      console.log('[AutoSwap] Using Privy signAndSendTransaction hook');
+      const result = await signAndSendTransaction({
+        transaction: transactionBytes,
+        wallet: embeddedWallet,
+      });
+      
+      const signature = typeof result === 'string' ? result : (result as any).signature || (result as any).hash || String(result);
 
       console.log('[AutoSwap] Swap successful! Signature:', signature);
       
@@ -195,7 +175,7 @@ export function useAutoSwap() {
         error: errorMessage,
       };
     }
-  }, [wallets, walletsReady, isSwapping]);
+  }, [wallets, walletsReady, isSwapping, signAndSendTransaction]);
 
   useEffect(() => {
     if (walletsReady && pendingSwapRef.current && !isSwapping) {
