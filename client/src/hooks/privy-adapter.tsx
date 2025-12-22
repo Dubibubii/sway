@@ -27,6 +27,10 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   }, [privy.user?.linkedAccounts]);
   
   const externalWalletAddress = useMemo(() => {
+    if (privy.user?.wallet?.address) {
+      return privy.user.wallet.address;
+    }
+    
     if (!privy.user?.linkedAccounts) return null;
     
     const externalWallet = privy.user.linkedAccounts.find(
@@ -40,7 +44,7 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
       return (externalWallet as any).address;
     }
     return null;
-  }, [privy.user?.linkedAccounts]);
+  }, [privy.user?.wallet?.address, privy.user?.linkedAccounts]);
   
   const createWalletWrapper = async () => {
     try {
