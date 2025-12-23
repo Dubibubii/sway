@@ -25,8 +25,20 @@ export default function Discovery() {
         market.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         market.subtitle?.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesCategory = selectedCategory === "All" || 
-        market.category === selectedCategory;
+      let matchesCategory = selectedCategory === "All" || 
+        market.category.toLowerCase() === selectedCategory.toLowerCase();
+
+      if (!matchesCategory && selectedCategory === "Crypto") {
+        const cryptoKeywords = ['bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'crypto', 'xrp', 'dogecoin', 'doge'];
+        const title = market.title.toLowerCase();
+        matchesCategory = cryptoKeywords.some(kw => title.includes(kw));
+      }
+
+      if (!matchesCategory && selectedCategory === "AI") {
+        const aiKeywords = ['ai', 'artificial intelligence', 'openai', 'gpt', 'chatgpt', 'anthropic', 'claude', 'agi', 'machine learning'];
+        const title = market.title.toLowerCase();
+        matchesCategory = aiKeywords.some(kw => title.includes(kw));
+      }
 
       return matchesSearch && matchesCategory;
     });
