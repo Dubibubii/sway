@@ -244,50 +244,6 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
               </div>
 
               <div className="bg-white/5 rounded-xl p-4 mb-4">
-                <button 
-                  onClick={() => setShowResolutionInfo(!showResolutionInfo)}
-                  className="w-full flex items-center justify-between text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Info size={16} className="text-muted-foreground" />
-                    <span className="text-sm font-medium">Resolution Details</span>
-                  </div>
-                  {showResolutionInfo ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                
-                <AnimatePresence>
-                  {showResolutionInfo && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="pt-3 mt-3 border-t border-white/10 text-sm text-muted-foreground space-y-2">
-                        <p>This market will resolve based on official announcements and verifiable public information.</p>
-                        <p>End date: {new Date(market.endDate).toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}</p>
-                        <p>Total volume: ${market.volume?.toLocaleString() || 0}</p>
-                        {market.eventTicker && (
-                          <a 
-                            href={`https://kalshi.com/markets/${market.eventTicker}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            View on Kalshi <ExternalLink size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4 mb-4">
                 <h3 className="text-sm font-medium mb-3">Place Your Bet</h3>
                 
                 <div className="flex gap-2 mb-4">
@@ -368,6 +324,50 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                 >
                   Bet ${betAmount} on {betDirection}
                 </Button>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 mb-4">
+                <button 
+                  onClick={() => setShowResolutionInfo(!showResolutionInfo)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Info size={16} className="text-muted-foreground" />
+                    <span className="text-sm font-medium">Resolution Details</span>
+                  </div>
+                  {showResolutionInfo ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                
+                <AnimatePresence>
+                  {showResolutionInfo && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-3 mt-3 border-t border-white/10 text-sm text-muted-foreground space-y-2">
+                        <p>This market will resolve based on official announcements and verifiable public information.</p>
+                        <p>End date: {new Date(market.endDate).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}</p>
+                        <p>Total volume: ${market.volume?.toLocaleString() || 0}</p>
+                        {market.eventTicker && (
+                          <a 
+                            href={`https://kalshi.com/markets/${market.eventTicker}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            View on Kalshi <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
