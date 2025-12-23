@@ -232,45 +232,44 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                 <p className="text-sm text-muted-foreground mb-4">{market.subtitle}</p>
               )}
 
-              <div className="flex gap-3 mb-6">
-                <div className="flex-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-emerald-400">{yesPercent}%</div>
-                  <div className="text-xs text-emerald-400/70">{market.yesLabel || 'Yes'}</div>
-                </div>
-                <div className="flex-1 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-rose-400">{noPercent}%</div>
-                  <div className="text-xs text-rose-400/70">{market.noLabel || 'No'}</div>
+              <div className="bg-white/5 rounded-xl overflow-hidden mb-4">
+                <div className={`flex items-center p-3 border-b border-white/10 ${
+                  betDirection ? 'bg-white/5' : ''
+                }`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{market.yesLabel || market.title}</div>
+                  </div>
+                  <div className="text-lg font-bold text-white w-16 text-center">
+                    {yesPercent}%
+                  </div>
+                  <div className="flex gap-2 ml-2">
+                    <button
+                      data-testid="button-bet-yes"
+                      onClick={() => setBetDirection('YES')}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all min-w-[70px] ${
+                        betDirection === 'YES'
+                          ? 'bg-emerald-500 text-white ring-2 ring-emerald-400'
+                          : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                      }`}
+                    >
+                      Yes {yesPercent}¢
+                    </button>
+                    <button
+                      data-testid="button-bet-no"
+                      onClick={() => setBetDirection('NO')}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all min-w-[70px] ${
+                        betDirection === 'NO'
+                          ? 'bg-rose-500 text-white ring-2 ring-rose-400'
+                          : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
+                      }`}
+                    >
+                      No {noPercent}¢
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div className="bg-white/5 rounded-xl p-4 mb-4">
-                <h3 className="text-sm font-medium mb-3">Place Your Bet</h3>
-                
-                <div className="flex gap-2 mb-4">
-                  <button
-                    data-testid="button-bet-yes"
-                    onClick={() => setBetDirection('YES')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                      betDirection === 'YES'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                    }`}
-                  >
-                    Yes @ {yesPercent}¢
-                  </button>
-                  <button
-                    data-testid="button-bet-no"
-                    onClick={() => setBetDirection('NO')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                      betDirection === 'NO'
-                        ? 'bg-rose-500 text-white'
-                        : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
-                    }`}
-                  >
-                    No @ {noPercent}¢
-                  </button>
-                </div>
-
                 <div className="mb-4">
                   <label className="text-xs text-muted-foreground mb-2 block">Amount (USDC)</label>
                   <div className="flex gap-2 flex-wrap">
