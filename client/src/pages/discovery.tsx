@@ -405,7 +405,7 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                 </Button>
               </div>
 
-              <div className="bg-white/5 rounded-xl p-4 mb-4">
+              <div className="bg-white/5 rounded-xl p-4 mb-20">
                 <button 
                   onClick={() => setShowResolutionInfo(!showResolutionInfo)}
                   className="w-full flex items-center justify-between text-left"
