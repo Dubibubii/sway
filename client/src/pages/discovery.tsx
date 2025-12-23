@@ -341,14 +341,28 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
                       <input
                         type="number"
+                        inputMode="decimal"
                         data-testid="input-custom-amount"
-                        value={!amountOptions.includes(betAmount) ? betAmount : ''}
+                        value={!amountOptions.includes(betAmount) ? betAmount.toString() : ''}
                         onChange={(e) => {
                           const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val > 0) setBetAmount(val);
+                          if (e.target.value === '') {
+                            setBetAmount(1);
+                          } else if (!isNaN(val) && val > 0) {
+                            setBetAmount(val);
+                          }
+                        }}
+                        onFocus={(e) => {
+                          if (amountOptions.includes(betAmount)) {
+                            e.target.value = '';
+                          }
                         }}
                         placeholder="Custom"
-                        className="w-20 pl-6 pr-2 py-2 rounded-lg text-sm font-medium bg-white/10 border border-white/20 focus:border-primary focus:outline-none text-center"
+                        className={`w-24 pl-7 pr-2 py-2 rounded-lg text-sm font-medium border focus:outline-none ${
+                          !amountOptions.includes(betAmount)
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-white/10 border-white/20 focus:border-primary'
+                        }`}
                       />
                     </div>
                   </div>
