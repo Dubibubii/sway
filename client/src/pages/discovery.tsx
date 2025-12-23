@@ -322,7 +322,7 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                 
                 <div className="mb-4">
                   <label className="text-xs text-muted-foreground mb-2 block">Amount (USDC)</label>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap items-center">
                     {amountOptions.map((amount) => (
                       <button
                         key={amount}
@@ -337,6 +337,20 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                         ${amount}
                       </button>
                     ))}
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        data-testid="input-custom-amount"
+                        value={!amountOptions.includes(betAmount) ? betAmount : ''}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val > 0) setBetAmount(val);
+                        }}
+                        placeholder="Custom"
+                        className="w-20 pl-6 pr-2 py-2 rounded-lg text-sm font-medium bg-white/10 border border-white/20 focus:border-primary focus:outline-none text-center"
+                      />
+                    </div>
                   </div>
                 </div>
 
