@@ -75,6 +75,10 @@ export async function getMarkets(category?: string): Promise<{ markets: Market[]
   return fetchWithAuth(`/markets${params}`);
 }
 
+export async function getEventMarkets(eventTicker: string): Promise<{ markets: Market[] }> {
+  return fetchWithAuth(`/events/${eventTicker}/markets`);
+}
+
 export async function createOrGetUser(privyId: string, walletAddress?: string | null): Promise<{ user: User }> {
   return fetchWithAuth('/users', {
     method: 'POST',

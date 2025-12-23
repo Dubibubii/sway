@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG } from "@shared/schema";
@@ -97,6 +97,17 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Error fetching markets:', error);
       res.status(500).json({ error: 'Failed to fetch markets' });
+    }
+  });
+
+  app.get('/api/events/:eventTicker/markets', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { eventTicker } = req.params;
+      const markets = await getEventMarkets(eventTicker);
+      res.json({ markets });
+    } catch (error) {
+      console.error('Error fetching event markets:', error);
+      res.status(500).json({ error: 'Failed to fetch event markets' });
     }
   });
 

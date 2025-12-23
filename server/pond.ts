@@ -158,6 +158,35 @@ export async function getMarketsByCategory(category: string): Promise<Simplified
   );
 }
 
+export async function getEventMarkets(eventTicker: string): Promise<SimplifiedMarket[]> {
+  try {
+    const response = await fetch(`${KALSHI_BASE_URL}/events/${eventTicker}?with_nested_markets=true`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      console.error('Kalshi API error fetching event:', response.status);
+      return [];
+    }
+    
+    const data = await response.json();
+    const event: KalshiEvent = data.event;
+    
+    if (!event || !event.markets) {
+      return [];
+    }
+    
+    return event.markets
+      .filter((m: KalshiMarket) => m.status === 'active')
+      .map((m: KalshiMarket) => transformKalshiMarket(m, event))
+      .sort((a, b) => b.yesPrice - a.yesPrice);
+  } catch (error) {
+    console.error('Error fetching event markets:', error);
+    return [];
+  }
+}
+
 function mapKalshiCategory(kalshiCategory: string): string {
   const categoryMap: Record<string, string> = {
     'Science and Technology': 'Tech',

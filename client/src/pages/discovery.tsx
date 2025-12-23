@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getMarkets, type Market } from "@/lib/api";
+import { getMarkets, getEventMarkets, type Market } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
@@ -171,19 +171,39 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
 }
 
 function MarketDetailModal({ market, onClose }: { market: Market; onClose: () => void }) {
+  const [selectedMarketId, setSelectedMarketId] = useState<string>(market.id);
   const [betDirection, setBetDirection] = useState<'YES' | 'NO'>('YES');
   const [betAmount, setBetAmount] = useState(5);
   const [showResolutionInfo, setShowResolutionInfo] = useState(false);
-  
-  const yesPercent = Math.round(market.yesPrice * 100);
-  const noPercent = Math.round(market.noPrice * 100);
-  const price = betDirection === 'YES' ? market.yesPrice : market.noPrice;
+  const [showAllOptions, setShowAllOptions] = useState(false);
+
+  const { data: eventMarketsData } = useQuery({
+    queryKey: ['/api/events', market.eventTicker, 'markets'],
+    queryFn: () => market.eventTicker ? getEventMarkets(market.eventTicker) : Promise.resolve({ markets: [] }),
+    enabled: !!market.eventTicker,
+  });
+
+  const eventMarkets = eventMarketsData?.markets || [];
+  const hasMultipleOptions = eventMarkets.length > 1;
+  const displayMarkets = hasMultipleOptions ? eventMarkets : [market];
+  const visibleMarkets = showAllOptions ? displayMarkets : displayMarkets.slice(0, 5);
+  const hasMoreOptions = displayMarkets.length > 5;
+
+  const selectedMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
+  const yesPercent = Math.round(selectedMarket.yesPrice * 100);
+  const noPercent = Math.round(selectedMarket.noPrice * 100);
+  const price = betDirection === 'YES' ? selectedMarket.yesPrice : selectedMarket.noPrice;
   const estimatedShares = betAmount / price;
   const potentialPayout = estimatedShares * 1;
   const potentialProfit = potentialPayout - betAmount;
   const returnMultiple = (potentialPayout / betAmount).toFixed(2);
 
   const amountOptions = [1, 5, 10, 25, 50, 100];
+
+  const handleSelectOption = (marketId: string, direction: 'YES' | 'NO') => {
+    setSelectedMarketId(marketId);
+    setBetDirection(direction);
+  };
 
   return (
     <>
@@ -233,43 +253,73 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
               )}
 
               <div className="bg-white/5 rounded-xl overflow-hidden mb-4">
-                <div className={`flex items-center p-3 border-b border-white/10 ${
-                  betDirection ? 'bg-white/5' : ''
-                }`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{market.yesLabel || market.title}</div>
-                  </div>
-                  <div className="text-lg font-bold text-white w-16 text-center">
-                    {yesPercent}%
-                  </div>
-                  <div className="flex gap-2 ml-2">
-                    <button
-                      data-testid="button-bet-yes"
-                      onClick={() => setBetDirection('YES')}
-                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all min-w-[70px] ${
-                        betDirection === 'YES'
-                          ? 'bg-emerald-500 text-white ring-2 ring-emerald-400'
-                          : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                {visibleMarkets.map((m, idx) => {
+                  const mYesPercent = Math.round(m.yesPrice * 100);
+                  const mNoPercent = Math.round(m.noPrice * 100);
+                  const isSelected = selectedMarketId === m.id;
+                  return (
+                    <div 
+                      key={m.id}
+                      className={`flex items-center p-3 ${idx > 0 ? 'border-t border-white/10' : ''} ${
+                        isSelected ? 'bg-white/10' : ''
                       }`}
                     >
-                      Yes {yesPercent}¢
-                    </button>
-                    <button
-                      data-testid="button-bet-no"
-                      onClick={() => setBetDirection('NO')}
-                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all min-w-[70px] ${
-                        betDirection === 'NO'
-                          ? 'bg-rose-500 text-white ring-2 ring-rose-400'
-                          : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
-                      }`}
-                    >
-                      No {noPercent}¢
-                    </button>
-                  </div>
-                </div>
+                      <div className="flex-1 min-w-0 mr-2">
+                        <div className="text-sm font-medium truncate">{m.yesLabel || m.subtitle || m.title}</div>
+                      </div>
+                      <div className="text-base font-bold text-white w-12 text-center shrink-0">
+                        {mYesPercent}%
+                      </div>
+                      <div className="flex gap-1.5 ml-2 shrink-0">
+                        <button
+                          data-testid={`button-bet-yes-${m.id}`}
+                          onClick={() => handleSelectOption(m.id, 'YES')}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all min-w-[60px] ${
+                            isSelected && betDirection === 'YES'
+                              ? 'bg-emerald-500 text-white ring-2 ring-emerald-400'
+                              : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                          }`}
+                        >
+                          Yes {mYesPercent}¢
+                        </button>
+                        <button
+                          data-testid={`button-bet-no-${m.id}`}
+                          onClick={() => handleSelectOption(m.id, 'NO')}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all min-w-[60px] ${
+                            isSelected && betDirection === 'NO'
+                              ? 'bg-rose-500 text-white ring-2 ring-rose-400'
+                              : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
+                          }`}
+                        >
+                          No {mNoPercent}¢
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {hasMoreOptions && (
+                  <button
+                    onClick={() => setShowAllOptions(!showAllOptions)}
+                    className="w-full p-2 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:bg-white/5 border-t border-white/10"
+                  >
+                    {showAllOptions ? (
+                      <>Show less <ChevronUp size={14} /></>
+                    ) : (
+                      <>Show {displayMarkets.length - 5} more options <ChevronDown size={14} /></>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="bg-white/5 rounded-xl p-4 mb-4">
+                <div className="mb-3 pb-2 border-b border-white/10">
+                  <span className="text-xs text-muted-foreground">Selected: </span>
+                  <span className="text-sm font-medium">
+                    {selectedMarket.yesLabel || selectedMarket.subtitle || selectedMarket.title} - {betDirection}
+                  </span>
+                </div>
+                
                 <div className="mb-4">
                   <label className="text-xs text-muted-foreground mb-2 block">Amount (USDC)</label>
                   <div className="flex gap-2 flex-wrap">
