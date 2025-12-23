@@ -174,6 +174,8 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
   const [selectedMarketId, setSelectedMarketId] = useState<string>(market.id);
   const [betDirection, setBetDirection] = useState<'YES' | 'NO'>('YES');
   const [betAmount, setBetAmount] = useState(5);
+  const [isCustomAmount, setIsCustomAmount] = useState(false);
+  const [customAmountText, setCustomAmountText] = useState('');
   const [showResolutionInfo, setShowResolutionInfo] = useState(false);
   const [showAllOptions, setShowAllOptions] = useState(false);
 
@@ -327,9 +329,13 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                       <button
                         key={amount}
                         data-testid={`button-amount-${amount}`}
-                        onClick={() => setBetAmount(amount)}
+                        onClick={() => {
+                          setBetAmount(amount);
+                          setIsCustomAmount(false);
+                          setCustomAmountText('');
+                        }}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          betAmount === amount
+                          betAmount === amount && !isCustomAmount
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-white/10 hover:bg-white/20'
                         }`}
@@ -343,23 +349,19 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                         type="number"
                         inputMode="decimal"
                         data-testid="input-custom-amount"
-                        value={!amountOptions.includes(betAmount) ? betAmount.toString() : ''}
+                        value={customAmountText}
                         onChange={(e) => {
+                          setCustomAmountText(e.target.value);
+                          setIsCustomAmount(true);
                           const val = parseFloat(e.target.value);
-                          if (e.target.value === '') {
-                            setBetAmount(1);
-                          } else if (!isNaN(val) && val > 0) {
+                          if (!isNaN(val) && val > 0) {
                             setBetAmount(val);
                           }
                         }}
-                        onFocus={(e) => {
-                          if (amountOptions.includes(betAmount)) {
-                            e.target.value = '';
-                          }
-                        }}
+                        onFocus={() => setIsCustomAmount(true)}
                         placeholder="Custom"
                         className={`w-24 pl-7 pr-2 py-2 rounded-lg text-sm font-medium border focus:outline-none ${
-                          !amountOptions.includes(betAmount)
+                          isCustomAmount
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-white/10 border-white/20 focus:border-primary'
                         }`}
