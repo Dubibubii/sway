@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Profile from "@/pages/profile";
 import Activity from "@/pages/activity";
 import Discovery from "@/pages/discovery";
+import Developer from "@/pages/developer";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/discovery" component={Discovery} />
       <Route path="/profile" component={Profile} />
       <Route path="/activity" component={Activity} />
+      <Route path="/developer" component={Developer} />
       <Route component={NotFound} />
     </Switch>
   );

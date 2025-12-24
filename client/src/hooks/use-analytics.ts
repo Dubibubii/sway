@@ -19,7 +19,7 @@ async function logEvent(event: {
   page?: string;
   marketId?: string;
   marketTitle?: string;
-  wagerAmount?: number;
+  wagerAmount?: string;
 }) {
   try {
     await fetch(`${API_BASE}/api/analytics/events`, {
@@ -72,7 +72,7 @@ export function useBetPlaced() {
       eventType: 'bet_placed',
       marketId,
       marketTitle,
-      wagerAmount: wagerAmount.toString() as any,
+      wagerAmount: wagerAmount.toString(),
     });
   };
 }
