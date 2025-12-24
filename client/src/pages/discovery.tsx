@@ -6,10 +6,15 @@ import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink } fro
 import { useQuery } from "@tanstack/react-query";
 import { getMarkets, getEventMarkets, type Market } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
 export default function Discovery() {
+  usePageView('discovery');
+  const trackMarketView = useMarketView();
+  const trackBet = useBetPlaced();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
@@ -99,7 +104,10 @@ export default function Discovery() {
                 <MarketCard 
                   key={market.id} 
                   market={market} 
-                  onClick={() => setSelectedMarket(market)}
+                  onClick={() => {
+                    trackMarketView(market.id, market.title);
+                    setSelectedMarket(market);
+                  }}
                 />
               ))}
             </div>

@@ -5,6 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { useSwipeHistory } from '@/hooks/use-swipe-history';
 import { usePondTrading } from '@/hooks/use-pond-trading';
+import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,9 @@ function formatMarket(m: Market): DisplayMarket {
 }
 
 export default function Home() {
+  usePageView('home');
+  const trackBet = useBetPlaced();
+  
   const queryClient = useQueryClient();
   const { login, authenticated, ready } = usePrivy();
   const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
@@ -158,6 +162,7 @@ export default function Home() {
         
         if (result.success) {
           tradeMutation.mutate({ market, direction: 'YES', wagerAmount: settings.yesWager });
+          trackBet(market.id, market.question, settings.yesWager);
           toast({
             title: (
               <div className="flex items-center gap-2">
@@ -222,6 +227,7 @@ export default function Home() {
         
         if (result.success) {
           tradeMutation.mutate({ market, direction: 'NO', wagerAmount: settings.noWager });
+          trackBet(market.id, market.question, settings.noWager);
           toast({
             title: (
               <div className="flex items-center gap-2">

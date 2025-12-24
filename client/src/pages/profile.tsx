@@ -15,8 +15,11 @@ import { useAutoSwap } from '@/hooks/use-auto-swap';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
+import { usePageView } from '@/hooks/use-analytics';
 
 function ProfileContent() {
+  usePageView('profile');
+  
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
   const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, externalWalletAddress, createWallet, fundWallet, exportWallet } = usePrivySafe();
   const { toast } = useToast();
