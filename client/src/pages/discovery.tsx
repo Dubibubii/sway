@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getMarkets, getEventMarkets, searchMarkets, type Market } from "@/lib/api";
+import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, type Market, type PriceHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
 import { useDebounce } from "@/hooks/use-debounce";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -212,6 +213,86 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
   );
 }
 
+function PriceChart({ data }: { data: PriceHistory[] }) {
+  if (data.length < 2) {
+    return null;
+  }
+  
+  const chartData = data.map((d) => ({
+    time: new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    price: Math.round(d.price * 100),
+  }));
+
+  const minPrice = Math.max(0, Math.min(...chartData.map(d => d.price)) - 5);
+  const maxPrice = Math.min(100, Math.max(...chartData.map(d => d.price)) + 5);
+
+  return (
+    <div className="w-full h-full px-4 pt-12">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <XAxis 
+            dataKey="time" 
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: '#666', fontSize: 10 }}
+            interval="preserveStartEnd"
+          />
+          <YAxis 
+            domain={[minPrice, maxPrice]}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: '#666', fontSize: 10 }}
+            tickFormatter={(v) => `${v}%`}
+          />
+          <Tooltip
+            contentStyle={{ 
+              backgroundColor: '#1a1a1a', 
+              border: '1px solid #333',
+              borderRadius: '8px',
+              padding: '8px 12px'
+            }}
+            labelStyle={{ color: '#999', fontSize: 12 }}
+            formatter={(value: number) => [`${value}%`, 'Yes Price']}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="price" 
+            stroke="#10b981" 
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 4, fill: '#10b981' }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PriceDisplay({ yesPrice }: { yesPrice: number }) {
+  const yesPercent = Math.round(yesPrice * 100);
+  const noPercent = 100 - yesPercent;
+  
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center px-6 pt-12">
+      <div className="text-center mb-4">
+        <div className="text-4xl font-bold text-emerald-400">{yesPercent}%</div>
+        <div className="text-sm text-muted-foreground">Current Yes Price</div>
+      </div>
+      <div className="w-full max-w-sm h-3 bg-white/10 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+          style={{ width: `${yesPercent}%` }}
+        />
+      </div>
+      <div className="flex justify-between w-full max-w-sm mt-2 text-xs text-muted-foreground">
+        <span>0%</span>
+        <span>50%</span>
+        <span>100%</span>
+      </div>
+    </div>
+  );
+}
+
 function MarketDetailModal({ market, onClose }: { market: Market; onClose: () => void }) {
   const [selectedMarketId, setSelectedMarketId] = useState<string>(market.id);
   const [betDirection, setBetDirection] = useState<'YES' | 'NO'>('YES');
@@ -225,6 +306,11 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
     queryKey: ['/api/events', market.eventTicker, 'markets'],
     queryFn: () => market.eventTicker ? getEventMarkets(market.eventTicker) : Promise.resolve({ markets: [] }),
     enabled: !!market.eventTicker,
+  });
+
+  const { data: historyData, isLoading: isLoadingHistory } = useQuery({
+    queryKey: ['/api/markets', market.id, 'history'],
+    queryFn: () => getMarketHistory(market.id),
   });
 
   const eventMarkets = eventMarketsData?.markets || [];
@@ -276,16 +362,18 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
             <X size={20} />
           </button>
 
-          {market.imageUrl && (
-            <div 
-              className="absolute top-0 left-0 right-0 h-48 bg-cover bg-center opacity-40"
-              style={{ backgroundImage: `url(${market.imageUrl})` }}
-            />
-          )}
-          <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-transparent via-zinc-900/80 to-zinc-900" />
+          <div className="h-48 bg-zinc-900 flex items-center justify-center">
+            {isLoadingHistory ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : historyData?.history && historyData.history.length >= 2 ? (
+              <PriceChart data={historyData.history} />
+            ) : (
+              <PriceDisplay yesPrice={market.yesPrice} />
+            )}
+          </div>
 
-          <div className="flex-1 overflow-y-auto pt-16 px-4 pb-4">
-            <div className="relative">
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="relative pt-4">
               <span className="inline-block text-xs px-2 py-1 rounded-full bg-white/10 text-white/70 mb-2">
                 {market.category}
               </span>

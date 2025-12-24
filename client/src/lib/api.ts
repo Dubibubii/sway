@@ -135,3 +135,12 @@ export async function closeTrade(privyId: string, tradeId: string, pnl: number):
     body: JSON.stringify({ pnl }),
   }, privyId);
 }
+
+export interface PriceHistory {
+  timestamp: number;
+  price: number;
+}
+
+export async function getMarketHistory(ticker: string): Promise<{ history: PriceHistory[] }> {
+  return fetchWithAuth(`/markets/${ticker}/history`);
+}

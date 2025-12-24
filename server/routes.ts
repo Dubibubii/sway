@@ -129,6 +129,51 @@ export async function registerRoutes(
     }
   });
 
+  // Market history endpoint for price charts
+  app.get('/api/markets/:ticker/history', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { ticker } = req.params;
+      const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
+      
+      // Get last 7 days of hourly data
+      const endTs = Math.floor(Date.now() / 1000);
+      const startTs = endTs - (7 * 24 * 60 * 60); // 7 days ago
+      
+      // Fetch candlestick history from Kalshi API
+      const response = await fetch(
+        `${KALSHI_BASE_URL}/markets/${ticker}/candlesticks?period_interval=60&start_ts=${startTs}&end_ts=${endTs}`, 
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      
+      if (!response.ok) {
+        console.error('Kalshi history API error:', response.status);
+        return res.json({ history: [] });
+      }
+      
+      const data = await response.json() as { 
+        candlesticks?: Array<{ 
+          end_period_ts: number; 
+          price?: { close: number };
+        }> 
+      };
+      const candlesticks = data.candlesticks || [];
+      
+      // Transform to simpler format for chart (prices are in cents, convert to decimal)
+      const history = candlesticks.map((c) => ({
+        timestamp: c.end_period_ts * 1000,
+        price: (c.price?.close || 0) / 100,
+      })).filter((h) => h.price > 0);
+      
+      res.json({ history });
+    } catch (error) {
+      console.error('Error fetching market history:', error);
+      res.json({ history: [] });
+    }
+  });
+
   app.post('/api/users', async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { privyId, walletAddress } = req.body;
