@@ -86,10 +86,24 @@ export async function getMarkets(limit = 50, cursor?: string): Promise<Simplifie
 
 export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Promise<SimplifiedMarket[]> {
   const allMarkets: SimplifiedMarket[] = [];
+  const marketIds = new Set<string>();
   let cursor: string | undefined;
   const pageSize = 100;
   
   try {
+    // First, fetch high-volume markets directly using the markets endpoint
+    // This ensures we get popular markets that might be missed in events pagination
+    console.log('Fetching high-volume markets first...');
+    const highVolumeMarkets = await fetchHighVolumeMarkets();
+    for (const market of highVolumeMarkets) {
+      if (!marketIds.has(market.id)) {
+        allMarkets.push(market);
+        marketIds.add(market.id);
+      }
+    }
+    console.log(`Added ${highVolumeMarkets.length} high-volume markets`);
+    
+    // Then fetch from events endpoint for broader coverage
     while (allMarkets.length < maxMarkets) {
       const params = new URLSearchParams({
         limit: pageSize.toString(),
@@ -122,8 +136,10 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
           for (const market of event.markets) {
             if (market.status !== 'active') continue;
             if (!market.yes_ask && !market.yes_bid) continue;
+            if (marketIds.has(market.ticker)) continue;
             
             allMarkets.push(transformKalshiMarket(market, event));
+            marketIds.add(market.ticker);
           }
         }
       }
@@ -148,6 +164,115 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
   } catch (error) {
     console.error('Error fetching Pond events:', error);
     return allMarkets.length > 0 ? allMarkets : getMockMarkets();
+  }
+}
+
+// Important series tickers to always include (high-traffic markets)
+const PRIORITY_SERIES = [
+  'KXGOVSHUT',    // Government shutdown
+  'KXDEBTCEILING', // Debt ceiling
+  'KXFEDCHAIR',   // Fed chair
+  'KXFEDRATE',    // Fed rate decisions
+  'KXBTC',        // Bitcoin price
+  'KXETH',        // Ethereum price
+  'KXSOL',        // Solana price
+];
+
+// Fetch high-volume markets directly from the markets endpoint
+async function fetchHighVolumeMarkets(): Promise<SimplifiedMarket[]> {
+  const markets: SimplifiedMarket[] = [];
+  const marketIds = new Set<string>();
+  let cursor: string | undefined;
+  const pageSize = 200;
+  let pagesFetched = 0;
+  const maxPages = 5; // Fetch up to 1000 markets from the markets endpoint
+  
+  try {
+    // First, fetch priority series events to ensure we get important markets
+    console.log('Fetching priority series...');
+    for (const seriesTicker of PRIORITY_SERIES) {
+      try {
+        const response = await fetch(`${KALSHI_BASE_URL}/events?series_ticker=${seriesTicker}&with_nested_markets=true&limit=20`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const events = data.events || [];
+          
+          for (const event of events) {
+            if (event.markets && event.markets.length > 0) {
+              for (const market of event.markets) {
+                if (market.status !== 'active') continue;
+                if (marketIds.has(market.ticker)) continue;
+                
+                markets.push(transformKalshiMarket(market, event));
+                marketIds.add(market.ticker);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Error fetching priority series ${seriesTicker}:`, e);
+      }
+    }
+    console.log(`Added ${markets.length} markets from priority series`);
+    
+    // Then fetch from general markets endpoint
+    while (pagesFetched < maxPages) {
+      const params = new URLSearchParams({
+        limit: pageSize.toString(),
+        status: 'active',
+      });
+      
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
+      
+      const response = await fetch(`${KALSHI_BASE_URL}/markets?${params}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('Kalshi markets API error:', response.status);
+        break;
+      }
+      
+      const data = await response.json();
+      const rawMarkets = data.markets || [];
+      
+      if (rawMarkets.length === 0) {
+        break;
+      }
+      
+      for (const market of rawMarkets) {
+        if (market.status !== 'active') continue;
+        if (!market.yes_ask && !market.yes_bid && !market.last_price) continue;
+        if (marketIds.has(market.ticker)) continue;
+        
+        markets.push(transformKalshiMarket(market));
+        marketIds.add(market.ticker);
+      }
+      
+      cursor = data.cursor;
+      pagesFetched++;
+      
+      if (!cursor) {
+        break;
+      }
+    }
+    
+    // Sort by 24h volume and return top markets
+    markets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+    
+    console.log(`fetchHighVolumeMarkets: Got ${markets.length} total markets`);
+    
+    return markets;
+  } catch (error) {
+    console.error('Error fetching high-volume markets:', error);
+    return [];
   }
 }
 
