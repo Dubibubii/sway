@@ -31,8 +31,15 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage
 - **Database**: PostgreSQL with Drizzle ORM
-- **Schema Location**: `shared/schema.ts` contains user and trade tables
+- **Schema Location**: `shared/schema.ts` contains user, trade, and analytics_events tables
 - **Migrations**: Managed via `drizzle-kit push` command
+
+### Analytics System
+- **Tracking Hook**: `client/src/hooks/use-analytics.ts` provides usePageView, useMarketView, useBetPlaced
+- **Events Table**: analytics_events tracks page views, market views, and bet placements
+- **Summary Endpoint**: GET /api/analytics/summary (wallet-gated to DEV_WALLET)
+- **Developer Dashboard**: /developer route - only accessible to wallet 9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY
+- **Metrics Tracked**: Total users, active users (24h/7d), total bets, volume, avg bet size, page usage, popular markets
 
 ### Authentication
 - **Provider**: Privy for Web3 wallet and social authentication
