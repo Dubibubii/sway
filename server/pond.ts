@@ -90,10 +90,19 @@ export async function getMarkets(limit = 50, cursor?: string): Promise<Simplifie
 }
 
 export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Promise<SimplifiedMarket[]> {
+  const now = Date.now();
+  
+  // Use cache if available and not expired (10 min TTL for discovery)
+  if (marketCache.length > 0 && now - cacheTimestamp < 10 * 60 * 1000) {
+    console.log(`Using cached markets: ${marketCache.length} markets`);
+    return marketCache.slice(0, maxMarkets);
+  }
+  
   const allMarkets: SimplifiedMarket[] = [];
   const marketIds = new Set<string>();
   let cursor: string | undefined;
   const pageSize = 100;
+  let rateLimited = false;
   
   try {
     // First, fetch high-volume markets directly using the markets endpoint
@@ -107,6 +116,12 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
       }
     }
     console.log(`Added ${highVolumeMarkets.length} high-volume markets`);
+    
+    // If we got no markets and have cache, use cache
+    if (allMarkets.length === 0 && marketCache.length > 0) {
+      console.log('Rate limited, using existing cache');
+      return marketCache.slice(0, maxMarkets);
+    }
     
     // Then fetch from events endpoint for broader coverage
     while (allMarkets.length < maxMarkets) {
@@ -165,9 +180,24 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
     }
     console.log('Market categories breakdown:', categoryCount);
     
+    // Update cache if we got a good number of markets
+    if (allMarkets.length > 10) {
+      marketCache = allMarkets;
+      cacheTimestamp = Date.now();
+      console.log(`Updated market cache with ${allMarkets.length} markets`);
+    } else if (marketCache.length > allMarkets.length) {
+      // Use existing cache if it has more markets
+      console.log(`Using existing cache (${marketCache.length} markets) over new fetch (${allMarkets.length} markets)`);
+      return marketCache.slice(0, maxMarkets);
+    }
+    
     return allMarkets.length > 0 ? allMarkets : getMockMarkets();
   } catch (error) {
     console.error('Error fetching Pond events:', error);
+    // Return cache if we have it, otherwise fallback to mock
+    if (marketCache.length > 0) {
+      return marketCache.slice(0, maxMarkets);
+    }
     return allMarkets.length > 0 ? allMarkets : getMockMarkets();
   }
 }
@@ -371,10 +401,10 @@ async function refreshMarketCache(): Promise<void> {
           }
         } else if (response.status === 429) {
           // Rate limited - wait longer
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
         // Delay between series requests
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
         console.error(`Cache refresh: Error fetching series ${seriesTicker}:`, e);
       }
@@ -447,7 +477,7 @@ async function refreshMarketCache(): Promise<void> {
       }
       
       // Delay between requests to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 600));
     }
     
     marketCache = allMarkets;
@@ -972,34 +1002,27 @@ function isBinaryMarket(title: string): boolean {
 }
 
 export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
+  // Relaxed filter: only exclude markets with >= 99% or <= 1% probability
   const activeMarkets = markets.filter(m => {
     const yesPercent = m.yesPrice * 100;
-    const noPercent = m.noPrice * 100;
-    if (yesPercent >= 97 || yesPercent <= 3) return false;
-    if (noPercent >= 97 || noPercent <= 3) return false;
+    if (yesPercent >= 99 || yesPercent <= 1) return false;
     return true;
   });
   
-  console.log(`Filtered out ${markets.length - activeMarkets.length} extreme probability markets`);
+  console.log(`Filtered out ${markets.length - activeMarkets.length} extreme probability markets (99%+ or 1%-)`);
   
   const binaryMarkets = activeMarkets.filter(m => isBinaryMarket(m.title));
   
-  const seenEventTickers = new Map<string, SimplifiedMarket>();
+  // Deduplicate by market ID (not eventTicker) to keep individual markets
+  const seenIds = new Set<string>();
+  const uniqueMarkets: SimplifiedMarket[] = [];
   
   for (const market of binaryMarkets) {
-    const parentKey = market.eventTicker || market.id;
-    
-    if (!seenEventTickers.has(parentKey)) {
-      seenEventTickers.set(parentKey, market);
-    } else {
-      const existing = seenEventTickers.get(parentKey)!;
-      if ((market.volume24h || 0) > (existing.volume24h || 0)) {
-        seenEventTickers.set(parentKey, market);
-      }
+    if (!seenIds.has(market.id)) {
+      seenIds.add(market.id);
+      uniqueMarkets.push(market);
     }
   }
-  
-  const uniqueMarkets = Array.from(seenEventTickers.values());
   
   uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
