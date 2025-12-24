@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { usePrivySafe } from "@/hooks/use-privy-safe";
 import { usePageView } from "@/hooks/use-analytics";
 import { Users, Activity, TrendingUp, DollarSign, BarChart3, Eye, Lock } from "lucide-react";
-import { DEV_WALLET } from "@shared/schema";
+
+const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 
 interface AnalyticsSummary {
   totalUsers: number;

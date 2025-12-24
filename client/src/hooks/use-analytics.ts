@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useSettings } from './use-settings';
 
 const API_BASE = '';
 
@@ -32,7 +31,6 @@ async function logEvent(event: {
 }
 
 export function usePageView(page: string) {
-  const { settings } = useSettings();
   const logged = useRef(false);
 
   useEffect(() => {
@@ -40,20 +38,16 @@ export function usePageView(page: string) {
     logged.current = true;
 
     logEvent({
-      userId: settings.privyId || undefined,
       sessionId: getSessionId(),
       eventType: 'page_view',
       page,
     });
-  }, [page, settings.privyId]);
+  }, [page]);
 }
 
 export function useMarketView() {
-  const { settings } = useSettings();
-
   return (marketId: string, marketTitle: string) => {
     logEvent({
-      userId: settings.privyId || undefined,
       sessionId: getSessionId(),
       eventType: 'market_view',
       marketId,
@@ -63,11 +57,8 @@ export function useMarketView() {
 }
 
 export function useBetPlaced() {
-  const { settings } = useSettings();
-
   return (marketId: string, marketTitle: string, wagerAmount: number) => {
     logEvent({
-      userId: settings.privyId || undefined,
       sessionId: getSessionId(),
       eventType: 'bet_placed',
       marketId,

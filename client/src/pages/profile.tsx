@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2 } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
+
+const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 
 function ProfileContent() {
   usePageView('profile');
@@ -412,6 +414,20 @@ function ProfileContent() {
             </>
           )}
         </div>
+
+        {/* Developer Dashboard Link - only visible to DEV_WALLET */}
+        {activeWalletAddress === DEV_WALLET && (
+          <div className="mt-8">
+            <Button 
+              data-testid="button-developer-dashboard"
+              className="w-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30"
+              variant="outline"
+              onClick={() => window.location.href = '/developer'}
+            >
+              <BarChart3 className="mr-2" size={18} /> Developer Analytics
+            </Button>
+          </div>
+        )}
 
         {/* Wallet Section */}
         <div className="space-y-6 mt-8">
