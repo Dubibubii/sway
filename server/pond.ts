@@ -335,20 +335,24 @@ export async function searchAllMarkets(query: string): Promise<SimplifiedMarket[
   return results;
 }
 
-// Refresh the market cache
+// Refresh the market cache with resilient fetching
 async function refreshMarketCache(): Promise<void> {
   const allMarkets: SimplifiedMarket[] = [];
   const marketIds = new Set<string>();
   let cursor: string | undefined;
-  const pageSize = 200;
+  const pageSize = 100; // Smaller pages to avoid rate limits
   let pagesFetched = 0;
-  const maxPages = 15; // Fetch up to 3000 markets
+  const maxPages = 50; // Fetch up to 5000 markets
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  console.log('Starting comprehensive market cache refresh...');
   
   try {
-    // First, fetch priority series
+    // First, fetch priority series with delays
     for (const seriesTicker of PRIORITY_SERIES) {
       try {
-        const response = await fetch(`${KALSHI_BASE_URL}/events?series_ticker=${seriesTicker}&with_nested_markets=true&limit=30`, {
+        const response = await fetch(`${KALSHI_BASE_URL}/events?series_ticker=${seriesTicker}&with_nested_markets=true&limit=50`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
@@ -365,15 +369,20 @@ async function refreshMarketCache(): Promise<void> {
               }
             }
           }
+        } else if (response.status === 429) {
+          // Rate limited - wait longer
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        // Small delay to avoid rate limits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Delay between series requests
+        await new Promise(resolve => setTimeout(resolve, 200));
       } catch (e) {
         console.error(`Cache refresh: Error fetching series ${seriesTicker}:`, e);
       }
     }
     
-    // Then fetch from markets endpoint with pagination
+    console.log(`Priority series loaded: ${allMarkets.length} markets`);
+    
+    // Then fetch from markets endpoint with pagination and retry logic
     while (pagesFetched < maxPages) {
       const params = new URLSearchParams({
         limit: pageSize.toString(),
@@ -391,17 +400,32 @@ async function refreshMarketCache(): Promise<void> {
       
       if (!response.ok) {
         if (response.status === 429) {
-          console.log('Rate limited during cache refresh, using partial cache');
-          break;
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            // Exponential backoff: 2s, 4s, 8s
+            const backoffTime = Math.pow(2, retryCount) * 1000;
+            console.log(`Rate limited, waiting ${backoffTime}ms before retry ${retryCount}/${maxRetries}...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+            continue; // Retry same page
+          } else {
+            console.log(`Max retries reached after ${pagesFetched} pages, using partial cache`);
+            break;
+          }
         }
         console.error('Cache refresh error:', response.status);
         break;
       }
       
+      // Reset retry count on success
+      retryCount = 0;
+      
       const data = await response.json();
       const rawMarkets = data.markets || [];
       
-      if (rawMarkets.length === 0) break;
+      if (rawMarkets.length === 0) {
+        console.log('No more markets to fetch');
+        break;
+      }
       
       for (const market of rawMarkets) {
         if (marketIds.has(market.ticker)) continue;
@@ -412,17 +436,30 @@ async function refreshMarketCache(): Promise<void> {
       cursor = data.cursor;
       pagesFetched++;
       
-      if (!cursor) break;
+      // Log progress every 10 pages
+      if (pagesFetched % 10 === 0) {
+        console.log(`Cache progress: ${pagesFetched} pages, ${allMarkets.length} markets`);
+      }
       
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 50));
+      if (!cursor) {
+        console.log('Reached end of market list');
+        break;
+      }
+      
+      // Delay between requests to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     marketCache = allMarkets;
     cacheTimestamp = Date.now();
-    console.log(`Market cache refreshed: ${marketCache.length} markets`);
+    console.log(`Market cache complete: ${marketCache.length} markets from ${pagesFetched} pages`);
   } catch (error) {
     console.error('Error refreshing market cache:', error);
+    // Keep existing cache if refresh fails
+    if (allMarkets.length > marketCache.length) {
+      marketCache = allMarkets;
+      cacheTimestamp = Date.now();
+    }
   }
 }
 
