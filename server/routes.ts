@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
@@ -108,6 +108,24 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Error fetching event markets:', error);
       res.status(500).json({ error: 'Failed to fetch event markets' });
+    }
+  });
+
+  // Search endpoint - uses cached markets for comprehensive search
+  app.get('/api/markets/search', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const query = (req.query.q as string || '').trim();
+      
+      if (!query || query.length < 2) {
+        return res.json({ markets: [] });
+      }
+      
+      const matchingMarkets = await searchAllMarkets(query);
+      
+      res.json({ markets: matchingMarkets.slice(0, 100) });
+    } catch (error) {
+      console.error('Error searching markets:', error);
+      res.status(500).json({ error: 'Failed to search markets' });
     }
   });
 

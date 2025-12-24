@@ -2,11 +2,12 @@ import { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink } from "lucide-react";
+import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getMarkets, getEventMarkets, type Market } from "@/lib/api";
+import { getMarkets, getEventMarkets, searchMarkets, type Market } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -18,19 +19,47 @@ export default function Discovery() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
+  
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: marketsData, isLoading } = useQuery<{ markets: Market[] }>({
     queryKey: ['/api/markets'],
     queryFn: () => getMarkets(),
   });
 
+  const { data: searchData, isLoading: isSearching } = useQuery<{ markets: Market[] }>({
+    queryKey: ['/api/markets/search', debouncedSearch],
+    queryFn: () => searchMarkets(debouncedSearch),
+    enabled: debouncedSearch.length >= 2,
+  });
+
   const markets = marketsData?.markets || [];
+  const searchResults = searchData?.markets || [];
+  
+  const isActiveSearch = debouncedSearch.length >= 2;
 
   const filteredMarkets = useMemo(() => {
-    return markets.filter((market) => {
-      const matchesSearch = searchQuery === "" || 
-        market.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        market.subtitle?.toLowerCase().includes(searchQuery.toLowerCase());
+    const sourceMarkets = isActiveSearch ? searchResults : markets;
+    
+    return sourceMarkets.filter((market) => {
+      if (isActiveSearch) {
+        let matchesCategory = selectedCategory === "All" || 
+          market.category.toLowerCase() === selectedCategory.toLowerCase();
+        
+        if (!matchesCategory && selectedCategory === "Crypto") {
+          const cryptoKeywords = ['bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'crypto', 'xrp', 'dogecoin', 'doge'];
+          const title = market.title.toLowerCase();
+          matchesCategory = cryptoKeywords.some(kw => title.includes(kw));
+        }
+        
+        if (!matchesCategory && selectedCategory === "AI") {
+          const aiKeywords = ['ai', 'artificial intelligence', 'openai', 'gpt', 'chatgpt', 'anthropic', 'claude', 'agi', 'machine learning'];
+          const title = market.title.toLowerCase();
+          matchesCategory = aiKeywords.some(kw => title.includes(kw));
+        }
+        
+        return matchesCategory;
+      }
       
       let matchesCategory = selectedCategory === "All" || 
         market.category.toLowerCase() === selectedCategory.toLowerCase();
@@ -47,9 +76,9 @@ export default function Discovery() {
         matchesCategory = aiKeywords.some(kw => title.includes(kw));
       }
 
-      return matchesSearch && matchesCategory;
+      return matchesCategory;
     });
-  }, [markets, searchQuery, selectedCategory]);
+  }, [markets, searchResults, selectedCategory, isActiveSearch]);
 
   return (
     <Layout>
@@ -86,17 +115,22 @@ export default function Discovery() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="grid grid-cols-2 gap-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="aspect-[4/5] rounded-xl bg-white/5 animate-pulse" />
-              ))}
+          {(isLoading || (isActiveSearch && isSearching)) ? (
+            <div className="flex flex-col items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">
+                {isActiveSearch ? `Searching all markets for "${debouncedSearch}"...` : 'Loading markets...'}
+              </p>
             </div>
           ) : filteredMarkets.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
               <Search size={48} className="mb-4 opacity-50" />
               <p className="text-center">No markets found</p>
-              <p className="text-sm text-center opacity-75">Try a different search or category</p>
+              <p className="text-sm text-center opacity-75">
+                {isActiveSearch 
+                  ? `No results for "${debouncedSearch}". Try different keywords.`
+                  : 'Try a different search or category'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">

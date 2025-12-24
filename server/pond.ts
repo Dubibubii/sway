@@ -1,5 +1,10 @@
 const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
 
+// Cache for comprehensive market search
+let marketCache: SimplifiedMarket[] = [];
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export interface KalshiMarket {
   ticker: string;
   title: string;
@@ -176,6 +181,11 @@ const PRIORITY_SERIES = [
   'KXBTC',        // Bitcoin price
   'KXETH',        // Ethereum price
   'KXSOL',        // Solana price
+  'KXSPOTIFYGLOBALD', // Daily Global Spotify songs
+  'KXSPOTIFYTOP',    // Spotify top artist
+  'KXTOPSONGSPOTIFY', // Top Song on Spotify
+  'KXSNOWS',        // White Christmas weather
+  'KXCHRISTMASHORNETS', // Christmas Hornets
 ];
 
 // Fetch high-volume markets directly from the markets endpoint
@@ -281,6 +291,139 @@ export async function getMarketsByCategory(category: string): Promise<Simplified
   return allMarkets.filter(m => 
     m.category.toLowerCase().includes(category.toLowerCase())
   );
+}
+
+// Comprehensive search function that caches all markets
+export async function searchAllMarkets(query: string): Promise<SimplifiedMarket[]> {
+  const now = Date.now();
+  
+  // Refresh cache if expired or empty
+  if (marketCache.length === 0 || now - cacheTimestamp > CACHE_TTL) {
+    console.log('Refreshing market cache for search...');
+    await refreshMarketCache();
+  }
+  
+  const searchTerm = query.toLowerCase().trim();
+  if (searchTerm.length < 2) return [];
+  
+  // Search through cached markets
+  const results = marketCache.filter(market => {
+    const title = market.title.toLowerCase();
+    const subtitle = (market.subtitle || '').toLowerCase();
+    const id = market.id.toLowerCase();
+    const yesLabel = (market.yesLabel || '').toLowerCase();
+    const noLabel = (market.noLabel || '').toLowerCase();
+    
+    return title.includes(searchTerm) || 
+           subtitle.includes(searchTerm) || 
+           id.includes(searchTerm) ||
+           yesLabel.includes(searchTerm) ||
+           noLabel.includes(searchTerm);
+  });
+  
+  // Sort by relevance (title match first, then by volume)
+  results.sort((a, b) => {
+    const aTitle = a.title.toLowerCase().includes(searchTerm);
+    const bTitle = b.title.toLowerCase().includes(searchTerm);
+    if (aTitle && !bTitle) return -1;
+    if (!aTitle && bTitle) return 1;
+    return (b.volume24h || 0) - (a.volume24h || 0);
+  });
+  
+  console.log(`Search "${query}" in cache (${marketCache.length} markets): Found ${results.length}`);
+  
+  return results;
+}
+
+// Refresh the market cache
+async function refreshMarketCache(): Promise<void> {
+  const allMarkets: SimplifiedMarket[] = [];
+  const marketIds = new Set<string>();
+  let cursor: string | undefined;
+  const pageSize = 200;
+  let pagesFetched = 0;
+  const maxPages = 15; // Fetch up to 3000 markets
+  
+  try {
+    // First, fetch priority series
+    for (const seriesTicker of PRIORITY_SERIES) {
+      try {
+        const response = await fetch(`${KALSHI_BASE_URL}/events?series_ticker=${seriesTicker}&with_nested_markets=true&limit=30`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          for (const event of data.events || []) {
+            if (event.markets) {
+              for (const market of event.markets) {
+                if (market.status !== 'active') continue;
+                if (marketIds.has(market.ticker)) continue;
+                allMarkets.push(transformKalshiMarket(market, event));
+                marketIds.add(market.ticker);
+              }
+            }
+          }
+        }
+        // Small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (e) {
+        console.error(`Cache refresh: Error fetching series ${seriesTicker}:`, e);
+      }
+    }
+    
+    // Then fetch from markets endpoint with pagination
+    while (pagesFetched < maxPages) {
+      const params = new URLSearchParams({
+        limit: pageSize.toString(),
+        status: 'open',
+      });
+      
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
+      
+      const response = await fetch(`${KALSHI_BASE_URL}/markets?${params}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 429) {
+          console.log('Rate limited during cache refresh, using partial cache');
+          break;
+        }
+        console.error('Cache refresh error:', response.status);
+        break;
+      }
+      
+      const data = await response.json();
+      const rawMarkets = data.markets || [];
+      
+      if (rawMarkets.length === 0) break;
+      
+      for (const market of rawMarkets) {
+        if (marketIds.has(market.ticker)) continue;
+        allMarkets.push(transformKalshiMarket(market));
+        marketIds.add(market.ticker);
+      }
+      
+      cursor = data.cursor;
+      pagesFetched++;
+      
+      if (!cursor) break;
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    marketCache = allMarkets;
+    cacheTimestamp = Date.now();
+    console.log(`Market cache refreshed: ${marketCache.length} markets`);
+  } catch (error) {
+    console.error('Error refreshing market cache:', error);
+  }
 }
 
 export async function getEventMarkets(eventTicker: string): Promise<SimplifiedMarket[]> {

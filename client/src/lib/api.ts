@@ -79,6 +79,10 @@ export async function getEventMarkets(eventTicker: string): Promise<{ markets: M
   return fetchWithAuth(`/events/${eventTicker}/markets`);
 }
 
+export async function searchMarkets(query: string): Promise<{ markets: Market[] }> {
+  return fetchWithAuth(`/markets/search?q=${encodeURIComponent(query)}`);
+}
+
 export async function createOrGetUser(privyId: string, walletAddress?: string | null): Promise<{ user: User }> {
   return fetchWithAuth('/users', {
     method: 'POST',
