@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
-import { FEE_CONFIG } from "@shared/schema";
+import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, SOLANA_TOKENS } from "./pond-trading";
 import fetch from "node-fetch";
@@ -654,6 +654,34 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('[Jupiter] Swap fetch error:', error);
       res.status(500).json({ error: error.message || 'Failed to create swap transaction' });
+    }
+  });
+
+  // Analytics API endpoints
+  app.post('/api/analytics/events', async (req: Request, res: Response) => {
+    try {
+      const event = insertAnalyticsEventSchema.parse(req.body);
+      await storage.logAnalyticsEvent(event);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error logging analytics event:', error);
+      res.status(400).json({ error: error.message || 'Failed to log event' });
+    }
+  });
+
+  app.get('/api/analytics/summary', async (req: Request, res: Response) => {
+    try {
+      const walletAddress = req.headers['x-wallet-address'] as string;
+      
+      if (walletAddress !== DEV_WALLET) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const summary = await storage.getAnalyticsSummary();
+      res.json(summary);
+    } catch (error: any) {
+      console.error('Error fetching analytics summary:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch analytics' });
     }
   });
 
