@@ -1,5 +1,6 @@
-const DFLOW_API_BASE = 'https://quote-api.dflow.net';
-const POND_METADATA_API = 'https://prediction-markets-api.dflow.net';
+// DFlow Development API endpoints for real trading
+const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://dev-quote-api.dflow.net';
+const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://dev-prediction-markets-api.dflow.net';
 
 export interface PondQuote {
   inputMint: string;

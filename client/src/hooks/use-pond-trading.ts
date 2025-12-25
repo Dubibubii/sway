@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 
-const POND_METADATA_API = 'https://prediction-markets-api.dflow.net';
+// DFlow Development API endpoint for real trading (market metadata)
+const POND_METADATA_API = 'https://dev-prediction-markets-api.dflow.net';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 export interface PondTradeResult {
