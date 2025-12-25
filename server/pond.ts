@@ -970,35 +970,45 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
     }
   }
   
+  // Sort by 24h volume (trending first)
   uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
-  const diversified: SimplifiedMarket[] = [];
-  const remaining = [...uniqueMarkets];
+  // For home swipe: Keep top 50 trending markets FIRST sorted by volume
+  // Then apply light diversification to the rest
+  const TOP_TRENDING_COUNT = 50;
+  const topTrending = uniqueMarkets.slice(0, TOP_TRENDING_COUNT);
+  const remaining = uniqueMarkets.slice(TOP_TRENDING_COUNT);
   
-  while (remaining.length > 0) {
+  // Light diversification for remaining markets (avoid 3+ same category in a row)
+  const diversifiedRest: SimplifiedMarket[] = [];
+  const restPool = [...remaining];
+  
+  while (restPool.length > 0) {
     const recentCategories: string[] = [];
-    for (let i = diversified.length - 1; i >= 0 && recentCategories.length < 2; i--) {
-      recentCategories.push(diversified[i].category);
+    for (let i = diversifiedRest.length - 1; i >= 0 && recentCategories.length < 2; i--) {
+      recentCategories.push(diversifiedRest[i].category);
     }
     
+    // Look at top 10 remaining markets for category variety, not all
     let bestIndex = -1;
-    for (let i = 0; i < remaining.length; i++) {
-      const market = remaining[i];
-      if (!recentCategories.includes(market.category)) {
+    const searchLimit = Math.min(10, restPool.length);
+    for (let i = 0; i < searchLimit; i++) {
+      if (!recentCategories.includes(restPool[i].category)) {
         bestIndex = i;
         break;
       }
     }
     
     if (bestIndex === -1) {
-      bestIndex = 0;
+      bestIndex = 0; // Just take the highest volume one
     }
     
-    diversified.push(remaining[bestIndex]);
-    remaining.splice(bestIndex, 1);
+    diversifiedRest.push(restPool[bestIndex]);
+    restPool.splice(bestIndex, 1);
   }
   
-  return diversified;
+  // Return: trending first, then diversified rest
+  return [...topTrending, ...diversifiedRest];
 }
 
 export { getMockMarkets };
