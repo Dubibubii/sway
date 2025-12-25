@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const STORAGE_KEY = 'pulse_swipe_history';
+const STORAGE_KEY = 'sway_swipe_history';
 const SWIPES_BEFORE_RETURN = 100;
 
 interface SwipeHistory {
