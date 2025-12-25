@@ -383,17 +383,15 @@ export default function Home() {
           ) : (
             <>
               <AnimatePresence>
-                {displayedMarkets.map((market, index) => (
-                  index >= displayedMarkets.length - 2 && (
+                {displayedMarkets.slice(0, 2).reverse().map((market, index, arr) => (
                     <SwipeCard 
                       key={market.id} 
                       market={market} 
-                      active={index === displayedMarkets.length - 1}
+                      active={index === arr.length - 1}
                       onSwipe={(dir) => handleSwipe(market.id, dir)}
-                      dragX={index === displayedMarkets.length - 1 ? x : undefined}
-                      dragY={index === displayedMarkets.length - 1 ? y : undefined}
+                      dragX={index === arr.length - 1 ? x : undefined}
+                      dragY={index === arr.length - 1 ? y : undefined}
                     />
-                  )
                 ))}
               </AnimatePresence>
 
