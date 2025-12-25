@@ -69,11 +69,9 @@ export async function registerRoutes(
       // Get up to 10,000 markets from cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
-      // Apply diversification (removes extreme probabilities, deduplicates)
+      // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation)
+      // DO NOT re-sort after this - diversification already produces the optimal display order
       markets = diversifyMarketFeed(markets);
-      
-      // Sort by volume for discovery
-      markets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
       
       // Return up to 400 diverse markets for discovery page
       const displayMarkets = markets.slice(0, 400);

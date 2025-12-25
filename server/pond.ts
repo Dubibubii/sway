@@ -793,7 +793,20 @@ function formatCategory(ticker: string): string {
     'KXHURRICANE': 'Weather',
     'KXTEMP': 'Weather',
     'KXCLIMATE': 'Weather',
-    'KXOSCAR': 'General',
+    'INDIACLIMATE': 'Weather',
+    'KXOSCAR': 'Entertainment',
+    'KXGRAM': 'Entertainment',
+    'KXSAG': 'Entertainment',
+    'KXGOLDEN': 'Entertainment',
+    'KXGG': 'Entertainment',
+    'KXEMMY': 'Entertainment',
+    'KXBOND': 'Entertainment',
+    'KXTAYLOR': 'Entertainment',
+    'KXSPOTIFY': 'Entertainment',
+    'KXNETFLIX': 'Entertainment',
+    'KXDISNEY': 'Entertainment',
+    'KXCHESS': 'Entertainment',
+    'KXNEWPOPE': 'Entertainment',
     'KXRANK': 'General',
     'KXTEAMS': 'Sports',
     'COSTCO': 'General',
@@ -806,13 +819,14 @@ function formatCategory(ticker: string): string {
   }
   
   const keywordCategories: Record<string, string[]> = {
-    'Crypto': ['BITCOIN', 'ETHEREUM', 'SOLANA', 'CRYPTO', 'COIN', 'TOKEN'],
-    'Tech': ['TESLA', 'APPLE', 'GOOGLE', 'AMAZON', 'MICROSOFT', 'NVIDIA', 'META', 'SPACEX', 'TWITTER', 'TIKTOK', 'IPO', 'STARTUP'],
-    'AI': ['OPENAI', 'CHATGPT', 'GPT', 'ARTIFICIAL', 'MACHINE LEARNING', 'ANTHROPIC'],
-    'Politics': ['TRUMP', 'BIDEN', 'ELECTION', 'CONGRESS', 'SENATE', 'SUPREME', 'GOVERNOR', 'PRESIDENT'],
-    'Economics': ['FED', 'INFLATION', 'GDP', 'JOBS', 'UNEMPLOYMENT', 'NASDAQ', 'SP500', 'DOW'],
-    'Weather': ['HURRICANE', 'TEMPERATURE', 'CLIMATE', 'STORM', 'WEATHER'],
-    'Sports': ['NFL', 'NBA', 'MLB', 'NHL', 'SOCCER', 'FOOTBALL', 'BASKETBALL', 'BASEBALL', 'HOCKEY'],
+    'Crypto': ['BITCOIN', 'ETHEREUM', 'SOLANA', 'CRYPTO', 'COIN', 'TOKEN', 'XRP', 'DOGE', 'CARDANO'],
+    'Tech': ['TESLA', 'APPLE', 'GOOGLE', 'AMAZON', 'MICROSOFT', 'NVIDIA', 'META', 'SPACEX', 'TWITTER', 'TIKTOK', 'IPO', 'STARTUP', 'STARSHIP', 'ROBOTAXI', 'SELF-DRIVING'],
+    'AI': ['OPENAI', 'CHATGPT', 'GPT', 'ARTIFICIAL', 'MACHINE LEARNING', 'ANTHROPIC', 'AGI', 'ROBOT'],
+    'Politics': ['TRUMP', 'BIDEN', 'ELECTION', 'CONGRESS', 'SENATE', 'SUPREME', 'GOVERNOR', 'PRESIDENT', 'DEMOCRAT', 'REPUBLICAN', 'MINISTER'],
+    'Economics': ['FED', 'INFLATION', 'GDP', 'JOBS', 'UNEMPLOYMENT', 'NASDAQ', 'SP500', 'DOW', 'TARIFF', 'RECESSION', 'RATE CUT', 'INTEREST RATE'],
+    'Weather': ['HURRICANE', 'TEMPERATURE', 'CLIMATE', 'STORM', 'WEATHER', 'EARTHQUAKE', 'TORNADO', 'FLOOD'],
+    'Sports': ['NFL', 'NBA', 'MLB', 'NHL', 'SOCCER', 'FOOTBALL', 'BASKETBALL', 'BASEBALL', 'HOCKEY', 'SUPER BOWL', 'WORLD SERIES', 'STANLEY CUP', 'PLAYOFFS'],
+    'Entertainment': ['GRAMMY', 'OSCAR', 'EMMY', 'GOLDEN GLOBE', 'SAG AWARD', 'TAYLOR SWIFT', 'BEYONCE', 'DRAKE', 'KANYE', 'RIHANNA', 'SPOTIFY', 'NETFLIX', 'DISNEY', 'MARVEL', 'JAMES BOND', 'POPE', 'CHESS', 'GTA', 'VIDEO GAME', 'MOVIE', 'ALBUM', 'BRIDESMAID', 'WEDDING'],
   };
   
   for (const [category, keywords] of Object.entries(keywordCategories)) {
@@ -998,6 +1012,100 @@ function isBinaryMarket(title: string): boolean {
   return true;
 }
 
+// Re-categorize "General" markets based on title/subtitle content
+function reclassifyMarket(market: SimplifiedMarket): SimplifiedMarket {
+  if (market.category !== 'General') return market;
+  
+  const text = `${market.title} ${market.subtitle || ''} ${market.eventTicker || ''}`.toUpperCase();
+  
+  // Entertainment patterns - check these first as they're often mislabeled
+  const entertainmentPatterns = [
+    /GRAMMY|GRAMMYS|GRAMM/i,
+    /OSCAR|OSCARS|ACADEMY AWARD/i,
+    /EMMY|EMMYS/i,
+    /GOLDEN GLOBE/i,
+    /SAG AWARD|SCREEN ACTORS/i,
+    /TAYLOR SWIFT|TRAVIS KELCE/i,
+    /BEYONCE|BEYONCÉ|RIHANNA|DRAKE|KANYE|BAD BUNNY|LADY GAGA|SABRINA CARPENTER/i,
+    /SPOTIFY|BILLBOARD|SONG OF THE YEAR|RECORD OF THE YEAR/i,
+    /NETFLIX|DISNEY|MARVEL|STAR WARS|JAMES BOND|NEXT BOND/i,
+    /POPE LEO|VATICAN|PONTIFF|NEW POPE/i,
+    /WORLD CHESS|CHESS CHAMPION/i,
+    /\bGTA\b|VIDEO GAME|GAMING/i,
+    /BEST PICTURE|BEST DIRECTOR|BEST SCREENPLAY/i,
+    /WEDDING|BRIDESMAID|MARRIED/i,
+    /HOLLYWOOD/i,
+  ];
+  
+  for (const pattern of entertainmentPatterns) {
+    if (pattern.test(text)) {
+      return { ...market, category: 'Entertainment' };
+    }
+  }
+  
+  // Tech patterns
+  const techPatterns = [
+    /OPENAI|ANTHROPIC|IPO/i,
+    /SPACEX|STARSHIP|STARLINK|MARS|MOON LANDING/i,
+    /TESLA|ROBOTAXI|SELF.DRIVING|AUTONOMOUS/i,
+    /APPLE|IPHONE|VISION PRO/i,
+    /GOOGLE|ALPHABET/i,
+    /MICROSOFT|AZURE/i,
+    /NVIDIA|CHIP|SEMICONDUCTOR/i,
+    /TIKTOK|TWITTER|SOCIAL MEDIA/i,
+  ];
+  
+  for (const pattern of techPatterns) {
+    if (pattern.test(text)) {
+      return { ...market, category: 'Tech' };
+    }
+  }
+  
+  // AI patterns
+  const aiPatterns = [
+    /\bAI\b|ARTIFICIAL INTELLIGENCE|AGI/i,
+    /CHATGPT|GPT-|GPT4|GPT5/i,
+    /ROBOT|HUMANOID/i,
+    /MACHINE LEARNING|DEEP LEARNING/i,
+  ];
+  
+  for (const pattern of aiPatterns) {
+    if (pattern.test(text)) {
+      return { ...market, category: 'AI' };
+    }
+  }
+  
+  // Politics patterns
+  const politicsPatterns = [
+    /TRUMP|BIDEN|HARRIS|VANCE|OBAMA/i,
+    /PRESIDENT|PRESIDENTIAL|PRESIDENCY/i,
+    /DEMOCRAT|REPUBLICAN|GOP/i,
+    /CONGRESS|SENATE|GOVERNOR/i,
+    /ELECTION|VOTE|BALLOT/i,
+    /PRIME MINISTER|PARLIAMENT/i,
+  ];
+  
+  for (const pattern of politicsPatterns) {
+    if (pattern.test(text)) {
+      return { ...market, category: 'Politics' };
+    }
+  }
+  
+  // Weather/Climate patterns
+  const weatherPatterns = [
+    /CLIMATE|EARTHQUAKE|HURRICANE|TORNADO|FLOOD|STORM/i,
+    /TEMPERATURE|WEATHER|WILDFIRE/i,
+  ];
+  
+  for (const pattern of weatherPatterns) {
+    if (pattern.test(text)) {
+      return { ...market, category: 'Weather' };
+    }
+  }
+  
+  return market;
+}
+
 export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
   // Relaxed filter: only exclude markets with >= 99% or <= 1% probability
   const activeMarkets = markets.filter(m => {
@@ -1008,9 +1116,12 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   
   console.log(`Filtered out ${markets.length - activeMarkets.length} extreme probability markets (99%+ or 1%-)`);
   
-  const binaryMarkets = activeMarkets.filter(m => isBinaryMarket(m.title));
+  // Re-classify markets before filtering
+  const reclassifiedMarkets = activeMarkets.map(reclassifyMarket);
   
-  // Deduplicate by market ID (not eventTicker) to keep individual markets
+  const binaryMarkets = reclassifiedMarkets.filter(m => isBinaryMarket(m.title));
+  
+  // Deduplicate by market ID
   const seenIds = new Set<string>();
   const uniqueMarkets: SimplifiedMarket[] = [];
   
@@ -1021,127 +1132,111 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
     }
   }
   
-  // Sort by 24h volume (trending first)
-  uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+  // Sort by volume score (weighted: 70% 24h volume, 30% total volume)
+  uniqueMarkets.sort((a, b) => {
+    const scoreA = (a.volume24h || 0) * 0.7 + (a.volume || 0) * 0.0003;
+    const scoreB = (b.volume24h || 0) * 0.7 + (b.volume || 0) * 0.0003;
+    return scoreB - scoreA;
+  });
   
-  // Log category distribution before diversification
+  // Log category distribution after reclassification
   const preCatCounts: Record<string, number> = {};
   uniqueMarkets.slice(0, 100).forEach(m => {
     preCatCounts[m.category] = (preCatCounts[m.category] || 0) + 1;
   });
-  console.log('Top 100 by volume - category distribution:', preCatCounts);
+  console.log('Top 100 after reclassification - category distribution:', preCatCounts);
   
-  // STEP 1: Group markets by category and ensure minimum representation
-  // This guarantees variety even when high-volume markets are dominated by Sports/General
-  const priorityCategories = ['Tech', 'Crypto', 'AI', 'Economics', 'Weather', 'Entertainment'];
-  const marketsByCategory: Record<string, SimplifiedMarket[]> = {};
+  // Build per-category queues sorted by volume
+  const ALL_CATEGORIES = ['Entertainment', 'Tech', 'AI', 'Crypto', 'Economics', 'Weather', 'Politics', 'Sports', 'General'];
+  const categoryQueues: Record<string, SimplifiedMarket[]> = {};
+  
+  for (const cat of ALL_CATEGORIES) {
+    categoryQueues[cat] = [];
+  }
   
   for (const market of uniqueMarkets) {
-    if (!marketsByCategory[market.category]) {
-      marketsByCategory[market.category] = [];
-    }
-    marketsByCategory[market.category].push(market);
+    const cat = categoryQueues[market.category] ? market.category : 'General';
+    categoryQueues[cat].push(market);
   }
   
-  // Pull top markets from each priority category to ensure they appear early
-  const categorySeeds: SimplifiedMarket[] = [];
-  for (const cat of priorityCategories) {
-    const catMarkets = marketsByCategory[cat] || [];
-    // Take top 3 from each priority category
-    categorySeeds.push(...catMarkets.slice(0, 3));
+  // Log queue sizes
+  const queueSizes: Record<string, number> = {};
+  for (const [cat, queue] of Object.entries(categoryQueues)) {
+    queueSizes[cat] = queue.length;
   }
+  console.log('Category queue sizes:', queueSizes);
   
-  // Create a set of seed IDs to avoid duplicates
-  const seedIds = new Set(categorySeeds.map(m => m.id));
-  
-  // Remaining markets (excluding seeds)
-  const remainingMarkets = uniqueMarkets.filter(m => !seedIds.has(m.id));
-  
-  // Combine: interleave seeds with top trending, then add the rest
-  const combinedMarkets = [...categorySeeds, ...remainingMarkets];
-  // Re-sort by volume but keep seeds mixed in early
-  // Actually, let's just rely on the spacing algorithm to distribute properly
-  
-  // Apply spacing rules:
-  // 1. Same category only once per 5 cards
-  // 2. Same event (eventTicker) only once per 10 cards to avoid "Michigan Coach: A, B, C" in a row
-  const CATEGORY_SPACING = 5;
-  const EVENT_SPACING = 10;
+  // TRUE ROUND-ROBIN: Cycle through categories, picking the best available market from each
   const result: SimplifiedMarket[] = [];
-  const pool = [...combinedMarkets];
-  const deferred: SimplifiedMarket[] = [];
+  const usedEventTickers = new Set<string>();
+  const EVENT_COOLDOWN = 10; // Same event only once per 10 cards
+  const recentEvents: string[] = [];
   
-  const isAllowed = (market: SimplifiedMarket): boolean => {
-    // Check category spacing
-    const recentCategories = new Set<string>();
-    for (let i = result.length - 1; i >= 0 && result.length - i < CATEGORY_SPACING; i--) {
-      recentCategories.add(result[i].category);
-    }
-    if (recentCategories.has(market.category)) return false;
-    
-    // Check event spacing (avoid same event multiple times in a row)
-    if (market.eventTicker) {
-      for (let i = result.length - 1; i >= 0 && result.length - i < EVENT_SPACING; i--) {
-        if (result[i].eventTicker === market.eventTicker) return false;
-      }
-    }
-    
-    return true;
-  };
+  // Shuffle category order for variety (but keep Entertainment and Tech early)
+  const priorityOrder = ['Entertainment', 'Tech', 'AI', 'Crypto', 'Economics', 'Weather', 'Politics', 'Sports'];
+  let categoryIndex = 0;
+  let emptyRounds = 0;
+  const MAX_EMPTY_ROUNDS = ALL_CATEGORIES.length * 2;
   
-  while (pool.length > 0 || deferred.length > 0) {
-    // Look in the top 30 highest-volume remaining markets for one that passes spacing rules
+  while (result.length < uniqueMarkets.length && emptyRounds < MAX_EMPTY_ROUNDS) {
+    const category = priorityOrder[categoryIndex % priorityOrder.length];
+    const queue = categoryQueues[category];
+    
+    // Find the next market from this category that passes event spacing
     let found = false;
-    const searchLimit = Math.min(30, pool.length);
-    
-    for (let i = 0; i < searchLimit; i++) {
-      if (isAllowed(pool[i])) {
-        result.push(pool[i]);
-        pool.splice(i, 1);
-        found = true;
-        break;
-      }
-    }
-    
-    if (!found && pool.length > 0) {
-      // All top 30 fail spacing rules, defer the top one and try again
-      deferred.push(pool.shift()!);
-    }
-    
-    // If pool is empty but we have deferred markets, release them back
-    if (pool.length === 0 && deferred.length > 0) {
-      // Sort deferred by volume to maintain priority
-      deferred.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
-      // Move all deferred back to pool
-      pool.push(...deferred);
-      deferred.length = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const market = queue[i];
+      const eventKey = market.eventTicker || market.id;
       
-      // Try again with relaxed constraints
-      if (pool.length > 0) {
-        let foundDeferred = false;
-        for (let i = 0; i < pool.length; i++) {
-          if (isAllowed(pool[i])) {
-            result.push(pool[i]);
-            pool.splice(i, 1);
-            foundDeferred = true;
-            break;
-          }
-        }
-        
-        if (!foundDeferred && pool.length > 0) {
-          // Force take the highest volume one to break the deadlock
-          result.push(pool.shift()!);
-        }
+      // Check if this event was used recently
+      const recentEventIndex = recentEvents.indexOf(eventKey);
+      if (recentEventIndex !== -1 && (recentEvents.length - recentEventIndex) < EVENT_COOLDOWN) {
+        continue; // Skip - event used too recently
+      }
+      
+      // Found a valid market
+      result.push(market);
+      queue.splice(i, 1);
+      
+      // Track event for cooldown
+      recentEvents.push(eventKey);
+      if (recentEvents.length > EVENT_COOLDOWN * 2) {
+        recentEvents.shift();
+      }
+      
+      found = true;
+      break;
+    }
+    
+    if (!found) {
+      emptyRounds++;
+    } else {
+      emptyRounds = 0;
+    }
+    
+    categoryIndex++;
+  }
+  
+  // Add any remaining markets from General or skipped queues
+  for (const cat of ALL_CATEGORIES) {
+    const remaining = categoryQueues[cat];
+    for (const market of remaining) {
+      if (!result.find(m => m.id === market.id)) {
+        result.push(market);
       }
     }
   }
   
-  // Log category distribution for debugging
+  // Log final distribution for debugging
   const catCounts: Record<string, number> = {};
-  result.slice(0, 50).forEach(m => {
+  result.slice(0, 40).forEach(m => {
     catCounts[m.category] = (catCounts[m.category] || 0) + 1;
   });
-  console.log('First 50 cards category distribution:', catCounts);
+  console.log('First 40 cards - FINAL category distribution:', catCounts);
+  
+  // Verify all categories present
+  const categoriesInFirst40 = Object.keys(catCounts);
+  console.log(`Categories represented in first 40: ${categoriesInFirst40.length}/8`);
   
   return result;
 }
