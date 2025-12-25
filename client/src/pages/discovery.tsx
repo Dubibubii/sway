@@ -39,46 +39,70 @@ export default function Discovery() {
   
   const isActiveSearch = debouncedSearch.length >= 2;
 
+  // Helper function to check if title contains keyword as a whole word
+  const containsWholeWord = (text: string, keyword: string): boolean => {
+    // For single/short keywords, use word boundary matching
+    // For multi-word phrases, use simple includes
+    if (keyword.includes(' ')) {
+      return text.includes(keyword);
+    }
+    // Use regex word boundary for single words
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+    return regex.test(text);
+  };
+
+  // Filter markets based on selected category
   const filteredMarkets = useMemo(() => {
     const sourceMarkets = isActiveSearch ? searchResults : markets;
     
-    return sourceMarkets.filter((market) => {
-      if (isActiveSearch) {
-        let matchesCategory = selectedCategory === "All" || 
-          market.category.toLowerCase() === selectedCategory.toLowerCase();
-        
-        if (!matchesCategory && selectedCategory === "Crypto") {
-          const cryptoKeywords = ['bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'crypto', 'xrp', 'dogecoin', 'doge'];
-          const title = market.title.toLowerCase();
-          matchesCategory = cryptoKeywords.some(kw => title.includes(kw));
-        }
-        
-        if (!matchesCategory && selectedCategory === "AI") {
-          const aiKeywords = ['ai', 'artificial intelligence', 'openai', 'gpt', 'chatgpt', 'anthropic', 'claude', 'agi', 'machine learning'];
-          const title = market.title.toLowerCase();
-          matchesCategory = aiKeywords.some(kw => title.includes(kw));
-        }
-        
-        return matchesCategory;
+    // If "All" is selected, show everything
+    if (selectedCategory === "All") {
+      return sourceMarkets;
+    }
+    
+    const result = sourceMarkets.filter((market) => {
+      const marketCat = (market.category || '').toLowerCase().trim();
+      const selectedCat = selectedCategory.toLowerCase().trim();
+      
+      // Direct category match (case-insensitive)
+      if (marketCat === selectedCat) {
+        return true;
       }
       
-      let matchesCategory = selectedCategory === "All" || 
-        market.category.toLowerCase() === selectedCategory.toLowerCase();
-
-      if (!matchesCategory && selectedCategory === "Crypto") {
+      const title = market.title.toLowerCase();
+      
+      // Additional keyword matching for Crypto (whole word matching)
+      if (selectedCategory === "Crypto") {
         const cryptoKeywords = ['bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'crypto', 'xrp', 'dogecoin', 'doge'];
-        const title = market.title.toLowerCase();
-        matchesCategory = cryptoKeywords.some(kw => title.includes(kw));
+        if (cryptoKeywords.some(kw => containsWholeWord(title, kw))) {
+          return true;
+        }
       }
-
-      if (!matchesCategory && selectedCategory === "AI") {
-        const aiKeywords = ['ai', 'artificial intelligence', 'openai', 'gpt', 'chatgpt', 'anthropic', 'claude', 'agi', 'machine learning'];
-        const title = market.title.toLowerCase();
-        matchesCategory = aiKeywords.some(kw => title.includes(kw));
+      
+      // Additional keyword matching for AI (whole word matching to avoid "chair", "maine", etc.)
+      if (selectedCategory === "AI") {
+        const aiKeywords = ['artificial intelligence', 'openai', 'gpt', 'chatgpt', 'anthropic', 'claude', 'agi', 'machine learning'];
+        if (aiKeywords.some(kw => containsWholeWord(title, kw))) {
+          return true;
+        }
+        // Special case: standalone "AI" as whole word only
+        if (containsWholeWord(title, 'ai')) {
+          return true;
+        }
       }
-
-      return matchesCategory;
+      
+      // Additional keyword matching for Tech (whole word matching)
+      if (selectedCategory === "Tech") {
+        const techKeywords = ['spacex', 'tesla', 'apple', 'google', 'microsoft', 'nvidia', 'ipo', 'startup', 'robotaxi'];
+        if (techKeywords.some(kw => containsWholeWord(title, kw))) {
+          return true;
+        }
+      }
+      
+      return false;
     });
+    
+    return result;
   }, [markets, searchResults, selectedCategory, isActiveSearch]);
 
   return (
@@ -96,7 +120,7 @@ export default function Discovery() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-4">
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
           {CATEGORIES.map((category) => (
             <Button
               key={category}
@@ -114,6 +138,11 @@ export default function Discovery() {
             </Button>
           ))}
         </div>
+        {selectedCategory !== "All" && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Showing {filteredMarkets.length} {selectedCategory} markets
+          </p>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {(isLoading || (isActiveSearch && isSearching)) ? (
@@ -134,7 +163,7 @@ export default function Discovery() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div key={`grid-${selectedCategory}`} className="grid grid-cols-2 gap-3">
               {filteredMarkets.map((market) => (
                 <MarketCard 
                   key={market.id} 
