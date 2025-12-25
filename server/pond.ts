@@ -482,37 +482,87 @@ function mapKalshiCategory(kalshiCategory: string): string {
   return categoryMap[kalshiCategory] || '';
 }
 
-function detectCategoryFromTitle(title: string): string {
+function detectCategoryFromTitle(title: string, eventTicker?: string): string {
   const upperTitle = title.toUpperCase();
+  const upperTicker = (eventTicker || '').toUpperCase();
   
-  const cryptoKeywords = ['BITCOIN', 'BTC', 'ETHEREUM', 'ETH', 'SOLANA', 'SOL', 'CRYPTO', 'XRP', 'DOGECOIN', 'DOGE'];
+  // Ticker-based detection (more reliable than title keywords)
+  const tickerCategories: Record<string, string> = {
+    // Crypto
+    'KXBTC': 'Crypto', 'KXETH': 'Crypto', 'KXSOL': 'Crypto', 'KXXRP': 'Crypto',
+    'KXDOGE': 'Crypto', 'KXCRYPTO': 'Crypto', 'KXSOLD': 'Crypto', 'KXETHD': 'Crypto',
+    'KXBTCD': 'Crypto', 'BTCUSD': 'Crypto', 'ETHUSD': 'Crypto',
+    // AI/Tech
+    'KXIPO': 'Tech', 'OAIAGI': 'AI', 'KXOPENAI': 'AI', 'KXGPT': 'AI',
+    'TESLAOPTIMUS': 'Tech', 'GTA6': 'Tech', 'KXTESLA': 'Tech',
+    'KXSPACEX': 'Tech', 'KXTIKTOK': 'Tech', 'KXMETA': 'Tech',
+    // Economics
+    'KXFED': 'Economics', 'KXRATE': 'Economics', 'KXINFLATION': 'Economics',
+    'KXGDP': 'Economics', 'KXRATECUTCOUNT': 'Economics', 'KXFEDEND': 'Economics',
+    'KXRECESSION': 'Economics', 'WRECSS': 'Economics', 'KXCPI': 'Economics',
+    // Weather
+    'KXSNOW': 'Weather', 'KXTEMP': 'Weather', 'KXHURRICANE': 'Weather',
+    'KXWEATHER': 'Weather', 'KXRAIN': 'Weather',
+    // Politics - be careful, many tickers start with KX
+    'KXPRES': 'Politics', 'KXGOV': 'Politics', 'KXSENATE': 'Politics',
+    'SENATE': 'Politics', 'GOVPARTY': 'Politics', 'KXHOUSE': 'Politics',
+    'KXTRUMP': 'Politics', 'KXBIDEN': 'Politics', 'KXIMPEACH': 'Politics',
+    'KXCABOUT': 'Politics', 'KXCABINET': 'Politics',
+    // Sports
+    'KXNFL': 'Sports', 'KXNBA': 'Sports', 'KXMLB': 'Sports', 'KXNHL': 'Sports',
+    'KXNCAA': 'Sports', 'KXUFC': 'Sports', 'KXMENWORLDCUP': 'Sports',
+    'KXLALIGA': 'Sports', 'KXUCL': 'Sports', 'KXPFAPOY': 'Sports',
+    // Entertainment/General markers
+    'KXOSCAR': 'Entertainment', 'KXGRAM': 'Entertainment', 'KXGG': 'Entertainment',
+    'KXSAG': 'Entertainment', 'KXCRITICS': 'Entertainment', 'KXBOND': 'Entertainment',
+  };
+  
+  // Check ticker prefixes
+  for (const [prefix, category] of Object.entries(tickerCategories)) {
+    if (upperTicker.startsWith(prefix)) return category;
+  }
+  
+  // Expanded keyword detection
+  const cryptoKeywords = ['BITCOIN', 'BTC', 'ETHEREUM', 'ETH', 'SOLANA', 'SOL PRICE', 'CRYPTO', 'XRP', 'DOGECOIN', 'DOGE', 'ALTCOIN', 'STABLECOIN', 'USDC', 'USDT', 'DEFI', 'NFT'];
   for (const keyword of cryptoKeywords) {
     if (upperTitle.includes(keyword)) return 'Crypto';
   }
   
-  const aiKeywords = ['AI', 'ARTIFICIAL INTELLIGENCE', 'OPENAI', 'GPT', 'CHATGPT', 'ANTHROPIC', 'CLAUDE', 'AGI', 'MACHINE LEARNING'];
+  const aiKeywords = ['ARTIFICIAL INTELLIGENCE', 'OPENAI', 'GPT-', 'CHATGPT', 'ANTHROPIC', 'CLAUDE', 'AGI', 'MACHINE LEARNING', 'DEEPMIND', 'GEMINI', 'LLAMA', 'MISTRAL', 'XAI', 'CURSOR', 'COPILOT'];
   for (const keyword of aiKeywords) {
     if (upperTitle.includes(keyword)) return 'AI';
   }
+  // Special check for standalone "AI" - needs word boundary check
+  if (/\bAI\b/.test(upperTitle) && !upperTitle.includes('SAID') && !upperTitle.includes('AGAIN')) return 'AI';
   
-  const techKeywords = ['TESLA', 'APPLE', 'GOOGLE', 'AMAZON', 'MICROSOFT', 'NVIDIA', 'META', 'SPACEX', 'TWITTER', 'TIKTOK', 'IPO', 'STARTUP', 'IPHONE', 'ANDROID'];
+  const techKeywords = ['TESLA', 'APPLE', 'GOOGLE', 'AMAZON', 'MICROSOFT', 'NVIDIA', 'META ', 'SPACEX', 'TWITTER', 'TIKTOK', 'IPO', 'STARTUP', 'IPHONE', 'ANDROID', 'STARLINK', 'NEURALINK', 'OPTIMUS', 'GTA', 'CYBERTRUCK', 'CHIP', 'SEMICONDUCTOR'];
   for (const keyword of techKeywords) {
     if (upperTitle.includes(keyword)) return 'Tech';
   }
   
-  const sportsKeywords = ['NFL', 'NBA', 'MLB', 'NHL', 'SUPER BOWL', 'WORLD SERIES', 'CHAMPIONSHIP', 'PLAYOFF', 'MVP', 'TOUCHDOWN', 'HOME RUN'];
+  const sportsKeywords = ['NFL', 'NBA', 'MLB', 'NHL', 'SUPER BOWL', 'WORLD SERIES', 'PLAYOFF', 'MVP', 'TOUCHDOWN', 'HOME RUN', 'QUARTERBACK', 'COACH OF THE YEAR', 'ROOKIE OF THE YEAR', 'STANLEY CUP', 'WORLD CUP', 'CHAMPIONS LEAGUE', 'LA LIGA', 'PREMIER LEAGUE', 'HEAD COACH', 'DEFENSIVE PLAYER', 'PRO FOOTBALL', 'PRO BASKETBALL', 'PRO BASEBALL'];
   for (const keyword of sportsKeywords) {
     if (upperTitle.includes(keyword)) return 'Sports';
   }
   
-  const economicsKeywords = ['FED', 'FEDERAL RESERVE', 'INTEREST RATE', 'INFLATION', 'GDP', 'UNEMPLOYMENT', 'STOCK', 'S&P', 'NASDAQ', 'DOW'];
+  const economicsKeywords = ['FED ', 'FEDERAL RESERVE', 'INTEREST RATE', 'INFLATION', 'GDP', 'UNEMPLOYMENT', 'S&P 500', 'S&P500', 'NASDAQ', 'DOW JONES', 'RECESSION', 'RATE CUT', 'RATE HIKE', 'CPI', 'PCE', 'TREASURY', 'YIELD', 'BOND MARKET'];
   for (const keyword of economicsKeywords) {
     if (upperTitle.includes(keyword)) return 'Economics';
   }
   
-  const politicsKeywords = ['TRUMP', 'BIDEN', 'PRESIDENT', 'CONGRESS', 'SENATE', 'ELECTION', 'VOTE', 'GOVERNOR', 'REPUBLICAN', 'DEMOCRAT'];
+  const politicsKeywords = ['TRUMP', 'BIDEN', 'PRESIDENT', 'CONGRESS', 'SENATE', 'ELECTION', 'GOVERNOR', 'REPUBLICAN', 'DEMOCRAT', 'IMPEACH', 'CABINET', 'WHITE HOUSE', 'DEPARTMENT OF', 'DOGE ', 'MUSK', 'RAMASWAMY', 'NOMINEE', 'PRESIDENTIAL'];
   for (const keyword of politicsKeywords) {
     if (upperTitle.includes(keyword)) return 'Politics';
+  }
+  
+  const weatherKeywords = ['SNOW', 'TEMPERATURE', 'HURRICANE', 'TORNADO', 'FLOOD', 'DROUGHT', 'HEAT WAVE', 'COLD WAVE', 'RAINFALL', 'WEATHER'];
+  for (const keyword of weatherKeywords) {
+    if (upperTitle.includes(keyword)) return 'Weather';
+  }
+  
+  const entertainmentKeywords = ['OSCAR', 'GRAMMY', 'EMMY', 'GOLDEN GLOBE', 'BEST ACTOR', 'BEST ACTRESS', 'BEST PICTURE', 'BEST ALBUM', 'BEST SONG', 'SPOTIFY', 'BILLBOARD', 'JAMES BOND', 'MOVIE', 'FILM'];
+  for (const keyword of entertainmentKeywords) {
+    if (upperTitle.includes(keyword)) return 'Entertainment';
   }
   
   return 'General';
@@ -539,7 +589,8 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
   const kalshiCategory = event?.category || market.category || '';
   const mappedCategory = mapKalshiCategory(kalshiCategory);
   const seriesTicker = event?.series_ticker || market.event_ticker?.split('-')[0] || '';
-  const category = mappedCategory || formatCategory(seriesTicker) || detectCategoryFromTitle(market.title);
+  const eventTicker = market.event_ticker || event?.event_ticker || '';
+  const category = mappedCategory || formatCategory(seriesTicker) || detectCategoryFromTitle(market.title, eventTicker);
   
   const title = market.title || event?.title || '';
   
@@ -973,13 +1024,51 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   // Sort by 24h volume (trending first)
   uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
+  // Log category distribution before diversification
+  const preCatCounts: Record<string, number> = {};
+  uniqueMarkets.slice(0, 100).forEach(m => {
+    preCatCounts[m.category] = (preCatCounts[m.category] || 0) + 1;
+  });
+  console.log('Top 100 by volume - category distribution:', preCatCounts);
+  
+  // STEP 1: Group markets by category and ensure minimum representation
+  // This guarantees variety even when high-volume markets are dominated by Sports/General
+  const priorityCategories = ['Tech', 'Crypto', 'AI', 'Economics', 'Weather', 'Entertainment'];
+  const marketsByCategory: Record<string, SimplifiedMarket[]> = {};
+  
+  for (const market of uniqueMarkets) {
+    if (!marketsByCategory[market.category]) {
+      marketsByCategory[market.category] = [];
+    }
+    marketsByCategory[market.category].push(market);
+  }
+  
+  // Pull top markets from each priority category to ensure they appear early
+  const categorySeeds: SimplifiedMarket[] = [];
+  for (const cat of priorityCategories) {
+    const catMarkets = marketsByCategory[cat] || [];
+    // Take top 3 from each priority category
+    categorySeeds.push(...catMarkets.slice(0, 3));
+  }
+  
+  // Create a set of seed IDs to avoid duplicates
+  const seedIds = new Set(categorySeeds.map(m => m.id));
+  
+  // Remaining markets (excluding seeds)
+  const remainingMarkets = uniqueMarkets.filter(m => !seedIds.has(m.id));
+  
+  // Combine: interleave seeds with top trending, then add the rest
+  const combinedMarkets = [...categorySeeds, ...remainingMarkets];
+  // Re-sort by volume but keep seeds mixed in early
+  // Actually, let's just rely on the spacing algorithm to distribute properly
+  
   // Apply spacing rules:
   // 1. Same category only once per 5 cards
   // 2. Same event (eventTicker) only once per 10 cards to avoid "Michigan Coach: A, B, C" in a row
   const CATEGORY_SPACING = 5;
   const EVENT_SPACING = 10;
   const result: SimplifiedMarket[] = [];
-  const pool = [...uniqueMarkets];
+  const pool = [...combinedMarkets];
   const deferred: SimplifiedMarket[] = [];
   
   const isAllowed = (market: SimplifiedMarket): boolean => {
@@ -1046,6 +1135,13 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
       }
     }
   }
+  
+  // Log category distribution for debugging
+  const catCounts: Record<string, number> = {};
+  result.slice(0, 50).forEach(m => {
+    catCounts[m.category] = (catCounts[m.category] || 0) + 1;
+  });
+  console.log('First 50 cards category distribution:', catCounts);
   
   return result;
 }
