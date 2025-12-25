@@ -89,117 +89,62 @@ export async function getMarkets(limit = 50, cursor?: string): Promise<Simplifie
   }
 }
 
+// Start background cache refresh
+let cacheRefreshInProgress = false;
+
+export function startBackgroundCacheRefresh(): void {
+  if (cacheRefreshInProgress) return;
+  
+  cacheRefreshInProgress = true;
+  console.log('Starting background market cache refresh...');
+  
+  fetchAllMarkets().then(markets => {
+    if (markets.length > 0) {
+      marketCache = markets;
+      cacheTimestamp = Date.now();
+      console.log(`Background cache refresh complete: ${marketCache.length} markets`);
+    }
+    cacheRefreshInProgress = false;
+  }).catch(err => {
+    console.error('Background cache refresh failed:', err);
+    cacheRefreshInProgress = false;
+  });
+}
+
 export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Promise<SimplifiedMarket[]> {
   const now = Date.now();
   
-  // Use cache if available and not expired (10 min TTL for discovery)
-  if (marketCache.length > 0 && now - cacheTimestamp < 10 * 60 * 1000) {
+  // Use cache if available and not expired (15 min TTL for discovery)
+  if (marketCache.length > 0 && now - cacheTimestamp < 15 * 60 * 1000) {
     console.log(`Using cached markets: ${marketCache.length} markets`);
     return marketCache.slice(0, maxMarkets);
   }
   
-  const allMarkets: SimplifiedMarket[] = [];
-  const marketIds = new Set<string>();
-  let cursor: string | undefined;
-  const pageSize = 100;
-  let rateLimited = false;
-  
-  try {
-    // First, fetch high-volume markets directly using the markets endpoint
-    // This ensures we get popular markets that might be missed in events pagination
-    console.log('Fetching high-volume markets first...');
-    const highVolumeMarkets = await fetchHighVolumeMarkets();
-    for (const market of highVolumeMarkets) {
-      if (!marketIds.has(market.id)) {
-        allMarkets.push(market);
-        marketIds.add(market.id);
-      }
-    }
-    console.log(`Added ${highVolumeMarkets.length} high-volume markets`);
-    
-    // If we got no markets and have cache, use cache
-    if (allMarkets.length === 0 && marketCache.length > 0) {
-      console.log('Rate limited, using existing cache');
-      return marketCache.slice(0, maxMarkets);
-    }
-    
-    // Then fetch from events endpoint for broader coverage
-    while (allMarkets.length < maxMarkets) {
-      const params = new URLSearchParams({
-        limit: pageSize.toString(),
-        with_nested_markets: withNestedMarkets.toString(),
-      });
-      
-      if (cursor) {
-        params.append('cursor', cursor);
-      }
-      
-      const response = await fetch(`${KALSHI_BASE_URL}/events?${params}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      
-      if (!response.ok) {
-        console.error('Kalshi API error:', response.status, await response.text());
-        break;
-      }
-      
-      const data = await response.json();
-      const events: KalshiEvent[] = data.events || [];
-      
-      if (events.length === 0) {
-        break;
-      }
-      
-      for (const event of events) {
-        if (event.markets && event.markets.length > 0) {
-          for (const market of event.markets) {
-            if (market.status !== 'active') continue;
-            if (!market.yes_ask && !market.yes_bid) continue;
-            if (marketIds.has(market.ticker)) continue;
-            
-            allMarkets.push(transformKalshiMarket(market, event));
-            marketIds.add(market.ticker);
-          }
-        }
-      }
-      
-      cursor = data.cursor;
-      if (!cursor) {
-        break;
-      }
-      
-      console.log(`Fetched ${allMarkets.length} markets so far...`);
-    }
-    
-    console.log(`Total markets fetched: ${allMarkets.length}`);
-    
-    const categoryCount: Record<string, number> = {};
-    for (const m of allMarkets) {
-      categoryCount[m.category] = (categoryCount[m.category] || 0) + 1;
-    }
-    console.log('Market categories breakdown:', categoryCount);
-    
-    // Update cache if we got a good number of markets
-    if (allMarkets.length > 10) {
-      marketCache = allMarkets;
-      cacheTimestamp = Date.now();
-      console.log(`Updated market cache with ${allMarkets.length} markets`);
-    } else if (marketCache.length > allMarkets.length) {
-      // Use existing cache if it has more markets
-      console.log(`Using existing cache (${marketCache.length} markets) over new fetch (${allMarkets.length} markets)`);
-      return marketCache.slice(0, maxMarkets);
-    }
-    
-    return allMarkets.length > 0 ? allMarkets : getMockMarkets();
-  } catch (error) {
-    console.error('Error fetching Pond events:', error);
-    // Return cache if we have it, otherwise fallback to mock
-    if (marketCache.length > 0) {
-      return marketCache.slice(0, maxMarkets);
-    }
-    return allMarkets.length > 0 ? allMarkets : getMockMarkets();
+  // If cache expired or empty, trigger background refresh
+  if (!cacheRefreshInProgress) {
+    startBackgroundCacheRefresh();
   }
+  
+  // Return existing cache while refresh happens in background
+  if (marketCache.length > 0) {
+    console.log(`Returning stale cache (${marketCache.length} markets) while refreshing...`);
+    return marketCache.slice(0, maxMarkets);
+  }
+  
+  // No cache available - wait for background refresh to get some data
+  // Poll for up to 10 seconds for initial data
+  console.log('No cache available, waiting for background refresh...');
+  for (let i = 0; i < 20; i++) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    if (marketCache.length > 0) {
+      console.log(`Got ${marketCache.length} markets from background refresh`);
+      return marketCache.slice(0, maxMarkets);
+    }
+  }
+  
+  // Still no cache after waiting - return mock
+  console.log('Background refresh taking too long, returning mock data');
+  return getMockMarkets();
 }
 
 // Important series tickers to always include (high-traffic markets)
@@ -218,52 +163,26 @@ const PRIORITY_SERIES = [
   'KXCHRISTMASHORNETS', // Christmas Hornets
 ];
 
-// Fetch high-volume markets directly from the markets endpoint
-async function fetchHighVolumeMarkets(): Promise<SimplifiedMarket[]> {
+// Fetch ALL markets from Kalshi - no volume filtering
+// Updates the global cache progressively so users can start using data early
+async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
   const markets: SimplifiedMarket[] = [];
   const marketIds = new Set<string>();
   let cursor: string | undefined;
   const pageSize = 200;
   let pagesFetched = 0;
-  const maxPages = 5; // Fetch up to 1000 markets from the markets endpoint
+  const maxPages = 100; // Fetch up to 20,000 markets
+  let retryCount = 0;
+  const maxRetries = 5;
   
   try {
-    // First, fetch priority series events to ensure we get important markets
-    console.log('Fetching priority series...');
-    for (const seriesTicker of PRIORITY_SERIES) {
-      try {
-        const response = await fetch(`${KALSHI_BASE_URL}/events?series_ticker=${seriesTicker}&with_nested_markets=true&limit=20`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const events = data.events || [];
-          
-          for (const event of events) {
-            if (event.markets && event.markets.length > 0) {
-              for (const market of event.markets) {
-                if (market.status !== 'active') continue;
-                if (marketIds.has(market.ticker)) continue;
-                
-                markets.push(transformKalshiMarket(market, event));
-                marketIds.add(market.ticker);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error(`Error fetching priority series ${seriesTicker}:`, e);
-      }
-    }
-    console.log(`Added ${markets.length} markets from priority series`);
+    console.log('Fetching ALL markets from Kalshi...');
     
-    // Then fetch from general markets endpoint
+    // Fetch from markets endpoint with pagination
     while (pagesFetched < maxPages) {
       const params = new URLSearchParams({
         limit: pageSize.toString(),
-        status: 'active',
+        status: 'open',
       });
       
       if (cursor) {
@@ -276,20 +195,34 @@ async function fetchHighVolumeMarkets(): Promise<SimplifiedMarket[]> {
       });
       
       if (!response.ok) {
+        if (response.status === 429) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            const backoffTime = Math.pow(2, retryCount) * 1000;
+            console.log(`Rate limited on page ${pagesFetched}, waiting ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+            continue;
+          } else {
+            console.log(`Max retries reached at page ${pagesFetched}`);
+            break;
+          }
+        }
         console.error('Kalshi markets API error:', response.status);
         break;
       }
+      
+      retryCount = 0; // Reset on success
       
       const data = await response.json();
       const rawMarkets = data.markets || [];
       
       if (rawMarkets.length === 0) {
+        console.log('No more markets to fetch');
         break;
       }
       
       for (const market of rawMarkets) {
-        if (market.status !== 'active') continue;
-        if (!market.yes_ask && !market.yes_bid && !market.last_price) continue;
+        if (market.status !== 'active' && market.status !== 'open') continue;
         if (marketIds.has(market.ticker)) continue;
         
         markets.push(transformKalshiMarket(market));
@@ -299,20 +232,33 @@ async function fetchHighVolumeMarkets(): Promise<SimplifiedMarket[]> {
       cursor = data.cursor;
       pagesFetched++;
       
+      // Update cache progressively so users can use partial data
+      // Update after first page, then every 5 pages
+      if (pagesFetched === 1 || pagesFetched % 5 === 0) {
+        marketCache = [...markets];
+        cacheTimestamp = Date.now();
+      }
+      
+      // Log progress every 10 pages
+      if (pagesFetched % 10 === 0) {
+        console.log(`Fetched ${pagesFetched} pages, ${markets.length} markets...`);
+      }
+      
       if (!cursor) {
+        console.log('Reached end of market list');
         break;
       }
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Sort by 24h volume and return top markets
-    markets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
-    
-    console.log(`fetchHighVolumeMarkets: Got ${markets.length} total markets`);
+    console.log(`fetchAllMarkets: Got ${markets.length} total markets from ${pagesFetched} pages`);
     
     return markets;
   } catch (error) {
-    console.error('Error fetching high-volume markets:', error);
-    return [];
+    console.error('Error fetching all markets:', error);
+    return markets; // Return what we got
   }
 }
 

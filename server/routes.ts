@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
@@ -58,42 +58,30 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // Start background cache refresh on server startup
+  setTimeout(() => {
+    console.log('Triggering initial market cache refresh...');
+    startBackgroundCacheRefresh();
+  }, 2000);
+
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      let markets: SimplifiedMarket[];
+      // Get up to 10,000 markets from cache
+      let markets: SimplifiedMarket[] = await getEvents(10000);
       
-      markets = await getEvents(1000);
-      
+      // Apply diversification (removes extreme probabilities, deduplicates)
       markets = diversifyMarketFeed(markets);
       
-      const trendingCount = Math.min(50, markets.length);
-      const trendingMarkets = markets.slice(0, trendingCount);
+      // Sort by volume for discovery
+      markets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
       
-      const remainingMarkets = markets.slice(trendingCount);
-      const categories = ['Politics', 'Sports', 'Economics', 'Tech', 'Weather', 'General'];
-      const categoryMarkets: SimplifiedMarket[] = [];
+      // Return up to 400 diverse markets for discovery page
+      const displayMarkets = markets.slice(0, 400);
       
-      let hasMore = true;
-      let index = 0;
-      while (hasMore) {
-        hasMore = false;
-        for (const cat of categories) {
-          const catMarkets = remainingMarkets.filter(m => m.category === cat);
-          if (catMarkets[index]) {
-            categoryMarkets.push(catMarkets[index]);
-            hasMore = true;
-          }
-        }
-        index++;
-      }
+      const uniqueCategories = Array.from(new Set(displayMarkets.map(m => m.category)));
+      console.log('Markets: Total', displayMarkets.length, '- Categories:', uniqueCategories.join(', '));
       
-      let organizedMarkets = [...trendingMarkets, ...categoryMarkets];
-      
-      organizedMarkets = organizedMarkets.reverse();
-      
-      console.log('Markets: Total', organizedMarkets.length, '- Top 3 by 24h vol:', organizedMarkets.slice(-3).map(m => ({ title: m.title?.slice(0,25), vol24h: m.volume24h })));
-      
-      res.json({ markets: organizedMarkets });
+      res.json({ markets: displayMarkets });
     } catch (error) {
       console.error('Error fetching markets:', error);
       res.status(500).json({ error: 'Failed to fetch markets' });
@@ -122,7 +110,8 @@ export async function registerRoutes(
       
       const matchingMarkets = await searchAllMarkets(query);
       
-      res.json({ markets: matchingMarkets.slice(0, 100) });
+      // Return all matching markets for comprehensive search
+      res.json({ markets: matchingMarkets });
     } catch (error) {
       console.error('Error searching markets:', error);
       res.status(500).json({ error: 'Failed to search markets' });
