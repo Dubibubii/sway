@@ -2,8 +2,6 @@ import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 
-// DFlow Development API endpoint for real trading (market metadata)
-const POND_METADATA_API = 'https://dev-prediction-markets-api.dflow.net';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 export interface PondTradeResult {
@@ -23,17 +21,11 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-async function getMarketTokensFromClient(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
-  const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
-  console.log('[PondTrading] Fetching market tokens (client-side) from:', url);
+async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
+  console.log('[PondTrading] Fetching market tokens via server for:', marketId);
   
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(`/api/pond/market/${marketId}/tokens`);
     
     console.log('[PondTrading] Market token response status:', response.status);
     
@@ -44,19 +36,14 @@ async function getMarketTokensFromClient(marketId: string): Promise<{ yesMint: s
     }
 
     const data = await response.json();
-    console.log('[PondTrading] Market data received:', JSON.stringify(data).slice(0, 500));
+    console.log('[PondTrading] Market tokens received:', data);
     
-    const accounts = data.accounts || {};
-    const yesMint = accounts.yesTokenMint || accounts.yes_token_mint || data.yesMint || data.yes_token_mint;
-    const noMint = accounts.noTokenMint || accounts.no_token_mint || data.noMint || data.no_token_mint;
-    
-    if (!yesMint || !noMint) {
-      console.error('[PondTrading] Market tokens not found in response. Accounts:', JSON.stringify(accounts));
+    if (!data.yesMint || !data.noMint) {
+      console.error('[PondTrading] Market tokens not found in response');
       return null;
     }
     
-    console.log('[PondTrading] Found token mints - YES:', yesMint, 'NO:', noMint);
-    return { yesMint, noMint };
+    return { yesMint: data.yesMint, noMint: data.noMint };
   } catch (error) {
     console.error('[PondTrading] Error fetching market tokens:', error);
     return null;
@@ -103,7 +90,7 @@ export function usePondTrading() {
       console.log('[PondTrading] Amount USDC:', amountUSDC);
       console.log('[PondTrading] User wallet:', userPublicKey);
 
-      const marketTokens = await getMarketTokensFromClient(marketId);
+      const marketTokens = await getMarketTokensFromServer(marketId);
       
       if (!marketTokens) {
         throw new Error('This market is not yet available for on-chain trading. Try a different market.');
