@@ -973,42 +973,72 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   // Sort by 24h volume (trending first)
   uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
-  // For home swipe: Keep top 50 trending markets FIRST sorted by volume
-  // Then apply light diversification to the rest
-  const TOP_TRENDING_COUNT = 50;
-  const topTrending = uniqueMarkets.slice(0, TOP_TRENDING_COUNT);
-  const remaining = uniqueMarkets.slice(TOP_TRENDING_COUNT);
+  // Apply category spacing: same category only once per 5 cards
+  // Uses greedy algorithm: pick highest volume market whose category isn't in last 4 cards
+  const CATEGORY_SPACING = 5;
+  const result: SimplifiedMarket[] = [];
+  const pool = [...uniqueMarkets];
+  const deferred: SimplifiedMarket[] = [];
   
-  // Light diversification for remaining markets (avoid 3+ same category in a row)
-  const diversifiedRest: SimplifiedMarket[] = [];
-  const restPool = [...remaining];
-  
-  while (restPool.length > 0) {
-    const recentCategories: string[] = [];
-    for (let i = diversifiedRest.length - 1; i >= 0 && recentCategories.length < 2; i--) {
-      recentCategories.push(diversifiedRest[i].category);
+  while (pool.length > 0 || deferred.length > 0) {
+    // Get categories from last (CATEGORY_SPACING - 1) cards
+    const recentCategories = new Set<string>();
+    for (let i = result.length - 1; i >= 0 && result.length - i < CATEGORY_SPACING; i--) {
+      recentCategories.add(result[i].category);
     }
     
-    // Look at top 10 remaining markets for category variety, not all
-    let bestIndex = -1;
-    const searchLimit = Math.min(10, restPool.length);
+    // Look in the top 20 highest-volume remaining markets for one with a different category
+    let found = false;
+    const searchLimit = Math.min(20, pool.length);
+    
     for (let i = 0; i < searchLimit; i++) {
-      if (!recentCategories.includes(restPool[i].category)) {
-        bestIndex = i;
+      if (!recentCategories.has(pool[i].category)) {
+        result.push(pool[i]);
+        pool.splice(i, 1);
+        found = true;
         break;
       }
     }
     
-    if (bestIndex === -1) {
-      bestIndex = 0; // Just take the highest volume one
+    if (!found && pool.length > 0) {
+      // All top 20 have categories in recent 4, defer the top one and try again
+      deferred.push(pool.shift()!);
     }
     
-    diversifiedRest.push(restPool[bestIndex]);
-    restPool.splice(bestIndex, 1);
+    // If pool is empty but we have deferred markets, release them back
+    if (pool.length === 0 && deferred.length > 0) {
+      // Sort deferred by volume to maintain priority
+      deferred.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+      // Move all deferred back to pool
+      pool.push(...deferred);
+      deferred.length = 0;
+      
+      // If we still can't find a valid one, just take the top one to avoid infinite loop
+      if (pool.length > 0) {
+        const recentCats = new Set<string>();
+        for (let i = result.length - 1; i >= 0 && result.length - i < CATEGORY_SPACING; i--) {
+          recentCats.add(result[i].category);
+        }
+        
+        let foundDeferred = false;
+        for (let i = 0; i < pool.length; i++) {
+          if (!recentCats.has(pool[i].category)) {
+            result.push(pool[i]);
+            pool.splice(i, 1);
+            foundDeferred = true;
+            break;
+          }
+        }
+        
+        if (!foundDeferred && pool.length > 0) {
+          // Force take the highest volume one to break the deadlock
+          result.push(pool.shift()!);
+        }
+      }
+    }
   }
   
-  // Return: trending first, then diversified rest
-  return [...topTrending, ...diversifiedRest];
+  return result;
 }
 
 export { getMockMarkets };
