@@ -973,26 +973,40 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   // Sort by 24h volume (trending first)
   uniqueMarkets.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   
-  // Apply category spacing: same category only once per 5 cards
-  // Uses greedy algorithm: pick highest volume market whose category isn't in last 4 cards
+  // Apply spacing rules:
+  // 1. Same category only once per 5 cards
+  // 2. Same event (eventTicker) only once per 10 cards to avoid "Michigan Coach: A, B, C" in a row
   const CATEGORY_SPACING = 5;
+  const EVENT_SPACING = 10;
   const result: SimplifiedMarket[] = [];
   const pool = [...uniqueMarkets];
   const deferred: SimplifiedMarket[] = [];
   
-  while (pool.length > 0 || deferred.length > 0) {
-    // Get categories from last (CATEGORY_SPACING - 1) cards
+  const isAllowed = (market: SimplifiedMarket): boolean => {
+    // Check category spacing
     const recentCategories = new Set<string>();
     for (let i = result.length - 1; i >= 0 && result.length - i < CATEGORY_SPACING; i--) {
       recentCategories.add(result[i].category);
     }
+    if (recentCategories.has(market.category)) return false;
     
-    // Look in the top 20 highest-volume remaining markets for one with a different category
+    // Check event spacing (avoid same event multiple times in a row)
+    if (market.eventTicker) {
+      for (let i = result.length - 1; i >= 0 && result.length - i < EVENT_SPACING; i--) {
+        if (result[i].eventTicker === market.eventTicker) return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  while (pool.length > 0 || deferred.length > 0) {
+    // Look in the top 30 highest-volume remaining markets for one that passes spacing rules
     let found = false;
-    const searchLimit = Math.min(20, pool.length);
+    const searchLimit = Math.min(30, pool.length);
     
     for (let i = 0; i < searchLimit; i++) {
-      if (!recentCategories.has(pool[i].category)) {
+      if (isAllowed(pool[i])) {
         result.push(pool[i]);
         pool.splice(i, 1);
         found = true;
@@ -1001,7 +1015,7 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
     }
     
     if (!found && pool.length > 0) {
-      // All top 20 have categories in recent 4, defer the top one and try again
+      // All top 30 fail spacing rules, defer the top one and try again
       deferred.push(pool.shift()!);
     }
     
@@ -1013,16 +1027,11 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
       pool.push(...deferred);
       deferred.length = 0;
       
-      // If we still can't find a valid one, just take the top one to avoid infinite loop
+      // Try again with relaxed constraints
       if (pool.length > 0) {
-        const recentCats = new Set<string>();
-        for (let i = result.length - 1; i >= 0 && result.length - i < CATEGORY_SPACING; i--) {
-          recentCats.add(result[i].category);
-        }
-        
         let foundDeferred = false;
         for (let i = 0; i < pool.length; i++) {
-          if (!recentCats.has(pool[i].category)) {
+          if (isAllowed(pool[i])) {
             result.push(pool[i]);
             pool.splice(i, 1);
             foundDeferred = true;
