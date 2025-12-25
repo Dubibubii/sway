@@ -648,7 +648,7 @@ export async function registerRoutes(
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Pulse-Prediction-Markets/1.0',
+          'User-Agent': 'SWAY-Prediction-Markets/1.0',
         },
       });
       

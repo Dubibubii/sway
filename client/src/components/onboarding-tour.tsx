@@ -10,7 +10,7 @@ interface OnboardingTourProps {
 const steps = [
   {
     id: 'welcome',
-    title: 'Welcome to Pulse!',
+    title: 'Welcome to SWAY!',
     description: 'Trade on real prediction markets by swiping. Let\'s show you how it works.',
     icon: Sparkles,
     iconColor: 'from-purple-500 to-pink-500',

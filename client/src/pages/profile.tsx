@@ -151,7 +151,7 @@ function ProfileContent() {
               {authenticated && embeddedWallet ? (
                  <div className="space-y-2 sm:space-y-3">
                    <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
-                     <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase">Pulse Wallet</div>
+                     <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase">SWAY Wallet</div>
                    </div>
                    <button 
                      onClick={() => copyToClipboard(embeddedWallet.address)}
@@ -235,7 +235,7 @@ function ProfileContent() {
                     className="h-8 px-3 text-xs gap-1.5 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
                     data-testid="button-create-wallet"
                   >
-                    <Wallet size={14} /> {isCreatingWallet ? 'Creating...' : 'Create Pulse Wallet'}
+                    <Wallet size={14} /> {isCreatingWallet ? 'Creating...' : 'Create SWAY Wallet'}
                   </Button>
                 </div>
               ) : settings.connected ? (
@@ -462,7 +462,7 @@ function ProfileContent() {
           
           <div className="space-y-4 pt-4">
             <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
-              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your Pulse Wallet Address</div>
+              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your SWAY Wallet Address</div>
               <div className="font-mono text-sm text-white break-all mb-3">
                 {depositAddress}
               </div>

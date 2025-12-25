@@ -313,37 +313,53 @@ export default function Home() {
     <Layout>
       <Dialog open={!authenticated && ready} onOpenChange={() => {}}>
         <DialogContent 
-          className="sm:max-w-md bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800/50 shadow-2xl shadow-emerald-500/5 [&>button]:hidden"
+          className="sm:max-w-sm bg-zinc-950 border border-zinc-800/80 shadow-2xl [&>button]:hidden rounded-3xl"
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <DialogHeader>
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full blur-xl opacity-50 animate-pulse" />
-                <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-blue-500 flex items-center justify-center shadow-lg">
-                  <Wallet size={44} className="text-white drop-shadow-lg" />
+          <div className="flex flex-col items-center text-center px-2 py-6">
+            <div className="mb-8">
+              <div className="text-5xl font-black tracking-tighter bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+                SWAY
+              </div>
+              <div className="text-zinc-500 text-sm mt-1 font-medium tracking-wide">
+                Prediction Markets
+              </div>
+            </div>
+            
+            <div className="w-full space-y-3 mb-6">
+              <div className="flex items-center gap-3 text-left bg-zinc-900/50 rounded-xl p-3 border border-zinc-800/50">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                  <Check size={20} className="text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-white text-sm font-semibold">Swipe Right</div>
+                  <div className="text-zinc-500 text-xs">Bet YES on markets</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 text-left bg-zinc-900/50 rounded-xl p-3 border border-zinc-800/50">
+                <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0">
+                  <X size={20} className="text-rose-400" />
+                </div>
+                <div>
+                  <div className="text-white text-sm font-semibold">Swipe Left</div>
+                  <div className="text-zinc-500 text-xs">Bet NO on markets</div>
                 </div>
               </div>
             </div>
-            <DialogTitle className="text-center text-3xl font-black text-white tracking-tight">
-              Welcome to Pulse
-            </DialogTitle>
-            <DialogDescription className="text-center text-zinc-400 mt-3 text-base leading-relaxed">
-              Connect your Solana wallet to start trading on prediction markets. Swipe right to bet <span className="text-emerald-400 font-semibold">YES</span>, left to bet <span className="text-rose-400 font-semibold">NO</span>!
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 mt-6">
+            
             <Button 
               onClick={handleConnectWallet}
-              className="w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-blue-500 hover:from-emerald-400 hover:via-emerald-500 hover:to-blue-600 text-white font-bold py-7 text-lg rounded-xl shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-white hover:bg-zinc-100 text-black font-bold py-6 text-base rounded-2xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
               data-testid="button-connect-wallet-modal"
             >
-              <Wallet className="mr-3" size={22} />
+              <Wallet className="mr-2" size={20} />
               Connect Wallet
             </Button>
-            <p className="text-center text-zinc-600 text-xs">
-              Supports Phantom, Solflare, Backpack & more
+            
+            <p className="text-zinc-600 text-[11px] mt-4 tracking-wide">
+              Phantom, Solflare, Backpack & more
             </p>
           </div>
         </DialogContent>

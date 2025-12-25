@@ -58,7 +58,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
 
   const getShareText = () => {
     const yesPercent = Math.round(market.yesPrice * 100);
-    return `${market.question} - Currently at ${yesPercent}% YES on Pulse`;
+    return `${market.question} - Currently at ${yesPercent}% YES on SWAY`;
   };
 
   const shareToTwitter = (e: React.MouseEvent) => {

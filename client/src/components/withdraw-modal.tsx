@@ -318,7 +318,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             {isSameAddress && (
               <div className="flex items-center gap-1 text-orange-400 text-xs">
                 <AlertCircle size={12} />
-                Enter a different wallet address - this is already your Pulse wallet
+                Enter a different wallet address - this is already your SWAY wallet
               </div>
             )}
           </div>

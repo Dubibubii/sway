@@ -1,8 +1,8 @@
-# Pulse - Prediction Markets App
+# SWAY - Prediction Markets App
 
 ## Overview
 
-Pulse is a mobile-first prediction markets trading application that allows users to swipe on markets (similar to Tinder) to place bets. The app integrates with the Kalshi API for market data and uses Privy for Web3 wallet authentication on Solana. Users can swipe right to bet "Yes", left to bet "No", or down to skip markets.
+SWAY is a mobile-first prediction markets trading application that allows users to swipe on markets (similar to Tinder) to place bets. The app integrates with the Kalshi API for market data and uses Privy for Web3 wallet authentication on Solana. Users can swipe right to bet "Yes", left to bet "No", or down to skip markets.
 
 ### Market Organization
 - **Trending First**: Top 50 markets sorted by volume (highest to lowest)
