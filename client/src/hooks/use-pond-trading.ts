@@ -61,38 +61,29 @@ export function usePondTrading() {
     marketId: string,
     side: 'yes' | 'no',
     amountUSDC: number,
-    usdcBalance?: number,
-    preferredWalletAddress?: string
+    usdcBalance?: number
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
 
     try {
-      // Only check balance if it has been fetched (undefined means not yet loaded)
-      if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
-        throw new Error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amountUSDC.toFixed(2)}. Convert SOL to USDC first.`);
-      }
-
-      // Find wallets
+      // Only use embedded wallet for trading (auto-confirm enabled)
       const embeddedWallet = wallets.find((w: any) => 
         w.walletClientType === 'privy' || w.connectorType === 'embedded'
       );
       
-      const externalWallet = wallets.find((w: any) => 
-        w.walletClientType !== 'privy' && w.connectorType !== 'embedded'
-      );
-      
-      // Use the wallet specified by caller (typically where funds are), else prefer embedded for auto-confirm
-      let tradingWallet = embeddedWallet || externalWallet;
-      
-      if (preferredWalletAddress) {
-        const preferred = wallets.find((w: any) => w.address === preferredWalletAddress);
-        if (preferred) {
-          tradingWallet = preferred;
-        }
+      if (!embeddedWallet) {
+        throw new Error('No embedded wallet found. Please log in with Privy to create an embedded wallet for trading.');
+      }
+
+      // Check balance - if insufficient, throw specific error for funding prompt
+      if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
+        const err = new Error(`INSUFFICIENT_FUNDS:${usdcBalance.toFixed(2)}:${amountUSDC.toFixed(2)}`);
+        throw err;
       }
       
-      const userPublicKey = tradingWallet?.address;
+      const tradingWallet = embeddedWallet;
+      const userPublicKey = tradingWallet.address;
       
       if (!userPublicKey) {
         throw new Error('No Solana wallet connected. Please connect your Solana wallet first.');

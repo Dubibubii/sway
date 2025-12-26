@@ -8,7 +8,7 @@ import { usePondTrading } from '@/hooks/use-pond-trading';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, type Market } from '@/lib/api';
@@ -62,33 +62,17 @@ export default function Home() {
   
   const queryClient = useQueryClient();
   const { login, authenticated, ready } = usePrivy();
-  const { embeddedWallet, externalWalletAddress } = usePrivySafe();
+  const { embeddedWallet } = usePrivySafe();
   const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
   const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
   
-  // Track BOTH wallet balances to determine which has funds
+  // Only use embedded wallet for trading (auto-confirm enabled)
   const embeddedAddress = embeddedWallet?.address || null;
-  const externalAddress = externalWalletAddress || null;
-  const { usdcBalance: embeddedBalance, refetch: refetchEmbedded } = useSolanaBalance(embeddedAddress);
-  const { usdcBalance: externalBalance, refetch: refetchExternal } = useSolanaBalance(externalAddress);
+  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
   
-  // Determine which wallet to use: prefer the one with funds, or embedded for auto-confirm
-  // If embedded has funds, use it (auto-confirm). Otherwise use external if it has funds.
-  const hasEmbeddedFunds = (embeddedBalance ?? 0) > 0;
-  const hasExternalFunds = (externalBalance ?? 0) > 0;
-  
-  // Choose wallet: prefer embedded if funded (auto-confirm), else use external if funded
-  const tradingWalletAddress = hasEmbeddedFunds ? embeddedAddress : 
-                               hasExternalFunds ? externalAddress : 
-                               embeddedAddress || externalAddress;
-  const usdcBalance = hasEmbeddedFunds ? embeddedBalance : 
-                      hasExternalFunds ? externalBalance : 
-                      (embeddedBalance ?? externalBalance);
-  
-  const refetchBalance = () => {
-    refetchEmbedded();
-    refetchExternal();
-  };
+  // State for showing funding prompt
+  const [showFundingPrompt, setShowFundingPrompt] = useState(false);
+  const [requiredAmount, setRequiredAmount] = useState(0);
   
   const { data: marketsData, isLoading, refetch } = useQuery({
     queryKey: ['markets'],
@@ -184,9 +168,8 @@ export default function Home() {
       const payout = shares.toFixed(2);
       
       if (settings.connected) {
-        // Execute REAL on-chain trade via Pond/DFlow
-        // Pass the wallet address that has the balance we're tracking
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, tradingWalletAddress || undefined);
+        // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -217,6 +200,10 @@ export default function Home() {
             ),
             className: "bg-zinc-950/90 border-emerald-500/20 text-white backdrop-blur-xl shadow-2xl shadow-emerald-500/10 p-4"
           });
+        } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
+          // Show funding prompt
+          setRequiredAmount(settings.yesWager);
+          setShowFundingPrompt(true);
         } else {
           toast({
             title: "Trade Failed",
@@ -252,9 +239,8 @@ export default function Home() {
       const payout = shares.toFixed(2);
 
       if (settings.connected) {
-        // Execute REAL on-chain trade via Pond/DFlow
-        // Pass the wallet address that has the balance we're tracking
-        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, tradingWalletAddress || undefined);
+        // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -285,6 +271,10 @@ export default function Home() {
             ),
             className: "bg-zinc-950/90 border-rose-500/20 text-white backdrop-blur-xl shadow-2xl shadow-rose-500/10 p-4"
           });
+        } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
+          // Show funding prompt
+          setRequiredAmount(settings.noWager);
+          setShowFundingPrompt(true);
         } else {
           toast({
             title: "Trade Failed",
@@ -394,6 +384,50 @@ export default function Home() {
             <p className="text-zinc-600 text-[11px] mt-4 tracking-wide">
               Phantom, Solflare, Backpack & more
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Funding Prompt Dialog */}
+      <Dialog open={showFundingPrompt} onOpenChange={setShowFundingPrompt}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-sm mx-auto rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold">Add Funds to Trade</DialogTitle>
+            <DialogDescription className="text-center text-zinc-400">
+              Your embedded wallet needs USDC to place trades
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+              <DollarSign size={32} className="text-primary" />
+            </div>
+            
+            <div className="text-center space-y-2">
+              <p className="text-zinc-400 text-sm">
+                You need <span className="text-white font-bold">${requiredAmount} USDC</span> for this trade
+              </p>
+              <p className="text-zinc-500 text-xs">
+                Current balance: <span className="text-zinc-300">${(usdcBalance ?? 0).toFixed(2)} USDC</span>
+              </p>
+            </div>
+            
+            <div className="w-full space-y-3 mt-4">
+              <Button 
+                onClick={() => {
+                  setShowFundingPrompt(false);
+                  window.location.href = '/profile';
+                }}
+                className="w-full bg-primary hover:bg-primary/90 text-black font-bold py-6 text-base rounded-2xl"
+              >
+                <ArrowRight className="mr-2" size={20} />
+                Go to Profile to Add Funds
+              </Button>
+              
+              <p className="text-zinc-600 text-xs text-center">
+                Deposit SOL and it will auto-convert to USDC
+              </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
