@@ -148,18 +148,25 @@ export default function Activity() {
         return;
       }
       
-      // Refresh balance after successful trade
-      setTimeout(() => refetchBalance(), 2000);
-      
-      await queryClient.invalidateQueries({ queryKey: ['positions'] });
-      await queryClient.invalidateQueries({ queryKey: ['trades'] });
-      
-      toast.success(`Added $${amount.toFixed(2)} to position - Trade executed on-chain!`);
+      // SUCCESS - Close modal and show success IMMEDIATELY
       setAddModalOpen(false);
+      setIsProcessing(false);
+      
+      // Show prominent success toast
+      toast.success(`Added $${amount.toFixed(2)} to your position!`, {
+        description: 'Trade executed on-chain successfully'
+      });
+      
+      // Refresh balance and positions in background
+      setTimeout(() => {
+        refetchBalance();
+        queryClient.invalidateQueries({ queryKey: ['positions'] });
+        queryClient.invalidateQueries({ queryKey: ['trades'] });
+      }, 2000);
+      
     } catch (error: any) {
       console.error('[Activity] Catch block error:', error);
       toast.error(error.message || 'Failed to add to position');
-    } finally {
       setIsProcessing(false);
     }
   };
