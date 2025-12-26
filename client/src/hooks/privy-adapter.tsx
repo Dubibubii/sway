@@ -1,6 +1,6 @@
 import { ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { useFundWallet, useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useFundWallet, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { PrivySafeContext, PrivySafeContextType } from './use-privy-safe';
 
 export default function PrivyAdapter({ children }: { children: ReactNode }) {
