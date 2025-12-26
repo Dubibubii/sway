@@ -165,94 +165,162 @@ function ProfileContent() {
   return (
     <Layout>
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
           <Button variant="ghost" size="icon">
             <SettingsIcon size={24} />
           </Button>
         </div>
 
-        {/* User Card */}
+        {/* Balance Hero Section */}
+        {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-xs text-zinc-400 font-bold uppercase tracking-widest">Available Balance</span>
+              <button 
+                onClick={refetchBalance} 
+                className={`p-1 hover:bg-white/10 rounded transition-colors ${balanceLoading ? 'animate-spin' : ''}`}
+                disabled={balanceLoading}
+              >
+                <RefreshCw size={12} className="text-zinc-500" />
+              </button>
+            </div>
+            <div className="text-5xl sm:text-6xl font-display font-bold text-white mb-4" data-testid="text-wallet-balance">
+              ${usdcBalance.toFixed(2)}
+            </div>
+            
+            <div className="flex items-center justify-center gap-4 sm:gap-6 text-xs font-mono">
+              <div className="flex items-center gap-1.5">
+                <PieChart size={12} className="text-blue-400" />
+                <span className="text-zinc-500">In Positions</span>
+                <span className="text-blue-400 font-medium">${positionsValue.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Fuel size={12} className="text-orange-400" />
+                <span className="text-zinc-500">Gas Fees</span>
+                <span className="text-orange-400 font-medium">{solBalance.toFixed(4)} SOL</span>
+              </div>
+            </div>
+            
+            {isSwapping && (
+              <div className="mt-3 text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-full inline-flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Converting SOL to USDC...
+              </div>
+            )}
+            {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  variant={isUsingExternalWallet ? "default" : "outline"}
+                  onClick={() => {
+                    console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
+                    checkAndAutoSwap(
+                      solBalance,
+                      activeWalletAddress,
+                      () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
+                      (result) => {
+                        if (result.success) {
+                          toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
+                          refetchBalance();
+                        } else {
+                          toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
+                        }
+                      },
+                      true
+                    );
+                  }}
+                  className={`h-8 px-4 text-xs gap-1.5 ${
+                    isUsingExternalWallet 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-0 animate-pulse' 
+                      : 'border-blue-500/30 hover:bg-blue-500/10 text-blue-400'
+                  }`}
+                  data-testid="button-force-convert"
+                >
+                  <RefreshCw size={14} /> Convert SOL → USDC
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* User Card - Centered */}
         <Card className="glass-panel border-0 mb-6">
-          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
-            <Avatar className="w-12 h-12 sm:w-16 sm:h-16 border-2 border-primary/20">
-              <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback>JD</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold truncate">Crypto Trader</h2>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col items-center text-center">
+              <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-2 border-primary/20 mb-3">
+                <AvatarImage src="https://github.com/shadcn.png" />
+                <AvatarFallback>JD</AvatarFallback>
+              </Avatar>
+              <h2 className="text-lg sm:text-xl font-bold mb-2">Crypto Trader</h2>
+              
               {authenticated && embeddedWallet ? (
-                 <div className="space-y-2 sm:space-y-3">
-                   <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
-                     <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase">SWAY Wallet</div>
-                   </div>
-                   <button 
-                     onClick={() => copyToClipboard(embeddedWallet.address)}
-                     className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate hover:opacity-80 transition-opacity cursor-pointer group" 
-                     data-testid="text-embedded-wallet-address"
-                   >
-                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                     {embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}
-                     {copiedAddress ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} className="opacity-50 group-hover:opacity-100" />}
-                   </button>
-                   <div className="flex gap-2">
-                     <Button 
-                       size="sm" 
-                       variant="outline" 
-                       onClick={() => handleDeposit(embeddedWallet.address)}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
-                       data-testid="button-deposit"
-                     >
-                       <ArrowDown size={12} /> Deposit
-                     </Button>
-                     <Button 
-                       size="sm" 
-                       variant="outline" 
-                       onClick={() => setWithdrawModalOpen(true)}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
-                       data-testid="button-withdraw"
-                     >
-                       <ArrowUp size={12} /> Withdraw
-                     </Button>
-                   </div>
-                 </div>
+                <div className="space-y-3">
+                  <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase inline-block">SWAY Wallet</div>
+                  <button 
+                    onClick={() => copyToClipboard(embeddedWallet.address)}
+                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group" 
+                    data-testid="text-embedded-wallet-address"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                    {embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}
+                    {copiedAddress ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100" />}
+                  </button>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleDeposit(embeddedWallet.address)}
+                      className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                      data-testid="button-deposit"
+                    >
+                      <ArrowDown size={16} /> Deposit
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setWithdrawModalOpen(true)}
+                      className="h-9 px-4 text-sm gap-2 border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
+                      data-testid="button-withdraw"
+                    >
+                      <ArrowUp size={16} /> Withdraw
+                    </Button>
+                  </div>
+                </div>
               ) : authenticated && user?.wallet ? (
-                 <div className="space-y-2 sm:space-y-3">
-                   <div className="flex items-center gap-2 text-xs sm:text-sm mt-1">
-                     <div className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-semibold uppercase">External Wallet</div>
-                   </div>
-                   <button 
-                     onClick={() => copyToClipboard(user.wallet!.address)}
-                     className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono truncate hover:opacity-80 transition-opacity cursor-pointer group" 
-                     data-testid="text-external-wallet-address"
-                   >
-                     <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                     {user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}
-                     {copiedAddress ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} className="opacity-50 group-hover:opacity-100" />}
-                   </button>
-                   <div className="flex gap-2">
-                     <Button 
-                       size="sm" 
-                       variant="outline" 
-                       onClick={() => handleDeposit(user.wallet!.address)}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
-                       data-testid="button-deposit"
-                     >
-                       <ArrowDown size={12} /> Deposit
-                     </Button>
-                     <Button 
-                       size="sm" 
-                       variant="outline" 
-                       onClick={() => setWithdrawModalOpen(true)}
-                       className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
-                       data-testid="button-withdraw"
-                     >
-                       <ArrowUp size={12} /> Withdraw
-                     </Button>
-                   </div>
-                 </div>
+                <div className="space-y-3">
+                  <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-semibold uppercase inline-block">External Wallet</div>
+                  <button 
+                    onClick={() => copyToClipboard(user.wallet!.address)}
+                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group" 
+                    data-testid="text-external-wallet-address"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+                    {user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}
+                    {copiedAddress ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100" />}
+                  </button>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleDeposit(user.wallet!.address)}
+                      className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                      data-testid="button-deposit"
+                    >
+                      <ArrowDown size={16} /> Deposit
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setWithdrawModalOpen(true)}
+                      className="h-9 px-4 text-sm gap-2 border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400" 
+                      data-testid="button-withdraw"
+                    >
+                      <ArrowUp size={16} /> Withdraw
+                    </Button>
+                  </div>
+                </div>
               ) : authenticated && !embeddedWallet ? (
-                <div className="space-y-2 sm:space-y-3 mt-2">
+                <div className="space-y-3">
                   <div className="text-muted-foreground text-sm">Signed in with {user?.email?.address ? 'email' : 'social login'}</div>
                   <Button 
                     size="sm" 
@@ -265,104 +333,31 @@ function ProfileContent() {
                       }
                     }}
                     disabled={isCreatingWallet}
-                    className="h-8 px-3 text-xs gap-1.5 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
+                    className="h-9 px-4 text-sm gap-2 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
                     data-testid="button-create-wallet"
                   >
-                    <Wallet size={14} /> {isCreatingWallet ? 'Creating...' : 'Create SWAY Wallet'}
+                    <Wallet size={16} /> {isCreatingWallet ? 'Creating...' : 'Create SWAY Wallet'}
                   </Button>
                 </div>
               ) : settings.connected ? (
-                 <div className="space-y-2 sm:space-y-3">
-                   <div className="flex items-center gap-2 text-primary text-xs sm:text-sm font-mono mt-1 truncate">
-                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                     {settings.walletAddress}
-                   </div>
-                   <div className="flex gap-2">
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
-                       <ArrowDown size={12} /> Deposit
-                     </Button>
-                     <Button size="sm" variant="outline" className="h-7 px-2 sm:px-3 text-[10px] sm:text-xs gap-1.5 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400">
-                       <ArrowUp size={12} /> Withdraw
-                     </Button>
-                   </div>
-                 </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-primary text-sm font-mono">
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                    {settings.walletAddress?.slice(0, 4)}...{settings.walletAddress?.slice(-4)}
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <Button size="sm" variant="outline" className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
+                      <ArrowDown size={16} /> Deposit
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 px-4 text-sm gap-2 border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400">
+                      <ArrowUp size={16} /> Withdraw
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <div className="text-muted-foreground text-sm mt-1">Wallet not connected</div>
+                <div className="text-muted-foreground text-sm">Wallet not connected</div>
               )}
             </div>
-
-            {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
-               <div className="text-right pl-2 shrink-0 min-w-[140px]">
-                 <div className="flex items-center justify-end gap-1 mb-1">
-                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Total Balance</div>
-                   <button 
-                     onClick={refetchBalance} 
-                     className={`p-0.5 hover:bg-white/10 rounded transition-colors ${balanceLoading ? 'animate-spin' : ''}`}
-                     disabled={balanceLoading}
-                   >
-                     <RefreshCw size={10} className="text-zinc-500" />
-                   </button>
-                 </div>
-                 <div className="text-xl sm:text-2xl font-display font-bold text-white mb-2" data-testid="text-wallet-balance">
-                   ${totalBalance.toFixed(2)}
-                 </div>
-                 
-                 <div className="space-y-1.5 text-[11px] font-mono">
-                   <div className="flex items-center justify-end gap-1.5">
-                     <DollarSign size={10} className="text-emerald-400" />
-                     <span className="text-zinc-500">Available</span>
-                     <span className="text-emerald-400 font-medium">${usdcBalance.toFixed(2)}</span>
-                   </div>
-                   <div className="flex items-center justify-end gap-1.5">
-                     <PieChart size={10} className="text-blue-400" />
-                     <span className="text-zinc-500">In Positions</span>
-                     <span className="text-blue-400 font-medium">${positionsValue.toFixed(2)}</span>
-                   </div>
-                   <div className="flex items-center justify-end gap-1.5">
-                     <Fuel size={10} className="text-orange-400" />
-                     <span className="text-zinc-500">Gas Fees</span>
-                     <span className="text-orange-400 font-medium">{solBalance.toFixed(4)} SOL</span>
-                   </div>
-                 </div>
-                 
-                 {isSwapping && (
-                   <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto w-fit">
-                     <Loader2 size={10} className="animate-spin" /> Converting...
-                   </div>
-                 )}
-                 {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
-                   <Button
-                     size="sm"
-                     variant={isUsingExternalWallet ? "default" : "outline"}
-                     onClick={() => {
-                       console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
-                       checkAndAutoSwap(
-                         solBalance,
-                         activeWalletAddress,
-                         () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
-                         (result) => {
-                           if (result.success) {
-                             toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
-                             refetchBalance();
-                           } else {
-                             toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
-                           }
-                         },
-                         true
-                       );
-                     }}
-                     className={`mt-2 h-7 px-3 text-[11px] gap-1.5 ${
-                       isUsingExternalWallet 
-                         ? 'bg-blue-600 hover:bg-blue-700 text-white border-0 animate-pulse' 
-                         : 'border-blue-500/30 hover:bg-blue-500/10 text-blue-400'
-                     }`}
-                     data-testid="button-force-convert"
-                   >
-                     <RefreshCw size={12} /> Convert SOL → USDC
-                   </Button>
-                 )}
-               </div>
-            ) : null}
           </CardContent>
         </Card>
 
