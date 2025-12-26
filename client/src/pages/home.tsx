@@ -5,6 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { useSwipeHistory } from '@/hooks/use-swipe-history';
 import { usePondTrading } from '@/hooks/use-pond-trading';
+import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet } from 'lucide-react';
@@ -14,6 +15,7 @@ import { getMarkets, createTrade, type Market } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
+import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 
 interface DisplayMarket {
   id: string;
@@ -60,8 +62,33 @@ export default function Home() {
   
   const queryClient = useQueryClient();
   const { login, authenticated, ready } = usePrivy();
+  const { embeddedWallet, externalWalletAddress } = usePrivySafe();
   const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
   const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
+  
+  // Track BOTH wallet balances to determine which has funds
+  const embeddedAddress = embeddedWallet?.address || null;
+  const externalAddress = externalWalletAddress || null;
+  const { usdcBalance: embeddedBalance, refetch: refetchEmbedded } = useSolanaBalance(embeddedAddress);
+  const { usdcBalance: externalBalance, refetch: refetchExternal } = useSolanaBalance(externalAddress);
+  
+  // Determine which wallet to use: prefer the one with funds, or embedded for auto-confirm
+  // If embedded has funds, use it (auto-confirm). Otherwise use external if it has funds.
+  const hasEmbeddedFunds = (embeddedBalance ?? 0) > 0;
+  const hasExternalFunds = (externalBalance ?? 0) > 0;
+  
+  // Choose wallet: prefer embedded if funded (auto-confirm), else use external if funded
+  const tradingWalletAddress = hasEmbeddedFunds ? embeddedAddress : 
+                               hasExternalFunds ? externalAddress : 
+                               embeddedAddress || externalAddress;
+  const usdcBalance = hasEmbeddedFunds ? embeddedBalance : 
+                      hasExternalFunds ? externalBalance : 
+                      (embeddedBalance ?? externalBalance);
+  
+  const refetchBalance = () => {
+    refetchEmbedded();
+    refetchExternal();
+  };
   
   const { data: marketsData, isLoading, refetch } = useQuery({
     queryKey: ['markets'],
@@ -158,9 +185,12 @@ export default function Home() {
       
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager);
+        // Pass the wallet address that has the balance we're tracking
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, tradingWalletAddress || undefined);
         
         if (result.success) {
+          // Refresh balance after successful trade
+          setTimeout(() => refetchBalance(), 2000);
           tradeMutation.mutate({ market, direction: 'YES', wagerAmount: settings.yesWager });
           trackBet(market.id, market.question, settings.yesWager);
           toast({
@@ -223,9 +253,12 @@ export default function Home() {
 
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow
-        const result = await placePondTrade(market.id, 'no', settings.noWager);
+        // Pass the wallet address that has the balance we're tracking
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, tradingWalletAddress || undefined);
         
         if (result.success) {
+          // Refresh balance after successful trade
+          setTimeout(() => refetchBalance(), 2000);
           tradeMutation.mutate({ market, direction: 'NO', wagerAmount: settings.noWager });
           trackBet(market.id, market.question, settings.noWager);
           toast({

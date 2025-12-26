@@ -61,27 +61,41 @@ export function usePondTrading() {
     marketId: string,
     side: 'yes' | 'no',
     amountUSDC: number,
-    usdcBalance?: number
+    usdcBalance?: number,
+    preferredWalletAddress?: string
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
 
     try {
+      // Only check balance if it has been fetched (undefined means not yet loaded)
       if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
         throw new Error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amountUSDC.toFixed(2)}. Convert SOL to USDC first.`);
       }
 
-      const solanaWallet = user?.linkedAccounts?.find(
-        (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+      // Find wallets
+      const embeddedWallet = wallets.find((w: any) => 
+        w.walletClientType === 'privy' || w.connectorType === 'embedded'
       );
       
-      if (!solanaWallet) {
-        throw new Error('No Solana wallet connected. Please connect your Solana wallet first.');
+      const externalWallet = wallets.find((w: any) => 
+        w.walletClientType !== 'privy' && w.connectorType !== 'embedded'
+      );
+      
+      // Use the wallet specified by caller (typically where funds are), else prefer embedded for auto-confirm
+      let tradingWallet = embeddedWallet || externalWallet;
+      
+      if (preferredWalletAddress) {
+        const preferred = wallets.find((w: any) => w.address === preferredWalletAddress);
+        if (preferred) {
+          tradingWallet = preferred;
+        }
       }
-
-      const userPublicKey = (solanaWallet as any).address;
+      
+      const userPublicKey = tradingWallet?.address;
+      
       if (!userPublicKey) {
-        throw new Error('Could not get Solana wallet address');
+        throw new Error('No Solana wallet connected. Please connect your Solana wallet first.');
       }
 
       console.log('[PondTrading] ========== EXECUTING TRADE ==========');
@@ -89,6 +103,7 @@ export function usePondTrading() {
       console.log('[PondTrading] Side:', side);
       console.log('[PondTrading] Amount USDC:', amountUSDC);
       console.log('[PondTrading] User wallet:', userPublicKey);
+      console.log('[PondTrading] Using embedded wallet:', !!embeddedWallet);
 
       const marketTokens = await getMarketTokensFromServer(marketId);
       
@@ -148,25 +163,17 @@ export function usePondTrading() {
         walletClientType: w.walletClientType,
       })));
 
-      let wallet = wallets.find((w: any) => w.address === userPublicKey);
-      
-      if (!wallet) {
-        wallet = wallets.find((w: any) => 
-          w.walletClientType === 'privy' || 
-          w.connectorType === 'embedded'
-        );
-      }
-      
-      if (!wallet && wallets.length > 0) {
-        wallet = wallets[0];
-      }
+      // Use the same wallet for signing as we used for the order
+      const wallet = tradingWallet;
+      console.log('[PondTrading] Using wallet for signing:', wallet?.address, 'type:', (wallet as any)?.walletClientType || 'external');
       
       if (!wallet) {
         throw new Error('No wallet available for signing. Please reconnect your wallet.');
       }
 
-      console.log('[PondTrading] Using wallet:', wallet.address);
-      console.log('[PondTrading] Signing and sending transaction...');
+      console.log('[PondTrading] Using wallet for signing:', wallet.address);
+      console.log('[PondTrading] Wallet type:', (wallet as any).walletClientType);
+      console.log('[PondTrading] Signing and sending transaction (auto-confirm enabled)...');
 
       const result = await signAndSendTransaction({
         transaction: transactionBytes,
