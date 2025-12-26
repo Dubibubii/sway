@@ -21,7 +21,7 @@ interface Trade {
   marketTitle: string;
   marketCategory: string | null;
   direction: string;
-  wagerAmount: string | number;
+  wagerAmount: number; // Stored in cents
   price: string;
   shares: string;
   estimatedPayout: string;
@@ -203,7 +203,7 @@ export default function Activity() {
       const shares = parseFloat(selectedPosition.shares);
       const price = parseFloat(selectedPosition.price);
       const currentValue = shares * price;
-      const costBasis = typeof selectedPosition.wagerAmount === 'string' ? parseFloat(selectedPosition.wagerAmount) : selectedPosition.wagerAmount;
+      const costBasis = selectedPosition.wagerAmount / 100; // Convert cents to dollars
       const pnl = currentValue - costBasis;
       
       const token = await getAccessToken();
@@ -314,7 +314,7 @@ export default function Activity() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Cost Basis</span>
-                  <span>${(typeof selectedPosition.wagerAmount === 'string' ? parseFloat(selectedPosition.wagerAmount) : selectedPosition.wagerAmount).toFixed(2)}</span>
+                  <span>${(selectedPosition.wagerAmount / 100).toFixed(2)}</span>
                 </div>
                 <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
                   <span>Current Value</span>
@@ -375,7 +375,7 @@ export default function Activity() {
                      const shares = parseFloat(position.shares);
                      const price = parseFloat(position.price);
                      const estimatedPayout = parseFloat(position.estimatedPayout);
-                     const costBasis = typeof position.wagerAmount === 'string' ? parseFloat(position.wagerAmount) : position.wagerAmount;
+                     const costBasis = position.wagerAmount / 100; // Convert cents to dollars
                      const currentValue = shares * price;
                      const pnl = currentValue - costBasis;
                      const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;

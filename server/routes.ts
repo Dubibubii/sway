@@ -234,9 +234,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      // Calculate 1% entry fee
-      const entryFee = wagerAmount * FEE_CONFIG.FEE_PERCENTAGE;
-      const netWagerAmount = wagerAmount - entryFee;
+      // Convert wagerAmount from dollars to cents (integer)
+      const wagerAmountDollars = parseFloat(wagerAmount);
+      const wagerAmountCents = Math.round(wagerAmountDollars * 100);
+      
+      console.log(`[Trade] On-chain tx successful, attempting DB write...`);
+      console.log(`[Trade] Data payload: marketId=${marketId}, direction=${direction}, wagerAmount=$${wagerAmountDollars} (${wagerAmountCents} cents), price=${price}`);
+
+      // Calculate 1% entry fee (in dollars for display)
+      const entryFee = wagerAmountDollars * FEE_CONFIG.FEE_PERCENTAGE;
+      const netWagerAmount = wagerAmountDollars - entryFee;
       
       const shares = Math.round((netWagerAmount / price) * 100) / 100;
       const estimatedPayout = Math.round(shares * 100) / 100;
@@ -249,7 +256,7 @@ export async function registerRoutes(
         marketTitle: marketTitle || '',
         marketCategory: marketCategory || null,
         direction,
-        wagerAmount,
+        wagerAmount: wagerAmountCents, // Store as cents (integer)
         price: price.toFixed(2),
         shares: shares.toFixed(2),
         estimatedPayout: estimatedPayout.toFixed(2),
