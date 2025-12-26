@@ -127,6 +127,8 @@ export default function Activity() {
     try {
       // Execute on-chain trade via Pond/DFlow
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
+      console.log('[Activity] Starting add to position trade:', selectedPosition.marketId, side, amount);
+      
       const result = await placePondTrade(
         selectedPosition.marketId, 
         side, 
@@ -135,8 +137,15 @@ export default function Activity() {
         embeddedWallet?.address
       );
       
+      console.log('[Activity] Trade result:', result);
+      
       if (!result.success) {
-        throw new Error(result.error || 'Trade failed');
+        const errorMsg = result.error || 'Trade failed';
+        console.error('[Activity] Trade error:', errorMsg);
+        toast.error(errorMsg);
+        setAddModalOpen(false);
+        setIsProcessing(false);
+        return;
       }
       
       // Refresh balance after successful trade
@@ -148,6 +157,7 @@ export default function Activity() {
       toast.success(`Added $${amount.toFixed(2)} to position - Trade executed on-chain!`);
       setAddModalOpen(false);
     } catch (error: any) {
+      console.error('[Activity] Catch block error:', error);
       toast.error(error.message || 'Failed to add to position');
     } finally {
       setIsProcessing(false);
