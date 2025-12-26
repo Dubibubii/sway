@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { useSolanaTransaction } from '@/hooks/use-solana-transaction';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
+import { usePondTrading } from '@/hooks/use-pond-trading';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -40,7 +41,8 @@ export default function Activity() {
   
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
-  const { solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -115,33 +117,35 @@ export default function Activity() {
       return;
     }
 
+    // Check USDC balance
+    if (usdcBalance !== undefined && usdcBalance < amount) {
+      toast.error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`);
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      const token = await getAccessToken();
-      const price = parseFloat(selectedPosition.price);
+      // Execute on-chain trade via Pond/DFlow
+      const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
+      const result = await placePondTrade(
+        selectedPosition.marketId, 
+        side, 
+        amount, 
+        usdcBalance,
+        embeddedWallet?.address
+      );
       
-      const res = await fetch('/api/trades', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          marketId: selectedPosition.marketId,
-          marketTitle: selectedPosition.marketTitle,
-          marketCategory: selectedPosition.marketCategory,
-          direction: selectedPosition.direction,
-          wagerAmount: amount,
-          price: price,
-        }),
-      });
+      if (!result.success) {
+        throw new Error(result.error || 'Trade failed');
+      }
       
-      if (!res.ok) throw new Error('Failed to add to position');
+      // Refresh balance after successful trade
+      setTimeout(() => refetchBalance(), 2000);
       
       await queryClient.invalidateQueries({ queryKey: ['positions'] });
       await queryClient.invalidateQueries({ queryKey: ['trades'] });
       
-      toast.success(`Added $${amount.toFixed(2)} to position`);
+      toast.success(`Added $${amount.toFixed(2)} to position - Trade executed on-chain!`);
       setAddModalOpen(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to add to position');
@@ -179,7 +183,7 @@ export default function Activity() {
       await queryClient.invalidateQueries({ queryKey: ['positions'] });
       await queryClient.invalidateQueries({ queryKey: ['trades'] });
       
-      toast.success(`Position closed! ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)}`);
+      toast.success(`Position closed for tracking. Your outcome tokens remain in your wallet until market settlement.`);
       setCloseModalOpen(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to close position');
