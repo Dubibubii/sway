@@ -23,7 +23,7 @@ export const trades = pgTable("trades", {
   marketTitle: text("market_title").notNull(),
   marketCategory: text("market_category"),
   direction: text("direction").notNull(),
-  wagerAmount: integer("wager_amount").notNull(),
+  wagerAmount: decimal("wager_amount", { precision: 10, scale: 2 }).notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   shares: decimal("shares", { precision: 10, scale: 2 }).notNull(),
   estimatedPayout: decimal("estimated_payout", { precision: 10, scale: 2 }).notNull(),
