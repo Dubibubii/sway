@@ -258,12 +258,12 @@ function ProfileContent() {
                   <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase inline-block">SWAY Wallet</div>
                   <button 
                     onClick={() => copyToClipboard(embeddedWallet.address)}
-                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group" 
+                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group mx-auto" 
                     data-testid="text-embedded-wallet-address"
                   >
                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                    {embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}
-                    {copiedAddress ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100" />}
+                    <span>{embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}</span>
+                    {copiedAddress ? <Check size={14} className="text-emerald-400 shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
                   </button>
                   <div className="flex justify-center gap-3 pt-2">
                     <Button 
@@ -291,12 +291,12 @@ function ProfileContent() {
                   <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-semibold uppercase inline-block">External Wallet</div>
                   <button 
                     onClick={() => copyToClipboard(user.wallet!.address)}
-                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group" 
+                    className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group mx-auto" 
                     data-testid="text-external-wallet-address"
                   >
                     <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                    {user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}
-                    {copiedAddress ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100" />}
+                    <span>{user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}</span>
+                    {copiedAddress ? <Check size={14} className="text-emerald-400 shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
                   </button>
                   <div className="flex justify-center gap-3 pt-2">
                     <Button 
