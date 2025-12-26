@@ -592,15 +592,16 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                           day: 'numeric' 
                         })}</p>
                         <p>Total volume: ${market.volume?.toLocaleString() || 0}</p>
+                        <a 
+                          href="https://kalshi.com/category/all"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          View on Kalshi <ExternalLink size={12} />
+                        </a>
                         {market.eventTicker && (
-                          <a 
-                            href={`https://kalshi.com/markets/${market.eventTicker}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            View on Kalshi <ExternalLink size={12} />
-                          </a>
+                          <p className="text-xs text-muted-foreground/70">Market ID: {market.eventTicker}</p>
                         )}
                       </div>
                     </motion.div>
