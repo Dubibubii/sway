@@ -62,12 +62,33 @@ export async function getMarketTokens(marketId: string): Promise<PondMarketToken
     const data = await response.json();
     console.log('[Pond Client] Market data received:', JSON.stringify(data).slice(0, 500));
     
+    // Token mints are nested under settlement mints in the accounts object
+    // Structure: accounts: { "USDC_MINT": { yesMint, noMint, isInitialized }, ... }
     const accounts = data.accounts || {};
-    const yesMint = accounts.yesTokenMint || accounts.yes_token_mint || data.yesMint || data.yes_token_mint;
-    const noMint = accounts.noTokenMint || accounts.no_token_mint || data.noMint || data.no_token_mint;
+    
+    // Look for USDC settlement mint first (preferred), then any other settlement mint
+    let settlementData = accounts[USDC_MINT];
+    
+    // If USDC not found, try to find any settlement mint with token data
+    if (!settlementData) {
+      for (const [mintKey, mintData] of Object.entries(accounts)) {
+        if (mintData && typeof mintData === 'object' && (mintData as any).yesMint && (mintData as any).noMint) {
+          settlementData = mintData;
+          console.log('[Pond Client] Using settlement mint:', mintKey);
+          break;
+        }
+      }
+    }
+    
+    if (!settlementData) {
+      console.error('[Pond Client] No settlement mint data found. Accounts:', JSON.stringify(accounts));
+      return null;
+    }
+    
+    const { yesMint, noMint } = settlementData as { yesMint: string; noMint: string };
     
     if (!yesMint || !noMint) {
-      console.error('[Pond Client] Market tokens not found in response. Accounts:', JSON.stringify(accounts));
+      console.error('[Pond Client] Market tokens not found in settlement data:', JSON.stringify(settlementData));
       return null;
     }
     

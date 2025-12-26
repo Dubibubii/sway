@@ -64,7 +64,7 @@ export async function getPondQuote(
   return response.json();
 }
 
-export async function getMarketTokens(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
+export async function getMarketTokens(marketId: string): Promise<{ yesMint: string; noMint: string; isInitialized: boolean } | null> {
   try {
     const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
     console.log('[Pond] Fetching market tokens from:', url);
@@ -79,18 +79,39 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
     const data = await response.json();
     console.log('[Pond] Market data received:', JSON.stringify(data).slice(0, 500));
     
-    // Token mints are in the accounts object
+    // Token mints are nested under settlement mints in the accounts object
+    // Structure: accounts: { "USDC_MINT": { yesMint, noMint, isInitialized }, ... }
     const accounts = data.accounts || {};
-    const yesMint = accounts.yesTokenMint || accounts.yes_token_mint || data.yesMint || data.yes_token_mint;
-    const noMint = accounts.noTokenMint || accounts.no_token_mint || data.noMint || data.no_token_mint;
     
-    if (!yesMint || !noMint) {
-      console.error('[Pond] Market tokens not found in response. Accounts:', JSON.stringify(accounts));
+    // Look for USDC settlement mint first (preferred), then any other settlement mint
+    const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    let settlementData = accounts[USDC_MINT];
+    
+    // If USDC not found, try to find any settlement mint with token data
+    if (!settlementData) {
+      for (const [mintKey, mintData] of Object.entries(accounts)) {
+        if (mintData && typeof mintData === 'object' && (mintData as any).yesMint && (mintData as any).noMint) {
+          settlementData = mintData;
+          console.log('[Pond] Using settlement mint:', mintKey);
+          break;
+        }
+      }
+    }
+    
+    if (!settlementData) {
+      console.error('[Pond] No settlement mint data found. Accounts:', JSON.stringify(accounts));
       return null;
     }
     
-    console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint);
-    return { yesMint, noMint };
+    const { yesMint, noMint, isInitialized } = settlementData as { yesMint: string; noMint: string; isInitialized: boolean };
+    
+    if (!yesMint || !noMint) {
+      console.error('[Pond] Market tokens not found in settlement data:', JSON.stringify(settlementData));
+      return null;
+    }
+    
+    console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint, 'isInitialized:', isInitialized);
+    return { yesMint, noMint, isInitialized: isInitialized ?? false };
   } catch (error) {
     console.error('[Pond] Error fetching market tokens:', error);
     return null;
