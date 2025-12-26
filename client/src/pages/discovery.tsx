@@ -228,9 +228,9 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
         </h3>
         
         <div className="flex gap-1">
-          <div className="flex-1 bg-emerald-500/20 rounded-md px-2 py-1 text-center">
-            <span className="text-xs font-bold text-emerald-400">{yesPercent}%</span>
-            <span className="text-[10px] text-emerald-400/70 ml-1">Yes</span>
+          <div className="flex-1 bg-[#1ED78B]/20 rounded-md px-2 py-1 text-center">
+            <span className="text-xs font-bold text-[#1ED78B]">{yesPercent}%</span>
+            <span className="text-[10px] text-[#1ED78B]/70 ml-1">Yes</span>
           </div>
           <div className="flex-1 bg-rose-500/20 rounded-md px-2 py-1 text-center">
             <span className="text-xs font-bold text-rose-400">{noPercent}%</span>
@@ -286,10 +286,10 @@ function PriceChart({ data }: { data: PriceHistory[] }) {
           <Line 
             type="monotone" 
             dataKey="price" 
-            stroke="#10b981" 
+            stroke="#1ED78B" 
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 4, fill: '#10b981' }}
+            activeDot={{ r: 4, fill: '#1ED78B' }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -304,12 +304,12 @@ function PriceDisplay({ yesPrice }: { yesPrice: number }) {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center px-6 pt-12">
       <div className="text-center mb-4">
-        <div className="text-4xl font-bold text-emerald-400">{yesPercent}%</div>
+        <div className="text-4xl font-bold text-[#1ED78B]">{yesPercent}%</div>
         <div className="text-sm text-muted-foreground">Current Yes Price</div>
       </div>
       <div className="w-full max-w-sm h-3 bg-white/10 rounded-full overflow-hidden">
         <div 
-          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+          className="h-full bg-gradient-to-r from-[#1ED78B] to-[#6EE7B7] transition-all duration-500"
           style={{ width: `${yesPercent}%` }}
         />
       </div>
@@ -437,8 +437,8 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                           onClick={() => handleSelectOption(m.id, 'YES')}
                           className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all min-w-[60px] ${
                             isSelected && betDirection === 'YES'
-                              ? 'bg-emerald-500 text-white ring-2 ring-emerald-400'
-                              : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                              ? 'bg-[#1ED78B] text-white ring-2 ring-[#1ED78B]'
+                              : 'bg-[#1ED78B]/20 text-[#1ED78B] hover:bg-[#1ED78B]/30'
                           }`}
                         >
                           Yes {mYesPercent}¢
@@ -540,13 +540,13 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">If you win</span>
-                    <span className={betDirection === 'YES' ? 'text-emerald-400' : 'text-rose-400'}>
+                    <span className={betDirection === 'YES' ? 'text-[#1ED78B]' : 'text-rose-400'}>
                       ${potentialPayout.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm font-bold pt-2 border-t border-white/10">
                     <span>Profit</span>
-                    <span className={betDirection === 'YES' ? 'text-emerald-400' : 'text-rose-400'}>
+                    <span className={betDirection === 'YES' ? 'text-[#1ED78B]' : 'text-rose-400'}>
                       +${potentialProfit.toFixed(2)} ({returnMultiple}x)
                     </span>
                   </div>
@@ -556,7 +556,7 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
                   data-testid="button-place-bet"
                   className={`w-full py-6 text-lg font-semibold rounded-xl ${
                     betDirection === 'YES' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600' 
+                      ? 'bg-[#1ED78B] hover:bg-[#19B878]' 
                       : 'bg-rose-500 hover:bg-rose-600'
                   }`}
                 >

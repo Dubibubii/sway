@@ -256,7 +256,7 @@ export default function Activity() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                className="flex-1 bg-[#1ED78B] hover:bg-[#19B878]"
                 onClick={handleAddPosition}
                 disabled={isProcessing}
                 data-testid="button-confirm-add"
@@ -326,7 +326,7 @@ export default function Activity() {
           <h1 className="text-3xl font-display font-bold">Activity</h1>
           <div className="text-right">
              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Portfolio Value</div>
-             <div className="text-xl font-mono font-bold text-emerald-400">${totalValue.toFixed(2)}</div>
+             <div className="text-xl font-mono font-bold text-[#1ED78B]">${totalValue.toFixed(2)}</div>
           </div>
         </div>
 
@@ -365,20 +365,20 @@ export default function Activity() {
                        >
                          <CardContent className="p-0">
                            <div className="p-4 flex items-center gap-4">
-                             <div className={`w-12 h-12 rounded-xl ${isYes ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'} flex items-center justify-center`}>
+                             <div className={`w-12 h-12 rounded-xl ${isYes ? 'bg-[#1ED78B]/10 text-[#1ED78B]' : 'bg-rose-500/10 text-rose-500'} flex items-center justify-center`}>
                                 {pnl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                              </div>
                              <div className="flex-1">
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
                                 <div className="flex gap-2 mt-1">
-                                  <Badge variant="secondary" className={`${isYes ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5`}>
+                                  <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5`}>
                                     {position.direction}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares @ {(price * 100).toFixed(0)}¢</span>
                                 </div>
                              </div>
                              <div className="text-right">
-                                <div className={`font-mono font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                <div className={`font-mono font-bold ${pnl >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}`}>
                                   {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
@@ -398,7 +398,7 @@ export default function Activity() {
                                >
                                  <div className="flex p-2 gap-2">
                                    <Button 
-                                     className="flex-1 h-9 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20" 
+                                     className="flex-1 h-9 bg-[#1ED78B]/10 hover:bg-[#1ED78B]/20 text-[#1ED78B] border border-[#1ED78B]/20" 
                                      variant="outline" 
                                      size="sm" 
                                      data-testid={`button-add-${position.id}`}
@@ -452,7 +452,7 @@ export default function Activity() {
                                  <div className="text-xs text-muted-foreground">{formatDate(trade.closedAt || trade.createdAt)}</div>
                               </div>
                            </div>
-                           <span className={`font-mono text-sm ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                           <span className={`font-mono text-sm ${pnl >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}`}>
                              {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
                            </span>
                         </div>

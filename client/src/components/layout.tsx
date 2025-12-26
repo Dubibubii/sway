@@ -34,8 +34,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                </div>
              ) : (
                <>
-                 <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.3)]">
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 leading-none">${settings.yesWager}</span>
+                 <div className="w-5 h-5 rounded-full bg-[#1ED78B]/20 border border-[#1ED78B]/50 flex items-center justify-center shadow-[0_0_8px_rgba(30,215,139,0.3)]">
+                    <span className="text-[10px] font-mono font-bold text-[#1ED78B] leading-none">${settings.yesWager}</span>
                  </div>
                  <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)]">
                     <span className="text-[10px] font-mono font-bold text-rose-400 leading-none">${settings.noWager}</span>

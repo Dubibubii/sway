@@ -227,13 +227,13 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
             <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center gap-2">
               <span className="text-lg font-bold text-white">Yes</span>
               <div className="flex items-center gap-1">
-                <TrendingUp size={16} className="text-emerald-400" />
+                <TrendingUp size={16} className="text-[#1ED78B]" />
                 <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-400">${settings.yesWager}</span>
                 <span className="text-zinc-500">→</span>
-                <span className="text-emerald-400 font-semibold">${(() => {
+                <span className="text-[#1ED78B] font-semibold">${(() => {
                   const returnVal = settings.yesWager / market.yesPrice;
                   const multiplier = 1 / market.yesPrice;
                   return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);

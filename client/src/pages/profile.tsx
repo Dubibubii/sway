@@ -255,7 +255,7 @@ function ProfileContent() {
               
               {authenticated && embeddedWallet ? (
                 <div className="space-y-3">
-                  <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase inline-block">SWAY Wallet</div>
+                  <div className="px-3 py-1 rounded-full bg-[#1ED78B]/20 text-[#1ED78B] text-[10px] font-semibold uppercase inline-block">SWAY Wallet</div>
                   <button 
                     onClick={() => copyToClipboard(embeddedWallet.address)}
                     className="flex items-center justify-center gap-2 text-primary text-sm font-mono hover:opacity-80 transition-opacity cursor-pointer group mx-auto" 
@@ -263,14 +263,14 @@ function ProfileContent() {
                   >
                     <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                     <span>{embeddedWallet.address.slice(0, 4)}...{embeddedWallet.address.slice(-4)}</span>
-                    {copiedAddress ? <Check size={14} className="text-emerald-400 shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
+                    {copiedAddress ? <Check size={14} className="text-[#1ED78B] shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
                   </button>
                   <div className="flex justify-center gap-3 pt-2">
                     <Button 
                       size="sm" 
                       variant="outline" 
                       onClick={() => handleDeposit(embeddedWallet.address)}
-                      className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                      className="h-9 px-4 text-sm gap-2 border-[#1ED78B]/30 hover:bg-[#1ED78B]/10 hover:text-[#1ED78B] text-[#1ED78B]" 
                       data-testid="button-deposit"
                     >
                       <ArrowDown size={16} /> Deposit
@@ -296,14 +296,14 @@ function ProfileContent() {
                   >
                     <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
                     <span>{user.wallet.address.slice(0, 4)}...{user.wallet.address.slice(-4)}</span>
-                    {copiedAddress ? <Check size={14} className="text-emerald-400 shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
+                    {copiedAddress ? <Check size={14} className="text-[#1ED78B] shrink-0" /> : <Copy size={14} className="opacity-50 group-hover:opacity-100 shrink-0" />}
                   </button>
                   <div className="flex justify-center gap-3 pt-2">
                     <Button 
                       size="sm" 
                       variant="outline" 
                       onClick={() => handleDeposit(user.wallet!.address)}
-                      className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500" 
+                      className="h-9 px-4 text-sm gap-2 border-[#1ED78B]/30 hover:bg-[#1ED78B]/10 hover:text-[#1ED78B] text-[#1ED78B]" 
                       data-testid="button-deposit"
                     >
                       <ArrowDown size={16} /> Deposit
@@ -333,7 +333,7 @@ function ProfileContent() {
                       }
                     }}
                     disabled={isCreatingWallet}
-                    className="h-9 px-4 text-sm gap-2 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
+                    className="h-9 px-4 text-sm gap-2 bg-gradient-to-r from-[#1ED78B] to-blue-500 hover:from-[#19B878] hover:to-blue-600"
                     data-testid="button-create-wallet"
                   >
                     <Wallet size={16} /> {isCreatingWallet ? 'Creating...' : 'Create SWAY Wallet'}
@@ -346,7 +346,7 @@ function ProfileContent() {
                     {settings.walletAddress?.slice(0, 4)}...{settings.walletAddress?.slice(-4)}
                   </div>
                   <div className="flex justify-center gap-3 pt-2">
-                    <Button size="sm" variant="outline" className="h-9 px-4 text-sm gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 text-emerald-500">
+                    <Button size="sm" variant="outline" className="h-9 px-4 text-sm gap-2 border-[#1ED78B]/30 hover:bg-[#1ED78B]/10 hover:text-[#1ED78B] text-[#1ED78B]">
                       <ArrowDown size={16} /> Deposit
                     </Button>
                     <Button size="sm" variant="outline" className="h-9 px-4 text-sm gap-2 border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 text-orange-400">
@@ -495,7 +495,7 @@ function ProfileContent() {
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <ArrowDown className="text-emerald-400" size={20} />
+              <ArrowDown className="text-[#1ED78B]" size={20} />
               Deposit SOL
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -511,7 +511,7 @@ function ProfileContent() {
               </div>
               <Button 
                 onClick={copyDepositAddress}
-                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
+                className="w-full bg-[#1ED78B]/20 hover:bg-[#1ED78B]/30 text-[#1ED78B] border border-[#1ED78B]/30"
                 variant="outline"
               >
                 {depositCopied ? (

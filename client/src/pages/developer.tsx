@@ -106,7 +106,7 @@ export default function Developer() {
                 icon={<DollarSign size={20} />}
                 label="Total Volume"
                 value={`$${data.totalVolume.toLocaleString()}`}
-                color="emerald"
+                color="brand"
               />
               <StatCard
                 icon={<DollarSign size={20} />}
@@ -193,14 +193,14 @@ function StatCard({
   icon: React.ReactNode; 
   label: string; 
   value: string | number; 
-  color: 'blue' | 'green' | 'purple' | 'orange' | 'emerald' | 'cyan';
+  color: 'blue' | 'green' | 'purple' | 'orange' | 'brand' | 'cyan';
 }) {
   const colorClasses = {
     blue: 'bg-blue-500/20 text-blue-400',
-    green: 'bg-green-500/20 text-green-400',
+    green: 'bg-[#1ED78B]/20 text-[#1ED78B]',
     purple: 'bg-purple-500/20 text-purple-400',
     orange: 'bg-orange-500/20 text-orange-400',
-    emerald: 'bg-emerald-500/20 text-emerald-400',
+    brand: 'bg-[#1ED78B]/20 text-[#1ED78B]',
     cyan: 'bg-cyan-500/20 text-cyan-400',
   };
 

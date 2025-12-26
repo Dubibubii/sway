@@ -16,8 +16,10 @@
   --color-popover: hsl(240 10% 8%);
   --color-popover-foreground: hsl(0 0% 98%);
 
-  --color-primary: hsl(160 84% 39%);
+  --color-primary: #1ED78B;
   --color-primary-foreground: hsl(240 10% 4%);
+  
+  --color-brand: #1ED78B;
 
   --color-secondary: hsl(240 5% 15%);
   --color-secondary-foreground: hsl(0 0% 98%);
@@ -33,7 +35,7 @@
 
   --color-border: hsl(240 5% 15%);
   --color-input: hsl(240 5% 15%);
-  --color-ring: hsl(160 84% 39%);
+  --color-ring: #1ED78B;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -62,6 +64,6 @@
   }
 
   .text-gradient-primary {
-    @apply bg-clip-text text-transparent bg-linear-to-r from-primary to-emerald-300;
+    @apply bg-clip-text text-transparent bg-linear-to-r from-primary to-[#6EE7B7];
   }
 }

@@ -20,7 +20,7 @@ const steps = [
     title: 'Swipe Right = YES',
     description: 'Think something will happen? Swipe right or tap the green checkmark to bet YES.',
     icon: Check,
-    iconColor: 'from-emerald-500 to-green-500',
+    iconColor: 'from-[#1ED78B] to-[#6EE7B7]',
     demo: 'right',
   },
   {
@@ -104,7 +104,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
                 }
                 transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
                 className={`w-16 h-20 rounded-xl border-2 ${
-                  step.demo === 'right' ? 'border-emerald-500 bg-emerald-500/20' :
+                  step.demo === 'right' ? 'border-[#1ED78B] bg-[#1ED78B]/20' :
                   step.demo === 'left' ? 'border-rose-500 bg-rose-500/20' :
                   'border-blue-500 bg-blue-500/20'
                 }`}
@@ -127,7 +127,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           
           <Button 
             onClick={handleNext}
-            className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-semibold py-6 text-lg"
+            className="w-full bg-gradient-to-r from-[#1ED78B] to-blue-500 hover:from-[#19B878] hover:to-blue-600 text-white font-semibold py-6 text-lg"
             data-testid="button-onboarding-next"
           >
             {currentStep < steps.length - 1 ? (

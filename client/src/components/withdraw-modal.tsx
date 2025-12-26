@@ -214,7 +214,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
               onClick={() => setToken('USDC')}
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                 token === 'USDC' 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                  ? 'bg-[#1ED78B]/20 text-[#1ED78B] border border-[#1ED78B]/30' 
                   : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-700'
               }`}
               data-testid="button-token-usdc"
@@ -257,15 +257,15 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
             {/* Show detected external wallet prominently */}
             {externalWalletAddress && !showManualEntry ? (
               <div className="space-y-2">
-                <div className="w-full p-4 rounded-xl border-2 bg-gradient-to-r from-emerald-500/10 to-purple-500/10 border-emerald-500/40">
+                <div className="w-full p-4 rounded-xl border-2 bg-gradient-to-r from-[#1ED78B]/10 to-purple-500/10 border-[#1ED78B]/40">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-purple-500 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1ED78B] to-purple-500 flex items-center justify-center">
                       <Wallet size={20} className="text-white" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-base font-semibold text-white">{externalWalletName} Wallet</span>
-                        <CheckCircle2 size={16} className="text-emerald-400" />
+                        <CheckCircle2 size={16} className="text-[#1ED78B]" />
                       </div>
                       <div className="text-sm text-zinc-400 font-mono mt-0.5">
                         {externalWalletAddress.slice(0, 8)}...{externalWalletAddress.slice(-6)}
@@ -300,7 +300,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
                       setRecipient(externalWalletAddress);
                       setShowManualEntry(false);
                     }}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                    className="text-xs text-[#1ED78B] hover:text-[#6EE7B7] flex items-center gap-1"
                   >
                     <Wallet size={10} />
                     Use my {externalWalletName} wallet

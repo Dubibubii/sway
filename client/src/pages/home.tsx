@@ -179,26 +179,26 @@ export default function Home() {
           toast({
             title: (
               <div className="flex items-center gap-2">
-                <div className="bg-emerald-500/20 p-1 rounded-full">
-                  <Check size={14} className="text-emerald-500" />
+                <div className="bg-[#1ED78B]/20 p-1 rounded-full">
+                  <Check size={14} className="text-[#1ED78B]" />
                 </div>
-                <span className="text-emerald-500 font-bold uppercase tracking-wider text-xs">Trade Executed</span>
+                <span className="text-[#1ED78B] font-bold uppercase tracking-wider text-xs">Trade Executed</span>
               </div>
             ),
             description: (
               <div className="mt-2 space-y-2">
                 <div className="flex justify-between items-baseline">
                   <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-                  <span className="text-sm font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
+                  <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
                 </div>
                 <div className="h-px bg-white/10 w-full" />
                 <div className="flex justify-between text-xs text-zinc-400 font-medium">
                   <span>Spent: <span className="text-zinc-200">${settings.yesWager} USDC</span></span>
-                  <span>Payout if Yes: <span className="text-emerald-400 font-mono">${payout}</span></span>
+                  <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${payout}</span></span>
                 </div>
               </div>
             ),
-            className: "bg-zinc-950/90 border-emerald-500/20 text-white backdrop-blur-xl shadow-2xl shadow-emerald-500/10 p-4"
+            className: "bg-zinc-950/90 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-2xl shadow-[#1ED78B]/10 p-4"
           });
         } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
           // Show funding prompt
@@ -215,23 +215,23 @@ export default function Home() {
         toast({
           title: (
             <div className="flex items-center gap-2">
-              <div className="bg-emerald-500/20 p-1 rounded-full">
-                <Check size={14} className="text-emerald-500" />
+              <div className="bg-[#1ED78B]/20 p-1 rounded-full">
+                <Check size={14} className="text-[#1ED78B]" />
               </div>
-              <span className="text-emerald-500 font-bold uppercase tracking-wider text-xs">Demo: Long Position</span>
+              <span className="text-[#1ED78B] font-bold uppercase tracking-wider text-xs">Demo: Long Position</span>
             </div>
           ),
           description: (
             <div className="mt-2 space-y-2">
               <div className="flex justify-between items-baseline">
                 <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-                <span className="text-sm font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
+                <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
               </div>
               <div className="h-px bg-white/10 w-full" />
               <div className="text-xs text-zinc-400">Connect wallet to place real trades</div>
             </div>
           ),
-          className: "bg-zinc-950/90 border-emerald-500/20 text-white backdrop-blur-xl shadow-2xl shadow-emerald-500/10 p-4"
+          className: "bg-zinc-950/90 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-2xl shadow-[#1ED78B]/10 p-4"
         });
       }
     } else if (direction === 'left') {
@@ -352,8 +352,8 @@ export default function Home() {
             
             <div className="w-full space-y-3 mb-6">
               <div className="flex items-center gap-3 text-left bg-zinc-900/50 rounded-xl p-3 border border-zinc-800/50">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <Check size={20} className="text-emerald-400" />
+                <div className="w-10 h-10 rounded-full bg-[#1ED78B]/20 flex items-center justify-center shrink-0">
+                  <Check size={20} className="text-[#1ED78B]" />
                 </div>
                 <div>
                   <div className="text-white text-sm font-semibold">Swipe Right</div>
