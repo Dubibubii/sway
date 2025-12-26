@@ -172,74 +172,74 @@ function ProfileContent() {
           </Button>
         </div>
 
-        {/* Balance Hero Section */}
+        {/* Balance Hero Section with Gradient */}
         {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <span className="text-xs text-zinc-400 font-bold uppercase tracking-widest">Available Balance</span>
-              <button 
-                onClick={refetchBalance} 
-                className={`p-1 hover:bg-white/10 rounded transition-colors ${balanceLoading ? 'animate-spin' : ''}`}
-                disabled={balanceLoading}
-              >
-                <RefreshCw size={12} className="text-zinc-500" />
-              </button>
-            </div>
-            <div className="text-5xl sm:text-6xl font-display font-bold text-white mb-4" data-testid="text-wallet-balance">
-              ${usdcBalance.toFixed(2)}
-            </div>
-            
-            <div className="flex items-center justify-center gap-4 sm:gap-6 text-xs font-mono">
-              <div className="flex items-center gap-1.5">
-                <PieChart size={12} className="text-blue-400" />
-                <span className="text-zinc-500">In Positions</span>
-                <span className="text-blue-400 font-medium">${positionsValue.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Fuel size={12} className="text-orange-400" />
-                <span className="text-zinc-500">Gas Fees</span>
-                <span className="text-orange-400 font-medium">{solBalance.toFixed(4)} SOL</span>
-              </div>
-            </div>
-            
-            {isSwapping && (
-              <div className="mt-3 text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-full inline-flex items-center gap-1.5">
-                <Loader2 size={12} className="animate-spin" /> Converting SOL to USDC...
-              </div>
-            )}
-            {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
-              <div className="mt-3">
-                <Button
-                  size="sm"
-                  variant={isUsingExternalWallet ? "default" : "outline"}
-                  onClick={() => {
-                    console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
-                    checkAndAutoSwap(
-                      solBalance,
-                      activeWalletAddress,
-                      () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
-                      (result) => {
-                        if (result.success) {
-                          toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
-                          refetchBalance();
-                        } else {
-                          toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
-                        }
-                      },
-                      true
-                    );
-                  }}
-                  className={`h-8 px-4 text-xs gap-1.5 ${
-                    isUsingExternalWallet 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-0 animate-pulse' 
-                      : 'border-blue-500/30 hover:bg-blue-500/10 text-blue-400'
-                  }`}
-                  data-testid="button-force-convert"
+          <div className="relative rounded-3xl overflow-hidden mb-6 p-6 sm:p-8" style={{
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #0d1f0d 25%, #10b981 70%, #34d399 100%)'
+          }}>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/30" />
+            <div className="relative text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span className="text-xs text-white/70 font-bold uppercase tracking-widest">Available Balance</span>
+                <button 
+                  onClick={refetchBalance} 
+                  className={`p-1 hover:bg-white/20 rounded transition-colors ${balanceLoading ? 'animate-spin' : ''}`}
+                  disabled={balanceLoading}
                 >
-                  <RefreshCw size={14} /> Convert SOL → USDC
-                </Button>
+                  <RefreshCw size={12} className="text-white/60" />
+                </button>
               </div>
-            )}
+              <div className="text-5xl sm:text-6xl font-display font-bold text-white mb-4 drop-shadow-lg" data-testid="text-wallet-balance">
+                ${usdcBalance.toFixed(2)}
+              </div>
+              
+              <div className="flex items-center justify-center gap-4 sm:gap-6 text-xs font-mono text-white/90">
+                <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5">
+                  <PieChart size={12} className="text-white" />
+                  <span className="text-white/70">Positions</span>
+                  <span className="font-medium">${positionsValue.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5">
+                  <Fuel size={12} className="text-orange-300" />
+                  <span className="text-white/70">Gas</span>
+                  <span className="font-medium">{solBalance.toFixed(4)} SOL</span>
+                </div>
+              </div>
+              
+              {isSwapping && (
+                <div className="mt-4 text-xs px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full inline-flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Converting SOL to USDC...
+                </div>
+              )}
+              {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
+                      checkAndAutoSwap(
+                        solBalance,
+                        activeWalletAddress,
+                        () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
+                        (result) => {
+                          if (result.success) {
+                            toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
+                            refetchBalance();
+                          } else {
+                            toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
+                          }
+                        },
+                        true
+                      );
+                    }}
+                    className="h-9 px-5 text-sm gap-2 bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+                    data-testid="button-force-convert"
+                  >
+                    <RefreshCw size={14} /> Convert SOL → USDC
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
 
