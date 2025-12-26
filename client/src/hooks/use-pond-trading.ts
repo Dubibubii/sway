@@ -52,7 +52,7 @@ async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: s
 
 export function usePondTrading() {
   const { getAccessToken, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets, ready: walletsReady } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isTrading, setIsTrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,18 +61,41 @@ export function usePondTrading() {
     marketId: string,
     side: 'yes' | 'no',
     amountUSDC: number,
-    usdcBalance?: number
+    usdcBalance?: number,
+    embeddedWalletAddress?: string
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
 
     try {
-      // Only use embedded wallet for trading (auto-confirm enabled)
-      const embeddedWallet = wallets.find((w: any) => 
-        w.walletClientType === 'privy' || w.connectorType === 'embedded'
-      );
+      console.log('[PondTrading] Wallets ready:', walletsReady);
+      console.log('[PondTrading] Wallet count:', wallets.length);
+      console.log('[PondTrading] Looking for embedded wallet address:', embeddedWalletAddress);
+      console.log('[PondTrading] Available wallets:', wallets.map((w: any) => ({
+        address: w.address,
+        type: w.walletClientType,
+        connector: w.connectorType
+      })));
+      
+      // Try to find embedded wallet by address first, then by type
+      let embeddedWallet = embeddedWalletAddress 
+        ? wallets.find((w: any) => w.address === embeddedWalletAddress)
+        : null;
+        
+      if (!embeddedWallet) {
+        embeddedWallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || w.connectorType === 'embedded'
+        );
+      }
+      
+      // If still not found but we have the address, try using any available wallet
+      if (!embeddedWallet && wallets.length > 0) {
+        console.log('[PondTrading] Embedded not found, using first available wallet');
+        embeddedWallet = wallets[0];
+      }
       
       if (!embeddedWallet) {
+        console.error('[PondTrading] No wallet found. Wallets ready:', walletsReady, 'Count:', wallets.length);
         throw new Error('No embedded wallet found. Please log in with Privy to create an embedded wallet for trading.');
       }
 
@@ -198,7 +221,7 @@ export function usePondTrading() {
         error: errorMessage,
       };
     }
-  }, [user, getAccessToken, wallets, signAndSendTransaction]);
+  }, [user, getAccessToken, wallets, walletsReady, signAndSendTransaction]);
 
   return {
     placeTrade,

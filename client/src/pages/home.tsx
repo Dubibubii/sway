@@ -169,7 +169,7 @@ export default function Home() {
       
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance);
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -240,7 +240,7 @@ export default function Home() {
 
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance);
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined);
         
         if (result.success) {
           // Refresh balance after successful trade
