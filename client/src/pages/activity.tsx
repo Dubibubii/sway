@@ -148,6 +148,30 @@ export default function Activity() {
         return;
       }
       
+      // Record the trade in the database
+      const token = await getAccessToken();
+      const currentPrice = parseFloat(selectedPosition.price);
+      
+      const recordRes = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          marketId: selectedPosition.marketId,
+          marketTitle: selectedPosition.marketTitle,
+          marketCategory: selectedPosition.marketCategory,
+          direction: selectedPosition.direction,
+          wagerAmount: amount,
+          price: currentPrice,
+        }),
+      });
+      
+      if (!recordRes.ok) {
+        console.error('[Activity] Failed to record trade in database');
+      }
+      
       // SUCCESS - Close modal and show success IMMEDIATELY
       setAddModalOpen(false);
       setIsProcessing(false);
