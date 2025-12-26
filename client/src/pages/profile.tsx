@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3 } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
+import { useQuery } from '@tanstack/react-query';
 
 const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 
@@ -49,6 +50,30 @@ function ProfileContent() {
   const { solBalance: embeddedSolBalance, refetch: refetchEmbeddedBalance } = useSolanaBalance(embeddedWallet?.address || null);
   
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
+  
+  // Fetch user's positions to calculate portfolio value
+  const { data: positionsData } = useQuery({
+    queryKey: ['positions'],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      const res = await fetch('/api/positions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return { positions: [] };
+      return res.json() as Promise<{ positions: Array<{ shares: string; price: string }> }>;
+    },
+    enabled: authenticated,
+  });
+  
+  // Calculate positions value from active positions
+  const positionsValue = (positionsData?.positions || []).reduce((acc, pos) => {
+    const shares = parseFloat(pos.shares) || 0;
+    const price = parseFloat(pos.price) || 0;
+    return acc + (shares * price);
+  }, 0);
+  
+  // Total portfolio = USDC available + positions value
+  const totalBalance = usdcBalance + positionsValue;
   
   // Ref to track last processed balance and prevent duplicate auto-swap calls
   const lastProcessedBalanceRef = useRef<number>(0);
@@ -267,9 +292,9 @@ function ProfileContent() {
             </div>
 
             {(authenticated && (embeddedWallet || user?.wallet)) || settings.connected ? (
-               <div className="text-right pl-2 shrink-0">
-                 <div className="flex items-center justify-end gap-1 mb-0.5">
-                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Portfolio</div>
+               <div className="text-right pl-2 shrink-0 min-w-[140px]">
+                 <div className="flex items-center justify-end gap-1 mb-1">
+                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Total Balance</div>
                    <button 
                      onClick={refetchBalance} 
                      className={`p-0.5 hover:bg-white/10 rounded transition-colors ${balanceLoading ? 'animate-spin' : ''}`}
@@ -278,15 +303,30 @@ function ProfileContent() {
                      <RefreshCw size={10} className="text-zinc-500" />
                    </button>
                  </div>
-                 <div className="text-lg sm:text-xl font-display font-bold text-white" data-testid="text-wallet-balance">
-                   ${totalPortfolioValue.toFixed(2)}
+                 <div className="text-xl sm:text-2xl font-display font-bold text-white mb-2" data-testid="text-wallet-balance">
+                   ${totalBalance.toFixed(2)}
                  </div>
-                 <div className="text-[10px] font-mono text-zinc-500 flex flex-col items-end gap-0.5">
-                   <span className="text-emerald-400">${usdcBalance.toFixed(2)} USDC</span>
-                   <span>{solBalance.toFixed(4)} SOL</span>
+                 
+                 <div className="space-y-1.5 text-[11px] font-mono">
+                   <div className="flex items-center justify-end gap-1.5">
+                     <DollarSign size={10} className="text-emerald-400" />
+                     <span className="text-zinc-500">Available</span>
+                     <span className="text-emerald-400 font-medium">${usdcBalance.toFixed(2)}</span>
+                   </div>
+                   <div className="flex items-center justify-end gap-1.5">
+                     <PieChart size={10} className="text-blue-400" />
+                     <span className="text-zinc-500">In Positions</span>
+                     <span className="text-blue-400 font-medium">${positionsValue.toFixed(2)}</span>
+                   </div>
+                   <div className="flex items-center justify-end gap-1.5">
+                     <Fuel size={10} className="text-orange-400" />
+                     <span className="text-zinc-500">Gas Fees</span>
+                     <span className="text-orange-400 font-medium">{solBalance.toFixed(4)} SOL</span>
+                   </div>
                  </div>
+                 
                  {isSwapping && (
-                   <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto">
+                   <div className="mt-2 text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1 ml-auto w-fit">
                      <Loader2 size={10} className="animate-spin" /> Converting...
                    </div>
                  )}
