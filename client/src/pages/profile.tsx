@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,11 +49,16 @@ function ProfileContent() {
   const { solBalance: embeddedSolBalance, refetch: refetchEmbeddedBalance } = useSolanaBalance(embeddedWallet?.address || null);
   
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
+  
+  // Ref to track last processed balance and prevent duplicate auto-swap calls
+  const lastProcessedBalanceRef = useRef<number>(0);
 
   // Auto-swap: triggered by EMBEDDED wallet balance changes (where deposits go)
   useEffect(() => {
     // Auto-swap for embedded wallet deposits - always enabled when embedded wallet exists
-    if (embeddedWallet?.address && embeddedSolBalance > 0) {
+    // Only run if balance actually changed to prevent infinite loops
+    if (embeddedWallet?.address && embeddedSolBalance > 0 && embeddedSolBalance !== lastProcessedBalanceRef.current) {
+      lastProcessedBalanceRef.current = embeddedSolBalance;
       console.log('[Profile] Checking auto-swap for embedded wallet, SOL balance:', embeddedSolBalance);
       checkAndAutoSwap(
         embeddedSolBalance, 
@@ -62,8 +67,11 @@ function ProfileContent() {
         (result) => {
           if (result.success) {
             toast({ title: "Deposit Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
-            refetchBalance();
-            refetchEmbeddedBalance();
+            // Delay refetch to prevent immediate re-trigger
+            setTimeout(() => {
+              refetchBalance();
+              refetchEmbeddedBalance();
+            }, 1000);
           }
           // Don't show error toasts for auto-swap failures - only show success
         }
