@@ -388,6 +388,58 @@ export async function registerRoutes(
     }
   });
 
+  // Update trade shares when partial fill is detected (on-chain balance differs from recorded)
+  app.patch('/api/trades/:tradeId/shares', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { tradeId } = req.params;
+      const { actualShares } = req.body;
+
+      if (typeof actualShares !== 'number' || actualShares < 0) {
+        return res.status(400).json({ error: 'Invalid actualShares value' });
+      }
+
+      // Get the existing trade
+      const trades = await storage.getTradesByUser(req.userId);
+      const trade = trades.find(t => t.id === tradeId);
+      
+      if (!trade) {
+        return res.status(404).json({ error: 'Trade not found' });
+      }
+
+      const currentShares = parseFloat(trade.shares);
+      if (Math.abs(currentShares - actualShares) < 0.01) {
+        // No significant difference, no update needed
+        return res.json({ trade, updated: false });
+      }
+
+      console.log(`[Trade] Updating shares for trade ${tradeId}: ${currentShares} -> ${actualShares} (partial fill correction)`);
+
+      // Recalculate values based on actual shares
+      const price = parseFloat(trade.price);
+      const entryFee = parseFloat(trade.entryFee || '0');
+      
+      // Adjust wager amount proportionally to the actual shares received
+      const adjustedWagerCents = Math.round((actualShares / currentShares) * trade.wagerAmount);
+      const adjustedEntryFee = (adjustedWagerCents / 100) * FEE_CONFIG.FEE_PERCENTAGE;
+      const adjustedEstimatedPayout = actualShares;
+
+      const updatedTrade = await storage.updateTradePosition(tradeId, {
+        wagerAmount: adjustedWagerCents,
+        shares: actualShares.toFixed(2),
+        entryFee: adjustedEntryFee.toFixed(4),
+        estimatedPayout: adjustedEstimatedPayout.toFixed(2),
+        price: price.toFixed(2),
+      });
+
+      console.log(`[Trade] Trade updated: shares=${actualShares}, wager=$${(adjustedWagerCents/100).toFixed(2)}`);
+
+      res.json({ trade: updatedTrade, updated: true });
+    } catch (error) {
+      console.error('Error updating trade shares:', error);
+      res.status(500).json({ error: 'Failed to update trade shares' });
+    }
+  });
+
   // Kalshi Trading API endpoints
   app.get('/api/kalshi/status', async (req: AuthenticatedRequest, res: Response) => {
     const hasCredentials = !!(KALSHI_API_KEY_ID && KALSHI_PRIVATE_KEY);

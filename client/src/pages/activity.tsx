@@ -277,6 +277,24 @@ export default function Activity() {
           const match = errorMsg.match(/only have ([\d.]+) tokens/);
           if (match) {
             const availableTokens = parseFloat(match[1]);
+            
+            // Update the trade record with actual on-chain balance
+            try {
+              const token = await getAccessToken();
+              console.log('[Activity] Detected partial fill - updating trade record. Recorded:', shares, 'Actual:', availableTokens);
+              await fetch(`/api/trades/${selectedPosition.id}/shares`, {
+                method: 'PATCH',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}` 
+                },
+                body: JSON.stringify({ actualShares: availableTokens }),
+              });
+              console.log('[Activity] Trade record updated with actual shares');
+            } catch (updateError) {
+              console.error('[Activity] Failed to update trade record:', updateError);
+            }
+            
             setIsProcessing(false);
             return handleClosePosition(availableTokens, positionOutcomeMint);
           }
