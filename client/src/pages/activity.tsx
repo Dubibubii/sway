@@ -243,12 +243,7 @@ export default function Activity() {
           const match = errorMsg.match(/only have ([\d.]+) tokens/);
           if (match) {
             const availableTokens = parseFloat(match[1]);
-            toast({ 
-              title: 'Partial Fill Detected', 
-              description: `Selling ${availableTokens.toFixed(2)} available tokens instead of ${shares}`,
-              variant: 'default'
-            });
-            // Retry with the available amount
+            // Silently retry with the available amount - no confusing notification
             setIsProcessing(false);
             return handleClosePosition(availableTokens);
           }
@@ -289,12 +284,12 @@ export default function Activity() {
       setCloseModalOpen(false);
       setIsProcessing(false);
       
-      // Format: "Received $X.XX +Y%" with sign
+      // Format: "Sold for $X.XX (+Y%)" - always positive since sale succeeded
       const pnlSign = pnl >= 0 ? '+' : '';
       toast({ 
-        title: `Received $${usdcReceived.toFixed(2)} ${pnlSign}${pnlPercent.toFixed(0)}%`, 
-        description: pnl >= 0 ? 'Position sold successfully' : 'Position closed at a loss',
-        variant: pnl >= 0 ? 'default' : 'destructive'
+        title: `Sold for $${usdcReceived.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`, 
+        description: 'Position closed successfully',
+        variant: 'default'
       });
       
       // Refresh balance and positions in background
