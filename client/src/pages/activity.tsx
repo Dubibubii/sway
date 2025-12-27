@@ -786,7 +786,7 @@ export default function Activity() {
               <Button
                 className="flex-1 bg-rose-500 hover:bg-rose-600"
                 onClick={handleBulkSell}
-                disabled={isBulkSelling || isLoadingPrices || positionsToSell.length === 0 || (priceFetchError && (bulkSellMode === 'losing' || bulkSellMode === 'winning'))}
+                disabled={isBulkSelling || isLoadingPrices || positionsToSell.length === 0 || !!(priceFetchError && (bulkSellMode === 'losing' || bulkSellMode === 'winning'))}
                 data-testid="button-confirm-bulk-sell"
               >
                 {isBulkSelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
