@@ -12,7 +12,7 @@ import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePondTrading } from '@/hooks/use-pond-trading';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { FEE_CONFIG } from '@shared/schema';
 
 interface Trade {
@@ -39,6 +39,7 @@ export default function Activity() {
   const [addAmount, setAddAmount] = useState('5');
   const [isProcessing, setIsProcessing] = useState(false);
   
+  const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
   const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
@@ -113,20 +114,20 @@ export default function Activity() {
     
     const amount = parseFloat(addAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount');
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount', variant: 'destructive' });
       return;
     }
 
     // Minimum trade amount for DFlow
     const MIN_TRADE_AMOUNT = 0.50;
     if (amount < MIN_TRADE_AMOUNT) {
-      toast.error(`Minimum trade amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`);
+      toast({ title: 'Amount Too Small', description: `Minimum trade amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`, variant: 'destructive' });
       return;
     }
 
     // Check USDC balance
     if (usdcBalance !== undefined && usdcBalance < amount) {
-      toast.error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`);
+      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`, variant: 'destructive' });
       return;
     }
 
@@ -152,9 +153,9 @@ export default function Activity() {
         
         // Provide user-friendly error message for common DFlow errors
         if (errorMsg.includes('zero_out_amount') || errorMsg.includes('Zero out amount')) {
-          toast.error('Trade amount too small. Please increase your bet to at least $0.50');
+          toast({ title: 'Trade Failed', description: 'Trade amount too small. Please increase your bet to at least $0.50', variant: 'destructive' });
         } else {
-          toast.error(errorMsg);
+          toast({ title: 'Trade Failed', description: errorMsg, variant: 'destructive' });
         }
         setAddModalOpen(false);
         setIsProcessing(false);
@@ -190,9 +191,7 @@ export default function Activity() {
       setIsProcessing(false);
       
       // Show prominent success toast
-      toast.success(`Added $${amount.toFixed(2)} to your position!`, {
-        description: 'Trade executed on-chain successfully'
-      });
+      toast({ title: 'Trade Executed', description: `Added $${amount.toFixed(2)} to your position!` });
       
       // Refresh balance and positions in background
       setTimeout(() => {
@@ -203,7 +202,7 @@ export default function Activity() {
       
     } catch (error: any) {
       console.error('[Activity] Catch block error:', error);
-      toast.error(error.message || 'Failed to add to position');
+      toast({ title: 'Error', description: error.message || 'Failed to add to position', variant: 'destructive' });
       setIsProcessing(false);
     }
   };
@@ -237,10 +236,10 @@ export default function Activity() {
       await queryClient.invalidateQueries({ queryKey: ['positions'] });
       await queryClient.invalidateQueries({ queryKey: ['trades'] });
       
-      toast.success(`Position closed for tracking. Your outcome tokens remain in your wallet until market settlement.`);
+      toast({ title: 'Position Closed', description: 'Your outcome tokens remain in your wallet until market settlement.' });
       setCloseModalOpen(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to close position');
+      toast({ title: 'Error', description: error.message || 'Failed to close position', variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }
