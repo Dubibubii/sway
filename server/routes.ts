@@ -624,6 +624,54 @@ export async function registerRoutes(
       const amountAtomic = Math.floor(shares * 1_000_000);
 
       console.log('[Pond Sell] Selling position:', { marketId, side, shares, amountAtomic, inputMint, outputMint, userPublicKey });
+      
+      // Check if user actually has the outcome tokens in their wallet
+      const HELIUS_API_KEY_CHECK = process.env.HELIUS_API_KEY || '';
+      const HELIUS_RPC = HELIUS_API_KEY_CHECK 
+        ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY_CHECK}`
+        : 'https://api.mainnet-beta.solana.com';
+      
+      try {
+        const tokenCheckResponse = await fetch(HELIUS_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getTokenAccountsByOwner',
+            params: [
+              userPublicKey,
+              { mint: inputMint },
+              { encoding: 'jsonParsed' }
+            ]
+          })
+        });
+        const tokenData = await tokenCheckResponse.json() as any;
+        
+        let tokenBalance = 0;
+        if (tokenData.result?.value) {
+          for (const account of tokenData.result.value) {
+            const tokenAmount = account.account?.data?.parsed?.info?.tokenAmount;
+            if (tokenAmount) {
+              tokenBalance += parseFloat(tokenAmount.uiAmountString || '0');
+            }
+          }
+        }
+        
+        console.log('[Pond Sell] User token balance for', inputMint, ':', tokenBalance);
+        
+        if (tokenBalance < shares) {
+          console.log('[Pond Sell] Insufficient token balance! User has', tokenBalance, 'but trying to sell', shares);
+          return res.status(400).json({ 
+            error: `Insufficient tokens. You have ${tokenBalance.toFixed(2)} tokens but trying to sell ${shares}. DFlow async trades may still be settling - please wait a few minutes and try again.`,
+            tokenBalance,
+            requiredBalance: shares
+          });
+        }
+      } catch (tokenCheckError) {
+        console.error('[Pond Sell] Token balance check failed:', tokenCheckError);
+        // Continue anyway - the transaction will fail if tokens aren't there
+      }
 
       // Get sell order from DFlow (swap outcome tokens -> USDC)
       const orderResponse = await getPondQuote(
