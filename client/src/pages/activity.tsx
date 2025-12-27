@@ -308,18 +308,19 @@ export default function Activity() {
       }
       
       // Calculate USDC received - for async orders, API often returns 0
-      // Estimate based on shares sold * entry price when API returns 0
+      // Use the same estimate as the sell modal: shares * entry price
+      const entryPrice = parseFloat(selectedPosition.price) || 0;
+      const estimatedValue = shares * entryPrice;
+      
       let usdcReceived = result.expectedUSDC || 0;
       let isEstimate = false;
       
-      // If expectedUSDC is 0 (common for async sells), estimate based on entry price and shares
-      if (usdcReceived === 0 && shares > 0) {
-        // Parse entry price from position (stored as string like "0.32" for 32 cents)
-        const entryPrice = parseFloat(selectedPosition.price) || 0;
-        // Estimate: shares sold * entry price (conservative estimate - actual may differ)
-        usdcReceived = shares * entryPrice;
+      // If expectedUSDC is 0 or significantly different from modal estimate, use modal estimate for consistency
+      if (usdcReceived === 0 || Math.abs(usdcReceived - estimatedValue) > estimatedValue * 0.5) {
+        // Use the same calculation as the sell modal for consistency
+        usdcReceived = estimatedValue;
         isEstimate = true;
-        console.log('[Activity] API returned 0, estimating USDC received:', usdcReceived, '(shares:', shares, '× price:', entryPrice, ')');
+        console.log('[Activity] Using modal estimate for consistency:', usdcReceived.toFixed(2), '(shares:', shares, '× price:', entryPrice, ')');
       }
       
       const pnl = usdcReceived - costBasis;
