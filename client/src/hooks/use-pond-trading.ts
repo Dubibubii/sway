@@ -10,6 +10,7 @@ export interface PondTradeResult {
   error?: string;
   executionMode?: 'sync' | 'async';
   expectedShares?: number;
+  expectedUSDC?: number;
 }
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -223,8 +224,124 @@ export function usePondTrading() {
     }
   }, [user, getAccessToken, wallets, walletsReady, signAndSendTransaction]);
 
+  const sellPosition = useCallback(async (
+    marketId: string,
+    side: 'yes' | 'no',
+    shares: number,
+    embeddedWalletAddress?: string
+  ): Promise<PondTradeResult> => {
+    setIsTrading(true);
+    setError(null);
+
+    try {
+      console.log('[PondTrading] ========== SELLING POSITION ==========');
+      console.log('[PondTrading] Market:', marketId);
+      console.log('[PondTrading] Side:', side);
+      console.log('[PondTrading] Shares to sell:', shares);
+      
+      // Find embedded wallet
+      let embeddedWallet = embeddedWalletAddress 
+        ? wallets.find((w: any) => w.address === embeddedWalletAddress)
+        : null;
+        
+      if (!embeddedWallet) {
+        embeddedWallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || w.connectorType === 'embedded'
+        );
+      }
+      
+      if (!embeddedWallet && wallets.length > 0) {
+        embeddedWallet = wallets[0];
+      }
+      
+      if (!embeddedWallet) {
+        throw new Error('No embedded wallet found. Please log in to sell your position.');
+      }
+
+      const tradingWallet = embeddedWallet;
+      const userPublicKey = tradingWallet.address;
+      
+      console.log('[PondTrading] User wallet:', userPublicKey);
+
+      const token = await getAccessToken();
+
+      // Call the sell endpoint
+      const sellResponse = await fetch('/api/pond/sell', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          marketId,
+          side,
+          shares,
+          userPublicKey,
+          slippageBps: 300, // Higher slippage for selling
+        }),
+      });
+
+      console.log('[PondTrading] Sell response status:', sellResponse.status);
+
+      if (!sellResponse.ok) {
+        const errorText = await sellResponse.text();
+        console.error('[PondTrading] Sell failed:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Server error: ${sellResponse.status} - ${errorText}`);
+        }
+        throw new Error(errorData.error || 'Failed to get sell order from DFlow API');
+      }
+
+      const orderData = await sellResponse.json();
+      console.log('[PondTrading] Sell order received, expected USDC:', orderData.expectedUSDC);
+      
+      const { transaction, executionMode, expectedUSDC } = orderData;
+
+      if (!transaction) {
+        throw new Error('No transaction returned from DFlow API for sell');
+      }
+
+      console.log('[PondTrading] Signing sell transaction...');
+      
+      const transactionBytes = base64ToUint8Array(transaction);
+
+      const result = await signAndSendTransaction({
+        transaction: transactionBytes,
+        wallet: tradingWallet,
+      });
+
+      const signature = typeof result === 'string' 
+        ? result 
+        : (result as any).signature || (result as any).hash || String(result);
+
+      console.log('[PondTrading] Position sold! Signature:', signature);
+      console.log('[PondTrading] USDC received:', expectedUSDC);
+      
+      setIsTrading(false);
+      return {
+        success: true,
+        signature,
+        executionMode,
+        expectedUSDC,
+      };
+    } catch (err: any) {
+      console.error('[PondTrading] Sell failed:', err);
+      const errorMessage = err.message || 'Sell failed';
+      setError(errorMessage);
+      setIsTrading(false);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }, [getAccessToken, wallets, signAndSendTransaction]);
+
   return {
     placeTrade,
+    sellPosition,
     isTrading,
     error,
   };
