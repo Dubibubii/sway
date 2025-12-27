@@ -43,7 +43,7 @@ export default function Activity() {
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
   const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
-  const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
+  const { placeTrade: placePondTrade, sellPosition, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -213,11 +213,37 @@ export default function Activity() {
     setIsProcessing(true);
     try {
       const shares = parseFloat(selectedPosition.shares);
-      const price = parseFloat(selectedPosition.price);
-      const currentValue = shares * price;
       const costBasis = selectedPosition.wagerAmount / 100; // Convert cents to dollars
-      const pnl = currentValue - costBasis;
+      const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       
+      console.log('[Activity] Starting close position (sell):', selectedPosition.marketId, side, shares);
+      
+      // Execute on-chain sell via Pond/DFlow
+      const result = await sellPosition(
+        selectedPosition.marketId,
+        side,
+        shares,
+        embeddedWallet?.address
+      );
+      
+      console.log('[Activity] Sell result:', result);
+      
+      if (!result.success) {
+        const errorMsg = result.error || 'Sell failed';
+        console.error('[Activity] Sell error:', errorMsg);
+        toast({ title: 'Sell Failed', description: errorMsg, variant: 'destructive' });
+        setCloseModalOpen(false);
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Calculate PnL based on USDC received
+      const usdcReceived = result.expectedUSDC || 0;
+      const pnl = usdcReceived - costBasis;
+      
+      console.log('[Activity] Position sold! USDC received:', usdcReceived, 'PnL:', pnl);
+      
+      // Update the database
       const token = await getAccessToken();
       const res = await fetch(`/api/trades/${selectedPosition.id}/close`, {
         method: 'POST',
@@ -227,20 +253,33 @@ export default function Activity() {
         },
         body: JSON.stringify({
           pnl: pnl.toFixed(2),
-          payout: currentValue,
+          payout: usdcReceived,
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to close position');
+      if (!res.ok) {
+        console.error('[Activity] Failed to update database after sell');
+      }
 
-      await queryClient.invalidateQueries({ queryKey: ['positions'] });
-      await queryClient.invalidateQueries({ queryKey: ['trades'] });
-      
-      toast({ title: 'Position Closed', description: 'Your outcome tokens remain in your wallet until market settlement.' });
+      // SUCCESS - Close modal and show success
       setCloseModalOpen(false);
+      setIsProcessing(false);
+      
+      toast({ 
+        title: 'Position Sold', 
+        description: `Received $${usdcReceived.toFixed(2)} USDC. ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)}` 
+      });
+      
+      // Refresh balance and positions in background
+      setTimeout(() => {
+        refetchBalance();
+        queryClient.invalidateQueries({ queryKey: ['positions'] });
+        queryClient.invalidateQueries({ queryKey: ['trades'] });
+      }, 2000);
+      
     } catch (error: any) {
+      console.error('[Activity] Close position error:', error);
       toast({ title: 'Error', description: error.message || 'Failed to close position', variant: 'destructive' });
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -309,16 +348,16 @@ export default function Activity() {
       <Dialog open={closeModalOpen} onOpenChange={setCloseModalOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
           <DialogHeader>
-            <DialogTitle>Close Position</DialogTitle>
+            <DialogTitle>Sell Position</DialogTitle>
             <DialogDescription>
-              Close your {selectedPosition?.direction} position on "{selectedPosition?.marketTitle}"?
+              Sell your {selectedPosition?.direction} position on "{selectedPosition?.marketTitle}" and receive USDC back to your wallet.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             {selectedPosition && (
               <div className="bg-zinc-800 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shares</span>
+                  <span className="text-muted-foreground">Shares to Sell</span>
                   <span>{parseFloat(selectedPosition.shares).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -330,9 +369,12 @@ export default function Activity() {
                   <span>${(selectedPosition.wagerAmount / 100).toFixed(2)}</span>
                 </div>
                 <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
-                  <span>Current Value</span>
+                  <span>Est. Value (at entry price)</span>
                   <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Actual USDC received will depend on current market price and slippage.
+                </p>
               </div>
             )}
             <div className="flex gap-2">
@@ -348,10 +390,10 @@ export default function Activity() {
                 className="flex-1 bg-rose-500 hover:bg-rose-600"
                 onClick={handleClosePosition}
                 disabled={isProcessing}
-                data-testid="button-confirm-close"
+                data-testid="button-confirm-sell"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Close Position
+                Sell Position
               </Button>
             </div>
           </div>
@@ -447,10 +489,10 @@ export default function Activity() {
                                      className="flex-1 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20" 
                                      variant="outline" 
                                      size="sm" 
-                                     data-testid={`button-close-${position.id}`}
+                                     data-testid={`button-sell-${position.id}`}
                                      onClick={(e) => handleCloseClick(e, position)}
                                    >
-                                     <X size={16} className="mr-2" /> Close
+                                     <X size={16} className="mr-2" /> Sell
                                    </Button>
                                  </div>
                                </motion.div>
