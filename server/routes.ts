@@ -131,12 +131,14 @@ export async function registerRoutes(
   });
 
   // Market history endpoint for price charts
+  // Note: Kalshi Elections API doesn't support candlesticks endpoint
+  // We return market info with last/previous prices for basic price change display
   app.get('/api/markets/:ticker/history', async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { ticker } = req.params;
       const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
       
-      // First, get market info to find creation date
+      // Get market info - it includes last_price and previous_price
       const marketResponse = await fetch(
         `${KALSHI_BASE_URL}/markets/${ticker}`,
         {
@@ -145,88 +147,54 @@ export async function registerRoutes(
         }
       );
       
-      let startTs: number;
-      const endTs = Math.floor(Date.now() / 1000);
-      
-      if (marketResponse.ok) {
-        const marketData = await marketResponse.json() as { 
-          market?: { 
-            open_time?: string;
-            created_time?: string;
-          } 
-        };
-        const openTime = marketData.market?.open_time || marketData.market?.created_time;
-        if (openTime) {
-          startTs = Math.floor(new Date(openTime).getTime() / 1000);
-        } else {
-          // Fallback to 90 days ago
-          startTs = endTs - (90 * 24 * 60 * 60);
-        }
-      } else {
-        // Fallback to 90 days ago
-        startTs = endTs - (90 * 24 * 60 * 60);
+      if (!marketResponse.ok) {
+        console.log('Market info fetch failed:', marketResponse.status);
+        return res.json({ history: [], marketInfo: null });
       }
       
-      // Calculate age in days to determine interval
-      const ageInDays = (endTs - startTs) / (24 * 60 * 60);
-      
-      // Use appropriate interval based on market age:
-      // - Less than 7 days: hourly (60 min)
-      // - 7-30 days: 4-hourly (240 min) 
-      // - 30-90 days: daily (1440 min)
-      // - Over 90 days: daily and limit start date
-      let periodInterval = 60; // hourly default
-      if (ageInDays > 90) {
-        periodInterval = 1440; // daily
-        startTs = endTs - (90 * 24 * 60 * 60); // Limit to 90 days
-      } else if (ageInDays > 30) {
-        periodInterval = 1440; // daily
-      } else if (ageInDays > 7) {
-        periodInterval = 240; // 4-hourly
-      }
-      
-      // Fetch candlestick history from Kalshi API
-      const response = await fetch(
-        `${KALSHI_BASE_URL}/markets/${ticker}/candlesticks?period_interval=${periodInterval}&start_ts=${startTs}&end_ts=${endTs}`, 
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-      
-      if (!response.ok) {
-        console.error('Kalshi history API error:', response.status, await response.text());
-        return res.json({ history: [] });
-      }
-      
-      const data = await response.json() as { 
-        candlesticks?: Array<{ 
-          end_period_ts: number; 
-          price?: { close: number };
-          yes_price?: { close: number };
-        }> 
+      const marketData = await marketResponse.json() as { 
+        market?: { 
+          last_price?: number;
+          previous_price?: number;
+          open_time?: string;
+          created_time?: string;
+        } 
       };
-      const candlesticks = data.candlesticks || [];
       
-      // Transform to simpler format for chart (prices are in cents, convert to decimal)
-      // Try yes_price first (some markets use this), fall back to price
-      const history = candlesticks.map((c) => ({
-        timestamp: c.end_period_ts * 1000,
-        price: ((c.yes_price?.close || c.price?.close || 0)) / 100,
-      })).filter((h) => h.price > 0);
-      
-      // Sample data if too many points (keep ~50 points for smooth chart)
-      const maxPoints = 50;
-      let sampledHistory = history;
-      if (history.length > maxPoints) {
-        const step = Math.ceil(history.length / maxPoints);
-        sampledHistory = history.filter((_, i) => i % step === 0 || i === history.length - 1);
+      const market = marketData.market;
+      if (!market) {
+        return res.json({ history: [], marketInfo: null });
       }
       
-      res.json({ history: sampledHistory });
+      // Create simple history from last/previous prices (prices are in cents)
+      const history: Array<{ timestamp: number; price: number }> = [];
+      const now = Date.now();
+      
+      if (market.previous_price !== undefined && market.previous_price > 0) {
+        history.push({
+          timestamp: now - (24 * 60 * 60 * 1000), // Yesterday
+          price: market.previous_price / 100,
+        });
+      }
+      
+      if (market.last_price !== undefined && market.last_price > 0) {
+        history.push({
+          timestamp: now,
+          price: market.last_price / 100,
+        });
+      }
+      
+      // Include market info for additional context
+      const marketInfo = {
+        lastPrice: market.last_price ? market.last_price / 100 : null,
+        previousPrice: market.previous_price ? market.previous_price / 100 : null,
+        openTime: market.open_time || market.created_time || null,
+      };
+      
+      res.json({ history, marketInfo });
     } catch (error) {
       console.error('Error fetching market history:', error);
-      res.json({ history: [] });
+      res.json({ history: [], marketInfo: null });
     }
   });
 
