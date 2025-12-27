@@ -245,29 +245,70 @@ export async function registerRoutes(
       const entryFee = wagerAmountDollars * FEE_CONFIG.FEE_PERCENTAGE;
       const netWagerAmount = wagerAmountDollars - entryFee;
       
-      const shares = Math.round((netWagerAmount / price) * 100) / 100;
-      const estimatedPayout = Math.round(shares * 100) / 100;
+      const newShares = Math.round((netWagerAmount / price) * 100) / 100;
+      const newEstimatedPayout = Math.round(newShares * 100) / 100;
 
-      console.log(`Trade created: Entry fee of $${entryFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
+      // Check if there's an existing open position for this market/direction
+      const existingTrade = await storage.getOpenTradeForUserMarketDirection(req.userId, marketId, direction);
+      
+      if (existingTrade) {
+        // Consolidate: update the existing position instead of creating a new one
+        const existingWagerCents = existingTrade.wagerAmount;
+        const existingShares = parseFloat(existingTrade.shares);
+        const existingEntryFee = parseFloat(existingTrade.entryFee || '0');
+        const existingPrice = parseFloat(existingTrade.price);
+        
+        // Calculate combined values
+        const totalWagerCents = existingWagerCents + wagerAmountCents;
+        const totalShares = existingShares + newShares;
+        const totalEntryFee = existingEntryFee + entryFee;
+        const totalEstimatedPayout = totalShares; // Each share pays $1 at settlement
+        
+        // Calculate weighted average price
+        // Old cost basis: existingShares * existingPrice
+        // New cost basis: newShares * price
+        // Total cost = old + new, divide by total shares
+        const oldCostBasis = existingShares * existingPrice;
+        const newCostBasis = newShares * price;
+        const weightedAvgPrice = (oldCostBasis + newCostBasis) / totalShares;
+        
+        console.log(`[Trade] Consolidating position: ${existingShares} shares @ $${existingPrice} + ${newShares} shares @ $${price} = ${totalShares} shares @ $${weightedAvgPrice.toFixed(2)}`);
+        console.log(`[Trade] Entry fee: $${existingEntryFee.toFixed(4)} + $${entryFee.toFixed(4)} = $${totalEntryFee.toFixed(4)}`);
 
-      const trade = await storage.createTrade({
-        userId: req.userId,
-        marketId,
-        marketTitle: marketTitle || '',
-        marketCategory: marketCategory || null,
-        direction,
-        wagerAmount: wagerAmountCents, // Store as cents (integer)
-        price: price.toFixed(2),
-        shares: shares.toFixed(2),
-        estimatedPayout: estimatedPayout.toFixed(2),
-        entryFee: entryFee.toFixed(4),
-        exitFee: null,
-        isClosed: false,
-        closedAt: null,
-        pnl: null,
-      });
+        const updatedTrade = await storage.updateTradePosition(existingTrade.id, {
+          wagerAmount: totalWagerCents,
+          shares: totalShares.toFixed(2),
+          entryFee: totalEntryFee.toFixed(4),
+          estimatedPayout: totalEstimatedPayout.toFixed(2),
+          price: weightedAvgPrice.toFixed(2),
+        });
 
-      res.json({ trade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT });
+        console.log(`[Trade] Position consolidated. Total wager: $${(totalWagerCents / 100).toFixed(2)}, Total shares: ${totalShares.toFixed(2)}`);
+        
+        res.json({ trade: updatedTrade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: true });
+      } else {
+        // No existing position - create new trade
+        console.log(`Trade created: Entry fee of $${entryFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
+
+        const trade = await storage.createTrade({
+          userId: req.userId,
+          marketId,
+          marketTitle: marketTitle || '',
+          marketCategory: marketCategory || null,
+          direction,
+          wagerAmount: wagerAmountCents, // Store as cents (integer)
+          price: price.toFixed(2),
+          shares: newShares.toFixed(2),
+          estimatedPayout: newEstimatedPayout.toFixed(2),
+          entryFee: entryFee.toFixed(4),
+          exitFee: null,
+          isClosed: false,
+          closedAt: null,
+          pnl: null,
+        });
+
+        res.json({ trade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: false });
+      }
     } catch (error) {
       console.error('Error creating trade:', error);
       res.status(500).json({ error: 'Failed to create trade' });

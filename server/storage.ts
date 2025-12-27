@@ -22,6 +22,8 @@ export interface IStorage {
   createTrade(trade: InsertTrade): Promise<Trade>;
   getUserTrades(userId: string): Promise<Trade[]>;
   getOpenPositions(userId: string): Promise<Trade[]>;
+  getOpenTradeForUserMarketDirection(userId: string, marketId: string, direction: string): Promise<Trade | undefined>;
+  updateTradePosition(tradeId: string, updates: { wagerAmount: number; shares: string; entryFee: string; estimatedPayout: string; price: string }): Promise<Trade>;
   closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade>;
   
   logAnalyticsEvent(event: InsertAnalyticsEvent): Promise<void>;
@@ -63,6 +65,34 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(trades)
       .where(and(eq(trades.userId, userId), eq(trades.isClosed, false)))
       .orderBy(desc(trades.createdAt));
+  }
+
+  async getOpenTradeForUserMarketDirection(userId: string, marketId: string, direction: string): Promise<Trade | undefined> {
+    // Select the oldest open trade for this market/direction (deterministic, avoids duplicate issues)
+    const result = await db.select().from(trades)
+      .where(and(
+        eq(trades.userId, userId),
+        eq(trades.marketId, marketId),
+        eq(trades.direction, direction),
+        eq(trades.isClosed, false)
+      ))
+      .orderBy(trades.createdAt) // ASC - oldest first for consistent consolidation
+      .limit(1);
+    return result[0];
+  }
+
+  async updateTradePosition(tradeId: string, updates: { wagerAmount: number; shares: string; entryFee: string; estimatedPayout: string; price: string }): Promise<Trade> {
+    const result = await db.update(trades)
+      .set({
+        wagerAmount: updates.wagerAmount,
+        shares: updates.shares,
+        entryFee: updates.entryFee,
+        estimatedPayout: updates.estimatedPayout,
+        price: updates.price,
+      })
+      .where(eq(trades.id, tradeId))
+      .returning();
+    return result[0];
   }
 
   async closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade> {
