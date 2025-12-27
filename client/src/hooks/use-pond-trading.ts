@@ -190,10 +190,22 @@ export function usePondTrading() {
       console.log('[PondTrading] Wallet type:', (wallet as any).walletClientType);
       console.log('[PondTrading] Signing and sending transaction (auto-confirm enabled)...');
 
-      const result = await signAndSendTransaction({
-        transaction: transactionBytes,
-        wallet: wallet,
-      });
+      let result;
+      try {
+        result = await signAndSendTransaction({
+          transaction: transactionBytes,
+          wallet: wallet,
+        });
+      } catch (signError: any) {
+        const errorMsg = signError?.message || String(signError);
+        console.error('[PondTrading] Transaction signing/sending error:', errorMsg);
+        
+        // Check for common simulation failures
+        if (errorMsg.toLowerCase().includes('simulation') || errorMsg.toLowerCase().includes('insufficient')) {
+          throw new Error('Transaction failed - you may need more SOL for gas fees. Try depositing 0.01 SOL.');
+        }
+        throw signError;
+      }
 
       const signature = typeof result === 'string' 
         ? result 
