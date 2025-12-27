@@ -311,30 +311,31 @@ export function usePondTrading() {
         ? parseInt(quote.outAmount) / 1_000_000
         : undefined;
       
-      // For async trades, poll order status to get actual fill amounts
-      let actualShares: number | undefined;
+      // Return immediately after on-chain confirmation - don't wait for order status polling
+      // The Solana transaction is already confirmed at this point
+      setIsTrading(false);
+      
+      // For async trades, poll order status in the background (non-blocking)
+      // This updates the database record but doesn't delay the user notification
       if (executionMode === 'async') {
-        console.log('[PondTrading] Async trade detected, polling for actual fill...');
+        console.log('[PondTrading] Async trade - starting background polling for fill confirmation...');
         const token = await getAccessToken();
-        const orderResult = await pollOrderStatus(signature, token || '', 15, 2000);
-        if (orderResult) {
-          actualShares = orderResult.actualShares;
-          console.log('[PondTrading] Async trade filled! Expected:', expectedShares, 'Actual:', actualShares);
-          if (actualShares !== expectedShares) {
-            console.warn('[PondTrading] FILL DISCREPANCY: Expected', expectedShares, 'but got', actualShares);
+        // Non-blocking background poll with fewer attempts and shorter delay
+        pollOrderStatus(signature, token || '', 5, 1500).then(orderResult => {
+          if (orderResult) {
+            console.log('[PondTrading] Background poll complete - Expected:', expectedShares, 'Actual:', orderResult.actualShares);
           }
-        } else {
-          console.warn('[PondTrading] Could not get actual fill for async trade, using expected');
-        }
+        }).catch(err => {
+          console.warn('[PondTrading] Background order status poll failed:', err);
+        });
       }
       
-      setIsTrading(false);
       return {
         success: true,
         signature,
         executionMode,
         expectedShares,
-        actualShares: actualShares || expectedShares, // Use actual if available, fallback to expected
+        actualShares: expectedShares, // Use expected shares for immediate feedback
       };
     } catch (err: any) {
       // Enhanced error logging for debugging
