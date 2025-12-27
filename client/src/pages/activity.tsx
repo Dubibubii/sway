@@ -117,6 +117,13 @@ export default function Activity() {
       return;
     }
 
+    // Minimum trade amount for DFlow
+    const MIN_TRADE_AMOUNT = 0.50;
+    if (amount < MIN_TRADE_AMOUNT) {
+      toast.error(`Minimum trade amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`);
+      return;
+    }
+
     // Check USDC balance
     if (usdcBalance !== undefined && usdcBalance < amount) {
       toast.error(`Insufficient USDC balance. You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`);
@@ -142,7 +149,13 @@ export default function Activity() {
       if (!result.success) {
         const errorMsg = result.error || 'Trade failed';
         console.error('[Activity] Trade error:', errorMsg);
-        toast.error(errorMsg);
+        
+        // Provide user-friendly error message for common DFlow errors
+        if (errorMsg.includes('zero_out_amount') || errorMsg.includes('Zero out amount')) {
+          toast.error('Trade amount too small. Please increase your bet to at least $0.50');
+        } else {
+          toast.error(errorMsg);
+        }
         setAddModalOpen(false);
         setIsProcessing(false);
         return;
@@ -265,7 +278,8 @@ export default function Activity() {
                 value={addAmount}
                 onChange={(e) => setAddAmount(e.target.value)}
                 placeholder="5"
-                min="1"
+                min="0.50"
+                step="0.10"
                 className="bg-zinc-800 border-zinc-700"
                 data-testid="input-add-amount"
               />

@@ -395,6 +395,7 @@ function ProfileContent() {
                 <Slider 
                   value={[settings.yesWager]} 
                   onValueChange={handleUnifiedChange} 
+                  min={1}
                   max={100} 
                   step={1}
                   className="py-4"
@@ -422,6 +423,7 @@ function ProfileContent() {
                   <Slider 
                     value={[settings.yesWager]} 
                     onValueChange={(val) => updateWager('yes', val[0])} 
+                    min={1}
                     max={100} 
                     step={1}
                     className="py-4"
@@ -448,6 +450,7 @@ function ProfileContent() {
                   <Slider 
                     value={[settings.noWager]} 
                     onValueChange={(val) => updateWager('no', val[0])} 
+                    min={1}
                     max={100} 
                     step={1}
                     className="py-4" 

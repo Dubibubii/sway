@@ -205,9 +205,13 @@ export default function Home() {
           setRequiredAmount(settings.yesWager);
           setShowFundingPrompt(true);
         } else {
+          // Check for zero out amount error - trade too small for DFlow
+          const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
+            ? 'Trade amount too small. Try increasing your bet to at least $0.50'
+            : (result.error || "Could not execute trade on-chain");
           toast({
             title: "Trade Failed",
-            description: result.error || "Could not execute trade on-chain",
+            description: errorMsg,
             variant: "destructive",
           });
         }
@@ -276,9 +280,13 @@ export default function Home() {
           setRequiredAmount(settings.noWager);
           setShowFundingPrompt(true);
         } else {
+          // Check for zero out amount error - trade too small for DFlow
+          const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
+            ? 'Trade amount too small. Try increasing your bet to at least $0.50'
+            : (result.error || "Could not execute trade on-chain");
           toast({
             title: "Trade Failed",
-            description: result.error || "Could not execute trade on-chain",
+            description: errorMsg,
             variant: "destructive",
           });
         }
