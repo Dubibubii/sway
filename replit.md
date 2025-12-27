@@ -65,13 +65,14 @@ Preferred communication style: Simple, everyday language.
   - No API key required for public endpoints
 
 - **DFlow Pond API**: Solana-native Kalshi trading
-  - Base URL: `https://quote-api.dflow.net` (Trading)
-  - Metadata URL: `https://api.pond.dflow.net` (Market tokens)
+  - Quote API: `https://dev-quote-api.dflow.net` (Dev) / `https://quote-api.dflow.net` (Prod)
+  - Metadata API: `https://dev-prediction-markets-api.dflow.net` (Dev) / `https://prediction-markets-api.dflow.net` (Prod)
+  - Currently using DEV endpoints for testing with real capital
   - Enables trading Kalshi markets on Solana using USDC
   - Flow: Get quote → Sign Solana transaction → Submit to network
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
-  - Optional env var: `DFLOW_API_KEY` (helps with rate limits)
+  - Required env var: `DFLOW_API_KEY` (for production access)
 
 - **Jupiter Aggregator**: SOL to USDC swaps
   - Quote API: `https://quote-api.jup.ag/v6/quote`
