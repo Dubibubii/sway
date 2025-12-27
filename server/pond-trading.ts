@@ -1,6 +1,11 @@
-// DFlow Development API endpoints for real trading
-const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://dev-quote-api.dflow.net';
-const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://dev-prediction-markets-api.dflow.net';
+// DFlow Production API endpoints for real trading
+const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://quote-api.dflow.net';
+const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://prediction-markets-api.dflow.net';
+
+// Cache for available DFlow market tickers
+let dflowMarketCache: Set<string> | null = null;
+let dflowMarketCacheTime: number = 0;
+const DFLOW_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export interface PondQuote {
   inputMint: string;
@@ -116,6 +121,86 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
     console.error('[Pond] Error fetching market tokens:', error);
     return null;
   }
+}
+
+// Fetch all available markets from DFlow and cache them
+export async function getAvailableDflowMarkets(): Promise<Set<string>> {
+  const now = Date.now();
+  
+  // Return cached data if still valid
+  if (dflowMarketCache && (now - dflowMarketCacheTime) < DFLOW_CACHE_TTL) {
+    return dflowMarketCache;
+  }
+  
+  console.log('[Pond] Fetching all available DFlow markets...');
+  const marketTickers = new Set<string>();
+  
+  try {
+    // Fetch events with nested markets - get all available markets
+    const response = await fetch(
+      `${POND_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=200`,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    
+    if (!response.ok) {
+      console.error('[Pond] Failed to fetch DFlow markets:', response.status);
+      // Return existing cache or empty set
+      return dflowMarketCache || new Set();
+    }
+    
+    const data = await response.json();
+    const events = data.events || [];
+    
+    // Extract all market tickers
+    for (const event of events) {
+      if (event.markets && Array.isArray(event.markets)) {
+        for (const market of event.markets) {
+          if (market.ticker) {
+            marketTickers.add(market.ticker);
+          }
+        }
+      }
+    }
+    
+    // Also try direct markets endpoint for additional markets
+    try {
+      const marketsResponse = await fetch(
+        `${POND_METADATA_API}/api/v1/markets?status=active&limit=500`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      
+      if (marketsResponse.ok) {
+        const marketsData = await marketsResponse.json();
+        const markets = marketsData.markets || marketsData || [];
+        if (Array.isArray(markets)) {
+          for (const market of markets) {
+            if (market.ticker) {
+              marketTickers.add(market.ticker);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore secondary endpoint errors
+    }
+    
+    console.log(`[Pond] Found ${marketTickers.size} available markets on DFlow`);
+    
+    // Update cache
+    dflowMarketCache = marketTickers;
+    dflowMarketCacheTime = now;
+    
+    return marketTickers;
+  } catch (error) {
+    console.error('[Pond] Error fetching DFlow markets:', error);
+    return dflowMarketCache || new Set();
+  }
+}
+
+// Check if a specific market is available on DFlow
+export async function isMarketAvailableOnDflow(marketId: string): Promise<boolean> {
+  const availableMarkets = await getAvailableDflowMarkets();
+  return availableMarkets.has(marketId);
 }
 
 export async function getOrderStatus(signature: string, apiKey?: string): Promise<any> {

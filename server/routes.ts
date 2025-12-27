@@ -6,7 +6,7 @@ import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
-import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, SOLANA_TOKENS } from "./pond-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, SOLANA_TOKENS } from "./pond-trading";
 import fetch from "node-fetch";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
@@ -69,6 +69,14 @@ export async function registerRoutes(
       // Get up to 10,000 markets from cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
+      // Get available DFlow markets and filter to only tradeable ones
+      const dflowMarkets = await getAvailableDflowMarkets();
+      if (dflowMarkets.size > 0) {
+        const beforeFilter = markets.length;
+        markets = markets.filter(m => dflowMarkets.has(m.id));
+        console.log(`Filtered markets: ${beforeFilter} -> ${markets.length} (DFlow has ${dflowMarkets.size} markets)`);
+      }
+      
       // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation)
       // DO NOT re-sort after this - diversification already produces the optimal display order
       markets = diversifyMarketFeed(markets);
@@ -106,7 +114,13 @@ export async function registerRoutes(
         return res.json({ markets: [] });
       }
       
-      const matchingMarkets = await searchAllMarkets(query);
+      let matchingMarkets = await searchAllMarkets(query);
+      
+      // Filter to only DFlow-available markets
+      const dflowMarkets = await getAvailableDflowMarkets();
+      if (dflowMarkets.size > 0) {
+        matchingMarkets = matchingMarkets.filter(m => dflowMarkets.has(m.id));
+      }
       
       // Return all matching markets for comprehensive search
       res.json({ markets: matchingMarkets });
