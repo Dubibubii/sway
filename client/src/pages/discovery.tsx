@@ -3,12 +3,17 @@ import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, type Market, type PriceHistory } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, createTrade, type Market, type PriceHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
 import { useDebounce } from "@/hooks/use-debounce";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { usePondTrading } from "@/hooks/use-pond-trading";
+import { useSolanaBalance } from "@/hooks/use-solana-balance";
+import { usePrivySafe } from "@/hooks/use-privy-safe";
+import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -16,12 +21,86 @@ export default function Discovery() {
   usePageView('discovery');
   const trackMarketView = useMarketView();
   const trackBet = useBetPlaced();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { settings } = useSettings();
+  const { authenticated, embeddedWallet } = usePrivySafe();
+  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { placeTrade: placePondTrade, isTrading } = usePondTrading();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+  
+  // Handle trade execution from discovery modal
+  const handleTrade = async (
+    marketId: string, 
+    side: 'yes' | 'no', 
+    amount: number, 
+    marketTitle: string, 
+    marketCategory: string | undefined,
+    price: number
+  ) => {
+    if (!authenticated || !settings.connected) {
+      toast({ title: 'Not Connected', description: 'Please connect your wallet first', variant: 'destructive' });
+      return;
+    }
+    
+    // Check balance
+    if (usdcBalance !== undefined && usdcBalance < amount) {
+      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`, variant: 'destructive' });
+      return;
+    }
+    
+    // Execute trade
+    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address);
+    
+    if (result.success) {
+      // Record trade in database
+      if (settings.privyId) {
+        try {
+          await createTrade(settings.privyId, {
+            marketId,
+            marketTitle,
+            marketCategory: marketCategory || null,
+            direction: side.toUpperCase() as 'YES' | 'NO',
+            wagerAmount: amount,
+            price,
+            actualShares: result.actualShares,
+            signature: result.signature,
+            executionMode: result.executionMode,
+          });
+        } catch (err) {
+          console.error('[Discovery] Failed to record trade:', err);
+        }
+      }
+      
+      // Track analytics
+      trackBet(marketId, marketTitle, amount);
+      
+      // Refresh data
+      setTimeout(() => {
+        refetchBalance();
+        queryClient.invalidateQueries({ queryKey: ['positions'] });
+        queryClient.invalidateQueries({ queryKey: ['trades'] });
+      }, 2000);
+      
+      // Show success and close modal
+      toast({
+        title: 'Trade Executed!',
+        description: `Bet $${amount} on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢`,
+      });
+      setSelectedMarket(null);
+    } else {
+      // Handle errors
+      const errorMsg = result.error?.includes('zero_out_amount') 
+        ? 'Trade amount too small. Please increase to at least $0.50'
+        : (result.error || 'Trade failed');
+      toast({ title: 'Trade Failed', description: errorMsg, variant: 'destructive' });
+    }
+  };
 
   const { data: marketsData, isLoading } = useQuery<{ markets: Market[] }>({
     queryKey: ['/api/markets'],
@@ -183,7 +262,9 @@ export default function Discovery() {
         {selectedMarket && (
           <MarketDetailModal 
             market={selectedMarket} 
-            onClose={() => setSelectedMarket(null)} 
+            onClose={() => setSelectedMarket(null)}
+            onTrade={handleTrade}
+            isTrading={isTrading}
           />
         )}
       </AnimatePresence>
@@ -322,10 +403,17 @@ function PriceDisplay({ yesPrice }: { yesPrice: number }) {
   );
 }
 
-function MarketDetailModal({ market, onClose }: { market: Market; onClose: () => void }) {
+interface MarketDetailModalProps {
+  market: Market;
+  onClose: () => void;
+  onTrade: (marketId: string, side: 'yes' | 'no', amount: number, marketTitle: string, marketCategory: string | undefined, price: number) => Promise<void>;
+  isTrading: boolean;
+}
+
+function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetailModalProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string>(market.id);
   const [betDirection, setBetDirection] = useState<'YES' | 'NO'>('YES');
-  const [betAmount, setBetAmount] = useState(5);
+  const [betAmount, setBetAmount] = useState(1);
   const [isCustomAmount, setIsCustomAmount] = useState(false);
   const [customAmountText, setCustomAmountText] = useState('');
   const [showResolutionInfo, setShowResolutionInfo] = useState(false);
@@ -362,6 +450,18 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
   const handleSelectOption = (marketId: string, direction: 'YES' | 'NO') => {
     setSelectedMarketId(marketId);
     setBetDirection(direction);
+  };
+
+  const handlePlaceBet = async () => {
+    const side = betDirection.toLowerCase() as 'yes' | 'no';
+    await onTrade(
+      selectedMarket.id,
+      side,
+      betAmount,
+      selectedMarket.title,
+      selectedMarket.category,
+      price
+    );
   };
 
   return (
@@ -554,13 +654,22 @@ function MarketDetailModal({ market, onClose }: { market: Market; onClose: () =>
 
                 <Button 
                   data-testid="button-place-bet"
+                  onClick={handlePlaceBet}
+                  disabled={isTrading}
                   className={`w-full py-6 text-lg font-semibold rounded-xl ${
                     betDirection === 'YES' 
                       ? 'bg-[#1ED78B] hover:bg-[#19B878]' 
                       : 'bg-rose-500 hover:bg-rose-600'
                   }`}
                 >
-                  Bet ${betAmount} on {betDirection}
+                  {isTrading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Placing Trade...
+                    </span>
+                  ) : (
+                    `Bet $${betAmount} on ${betDirection}`
+                  )}
                 </Button>
               </div>
 
