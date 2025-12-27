@@ -207,12 +207,12 @@ export default function Activity() {
     }
   };
 
-  const handleClosePosition = async () => {
+  const handleClosePosition = async (overrideShares?: number) => {
     if (!selectedPosition) return;
     
     setIsProcessing(true);
     try {
-      const shares = parseFloat(selectedPosition.shares);
+      const shares = overrideShares || parseFloat(selectedPosition.shares);
       const costBasis = selectedPosition.wagerAmount / 100; // Convert cents to dollars
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       
@@ -231,6 +231,24 @@ export default function Activity() {
       if (!result.success) {
         const errorMsg = result.error || 'Sell failed';
         console.error('[Activity] Sell error:', errorMsg);
+        
+        // Check if this is a partial fill situation where we can sell available tokens
+        if (errorMsg.includes('only have') && errorMsg.includes('tokens available')) {
+          // Extract the available amount from the error message
+          const match = errorMsg.match(/only have ([\d.]+) tokens/);
+          if (match) {
+            const availableTokens = parseFloat(match[1]);
+            toast({ 
+              title: 'Partial Fill Detected', 
+              description: `Selling ${availableTokens.toFixed(2)} available tokens instead of ${shares}`,
+              variant: 'default'
+            });
+            // Retry with the available amount
+            setIsProcessing(false);
+            return handleClosePosition(availableTokens);
+          }
+        }
+        
         toast({ title: 'Sell Failed', description: errorMsg, variant: 'destructive' });
         setCloseModalOpen(false);
         setIsProcessing(false);
@@ -392,7 +410,7 @@ export default function Activity() {
               </Button>
               <Button
                 className="flex-1 bg-rose-500 hover:bg-rose-600"
-                onClick={handleClosePosition}
+                onClick={() => handleClosePosition()}
                 disabled={isProcessing}
                 data-testid="button-confirm-sell"
               >

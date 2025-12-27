@@ -662,9 +662,20 @@ export async function registerRoutes(
         
         if (tokenBalance < shares) {
           console.log('[Pond Sell] Insufficient token balance! User has', tokenBalance, 'but trying to sell', shares);
+          // If user has SOME tokens, allow selling what they have
+          if (tokenBalance > 0.01) {
+            console.log('[Pond Sell] Adjusting sell amount to available balance:', tokenBalance);
+            return res.status(400).json({ 
+              error: `You only have ${tokenBalance.toFixed(2)} tokens available. Your async trade may have partially filled.`,
+              tokenBalance,
+              requiredBalance: shares,
+              canSellAmount: tokenBalance,
+              partialFill: true
+            });
+          }
           return res.status(400).json({ 
-            error: `Insufficient tokens. You have ${tokenBalance.toFixed(2)} tokens but trying to sell ${shares}. DFlow async trades may still be settling - please wait a few minutes and try again.`,
-            tokenBalance,
+            error: `No tokens found in wallet. Your trade may still be processing - check order status.`,
+            tokenBalance: 0,
             requiredBalance: shares
           });
         }
