@@ -197,14 +197,31 @@ export function usePondTrading() {
           wallet: wallet,
         });
       } catch (signError: any) {
-        const errorMsg = signError?.message || String(signError);
-        console.error('[PondTrading] Transaction signing/sending error:', errorMsg);
+        // Extract error message from various Privy error formats
+        const errorMsg = signError?.message 
+          || signError?.error?.message 
+          || signError?.error 
+          || signError?.details
+          || (typeof signError === 'object' ? JSON.stringify(signError) : String(signError));
         
-        // Check for common simulation failures
-        if (errorMsg.toLowerCase().includes('simulation') || errorMsg.toLowerCase().includes('insufficient')) {
-          throw new Error('Transaction failed - you may need more SOL for gas fees. Try depositing 0.01 SOL.');
+        console.error('[PondTrading] Transaction error details:', signError);
+        console.error('[PondTrading] Extracted error message:', errorMsg);
+        
+        // Check for specific error types
+        if (errorMsg.includes('0x1')) {
+          throw new Error('Transaction failed - insufficient balance or token account issue.');
         }
-        throw signError;
+        if (errorMsg.toLowerCase().includes('insufficient') || errorMsg.toLowerCase().includes('lamports')) {
+          throw new Error('Not enough SOL for transaction fees. Please deposit more SOL.');
+        }
+        if (errorMsg.toLowerCase().includes('simulation')) {
+          throw new Error(`Transaction simulation failed: ${errorMsg.slice(0, 100)}`);
+        }
+        if (errorMsg.toLowerCase().includes('blockhash')) {
+          throw new Error('Transaction expired. Please try again.');
+        }
+        // Show the actual error for debugging
+        throw new Error(`Trade failed: ${errorMsg.slice(0, 150)}`);
       }
 
       const signature = typeof result === 'string' 
@@ -327,14 +344,32 @@ export function usePondTrading() {
           wallet: tradingWallet,
         });
       } catch (signError: any) {
-        const errorMsg = signError?.message || String(signError);
-        console.error('[PondTrading] Sell transaction signing/sending error:', errorMsg);
+        // Extract error message from various Privy error formats
+        const errorMsg = signError?.message 
+          || signError?.error?.message 
+          || signError?.error 
+          || signError?.details
+          || (typeof signError === 'object' ? JSON.stringify(signError) : String(signError));
         
-        // Check for common simulation failures
-        if (errorMsg.toLowerCase().includes('simulation') || errorMsg.toLowerCase().includes('insufficient')) {
-          throw new Error('Transaction failed - you may need more SOL for gas fees. Try depositing 0.01 SOL.');
+        console.error('[PondTrading] Sell transaction error details:', signError);
+        console.error('[PondTrading] Extracted error message:', errorMsg);
+        
+        // Check for specific error types
+        if (errorMsg.includes('0x1')) {
+          // Solana error 0x1 = insufficient funds or missing tokens
+          throw new Error('Cannot sell - tokens may not be in your wallet yet. DFlow async trades take time to settle.');
         }
-        throw signError;
+        if (errorMsg.toLowerCase().includes('insufficient') || errorMsg.toLowerCase().includes('lamports')) {
+          throw new Error('Not enough SOL for transaction fees. Please deposit more SOL.');
+        }
+        if (errorMsg.toLowerCase().includes('simulation')) {
+          throw new Error(`Transaction simulation failed: ${errorMsg.slice(0, 100)}`);
+        }
+        if (errorMsg.toLowerCase().includes('blockhash')) {
+          throw new Error('Transaction expired. Please try again.');
+        }
+        // Show the actual error for debugging
+        throw new Error(`Sell failed: ${errorMsg.slice(0, 150)}`);
       }
 
       const signature = typeof result === 'string' 
