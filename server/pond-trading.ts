@@ -133,59 +133,97 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
     return dflowMarketCache;
   }
   
-  console.log('[Pond] Fetching all available DFlow markets...');
+  console.log('[Pond] Fetching all available DFlow markets with pagination...');
   const marketTickers = new Set<string>();
   
   try {
-    // Fetch events with nested markets - get all available markets
-    const response = await fetch(
-      `${POND_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=200`,
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    // Fetch events with nested markets - paginate to get ALL available markets
+    let offset = 0;
+    const pageSize = 500;
+    let hasMore = true;
     
-    if (!response.ok) {
-      console.error('[Pond] Failed to fetch DFlow markets:', response.status);
-      // Return existing cache or empty set
-      return dflowMarketCache || new Set();
-    }
-    
-    const data = await response.json();
-    const events = data.events || [];
-    
-    // Extract all market tickers
-    for (const event of events) {
-      if (event.markets && Array.isArray(event.markets)) {
-        for (const market of event.markets) {
-          if (market.ticker) {
-            marketTickers.add(market.ticker);
-          }
-        }
-      }
-    }
-    
-    // Also try direct markets endpoint for additional markets
-    try {
-      const marketsResponse = await fetch(
-        `${POND_METADATA_API}/api/v1/markets?status=active&limit=500`,
+    while (hasMore) {
+      const response = await fetch(
+        `${POND_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=${pageSize}&offset=${offset}`,
         { headers: { 'Content-Type': 'application/json' } }
       );
       
-      if (marketsResponse.ok) {
-        const marketsData = await marketsResponse.json();
-        const markets = marketsData.markets || marketsData || [];
-        if (Array.isArray(markets)) {
-          for (const market of markets) {
+      if (!response.ok) {
+        console.error('[Pond] Failed to fetch DFlow events:', response.status);
+        break;
+      }
+      
+      const data = await response.json();
+      const events = data.events || [];
+      
+      // Extract all market tickers
+      for (const event of events) {
+        if (event.markets && Array.isArray(event.markets)) {
+          for (const market of event.markets) {
             if (market.ticker) {
               marketTickers.add(market.ticker);
             }
           }
         }
       }
-    } catch (err) {
-      // Ignore secondary endpoint errors
+      
+      // Check if we should fetch more
+      if (events.length < pageSize) {
+        hasMore = false;
+      } else {
+        offset += pageSize;
+        // Safety limit to prevent infinite loops
+        if (offset > 10000) {
+          hasMore = false;
+        }
+      }
     }
     
-    console.log(`[Pond] Found ${marketTickers.size} available markets on DFlow`);
+    console.log(`[Pond] Found ${marketTickers.size} markets from events endpoint`);
+    
+    // Also fetch from direct markets endpoint with pagination
+    offset = 0;
+    hasMore = true;
+    
+    while (hasMore) {
+      try {
+        const marketsResponse = await fetch(
+          `${POND_METADATA_API}/api/v1/markets?status=active&limit=${pageSize}&offset=${offset}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        
+        if (marketsResponse.ok) {
+          const marketsData = await marketsResponse.json();
+          const markets = marketsData.markets || marketsData || [];
+          if (Array.isArray(markets)) {
+            for (const market of markets) {
+              if (market.ticker) {
+                marketTickers.add(market.ticker);
+              }
+            }
+            
+            // Check if we should fetch more
+            if (markets.length < pageSize) {
+              hasMore = false;
+            } else {
+              offset += pageSize;
+              // Safety limit
+              if (offset > 10000) {
+                hasMore = false;
+              }
+            }
+          } else {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      } catch (err) {
+        hasMore = false;
+      }
+    }
+    
+    console.log(`[Pond] Found ${marketTickers.size} total available markets on DFlow`);
     
     // Update cache
     dflowMarketCache = marketTickers;

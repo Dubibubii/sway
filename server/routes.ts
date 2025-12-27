@@ -81,8 +81,8 @@ export async function registerRoutes(
       // DO NOT re-sort after this - diversification already produces the optimal display order
       markets = diversifyMarketFeed(markets);
       
-      // Return up to 400 diverse markets for discovery page
-      const displayMarkets = markets.slice(0, 400);
+      // Return up to 2000 diverse markets for discovery page (increased from 400 to show more per category)
+      const displayMarkets = markets.slice(0, 2000);
       
       const uniqueCategories = Array.from(new Set(displayMarkets.map(m => m.category)));
       console.log('Markets: Total', displayMarkets.length, '- Categories:', uniqueCategories.join(', '));
