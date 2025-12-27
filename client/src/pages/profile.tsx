@@ -211,16 +211,17 @@ function ProfileContent() {
                   <Loader2 size={14} className="animate-spin" /> Converting SOL to USDC...
                 </div>
               )}
-              {activeWalletAddress && solBalance > 0.01 && !isSwapping && (
+              {activeWalletAddress && solBalance > 0.02 && !isSwapping && (
                 <div className="mt-4">
                   <Button
                     size="sm"
                     onClick={() => {
                       console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
+                      const gasReserve = solBalance < 0.1 ? 0.015 : solBalance < 0.5 ? 0.03 : 0.05;
                       checkAndAutoSwap(
                         solBalance,
                         activeWalletAddress,
-                        () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - 0.008).toFixed(4)} SOL` }),
+                        () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - gasReserve).toFixed(4)} SOL (keeping ${gasReserve} for gas)` }),
                         (result) => {
                           if (result.success) {
                             toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });

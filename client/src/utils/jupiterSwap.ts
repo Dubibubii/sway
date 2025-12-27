@@ -3,16 +3,24 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
-// Reserve more SOL for gas + rent (USDC account creation costs ~0.002 SOL)
-export const GAS_RESERVE_MICRO = 0.008;
-export const GAS_RESERVE_STANDARD = 0.025;
+// Reserve SOL for gas + rent (token account creation costs ~0.002-0.003 SOL each)
+// Minimum 0.015 SOL to ensure enough for multiple transactions
+export const GAS_RESERVE_MICRO = 0.015;    // For deposits < 0.1 SOL
+export const GAS_RESERVE_STANDARD = 0.03;  // For deposits 0.1-0.5 SOL
+export const GAS_RESERVE_LARGE = 0.05;     // For deposits > 0.5 SOL
 export const MICRO_DEPOSIT_THRESHOLD = 0.1;
+export const LARGE_DEPOSIT_THRESHOLD = 0.5;
 
 export function getDynamicGasReserve(solBalance: number): number {
+  // Always reserve at least 0.015 SOL for gas fees
   if (solBalance < MICRO_DEPOSIT_THRESHOLD) {
     return GAS_RESERVE_MICRO;
   }
-  return GAS_RESERVE_STANDARD;
+  if (solBalance < LARGE_DEPOSIT_THRESHOLD) {
+    return GAS_RESERVE_STANDARD;
+  }
+  // For large deposits, reserve more for multiple trades
+  return GAS_RESERVE_LARGE;
 }
 
 export const MIN_GAS_SOL = 0.004;
