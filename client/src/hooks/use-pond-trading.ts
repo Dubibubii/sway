@@ -320,10 +320,22 @@ export function usePondTrading() {
       
       const transactionBytes = base64ToUint8Array(transaction);
 
-      const result = await signAndSendTransaction({
-        transaction: transactionBytes,
-        wallet: tradingWallet,
-      });
+      let result;
+      try {
+        result = await signAndSendTransaction({
+          transaction: transactionBytes,
+          wallet: tradingWallet,
+        });
+      } catch (signError: any) {
+        const errorMsg = signError?.message || String(signError);
+        console.error('[PondTrading] Sell transaction signing/sending error:', errorMsg);
+        
+        // Check for common simulation failures
+        if (errorMsg.toLowerCase().includes('simulation') || errorMsg.toLowerCase().includes('insufficient')) {
+          throw new Error('Transaction failed - you may need more SOL for gas fees. Try depositing 0.01 SOL.');
+        }
+        throw signError;
+      }
 
       const signature = typeof result === 'string' 
         ? result 
