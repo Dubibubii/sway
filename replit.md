@@ -69,6 +69,8 @@ Preferred communication style: Simple, everyday language.
   - Metadata URL: `https://api.pond.dflow.net` (Market tokens)
   - Enables trading Kalshi markets on Solana using USDC
   - Flow: Get quote → Sign Solana transaction → Submit to network
+  - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
+  - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
   - Optional env var: `DFLOW_API_KEY` (helps with rate limits)
 
 - **Jupiter Aggregator**: SOL to USDC swaps

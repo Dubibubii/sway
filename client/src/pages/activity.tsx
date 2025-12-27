@@ -43,7 +43,7 @@ export default function Activity() {
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
   const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
-  const { placeTrade: placePondTrade, sellPosition, isTrading: isPondTrading } = usePondTrading();
+  const { placeTrade: placePondTrade, sellPosition, redeemPosition, checkRedemption, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -212,7 +212,7 @@ export default function Activity() {
     }
   };
 
-  const handleClosePosition = async (overrideShares?: number) => {
+  const handleClosePosition = async (overrideShares?: number, outcomeMint?: string) => {
     if (!selectedPosition) return;
     
     setIsProcessing(true);
@@ -221,35 +221,68 @@ export default function Activity() {
       const costBasis = selectedPosition.wagerAmount / 100; // Convert cents to dollars
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       
-      console.log('[Activity] Starting close position (sell):', selectedPosition.marketId, side, shares);
+      console.log('[Activity] Starting close position:', selectedPosition.marketId, side, shares);
       
-      // Execute on-chain sell via Pond/DFlow
-      const result = await sellPosition(
-        selectedPosition.marketId,
-        side,
-        shares,
-        embeddedWallet?.address
-      );
+      // First, get the outcome mint for this position to check redemption
+      let positionOutcomeMint = outcomeMint;
+      if (!positionOutcomeMint) {
+        const token = await getAccessToken();
+        const tokenRes = await fetch(`/api/pond/market/${selectedPosition.marketId}/tokens`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          positionOutcomeMint = side === 'yes' ? tokenData.yesMint : tokenData.noMint;
+        }
+      }
       
-      console.log('[Activity] Sell result:', result);
+      // Check if this is a settled market that can be redeemed
+      let isRedemption = false;
+      if (positionOutcomeMint) {
+        const redemptionStatus = await checkRedemption(positionOutcomeMint);
+        console.log('[Activity] Redemption status:', redemptionStatus);
+        
+        if (redemptionStatus.isRedeemable) {
+          isRedemption = true;
+          console.log('[Activity] Market is settled - using redemption flow');
+        }
+      }
+      
+      let result;
+      if (isRedemption && positionOutcomeMint) {
+        // Use redemption for settled markets
+        result = await redeemPosition(
+          positionOutcomeMint,
+          shares,
+          embeddedWallet?.address
+        );
+        console.log('[Activity] Redemption result:', result);
+      } else {
+        // Use regular sell for active markets
+        result = await sellPosition(
+          selectedPosition.marketId,
+          side,
+          shares,
+          embeddedWallet?.address
+        );
+        console.log('[Activity] Sell result:', result);
+      }
       
       if (!result.success) {
-        const errorMsg = result.error || 'Sell failed';
-        console.error('[Activity] Sell error:', errorMsg);
+        const errorMsg = result.error || 'Close failed';
+        console.error('[Activity] Close error:', errorMsg);
         
         // Check if this is a partial fill situation where we can sell available tokens
         if (errorMsg.includes('only have') && errorMsg.includes('tokens available')) {
-          // Extract the available amount from the error message
           const match = errorMsg.match(/only have ([\d.]+) tokens/);
           if (match) {
             const availableTokens = parseFloat(match[1]);
-            // Silently retry with the available amount - no confusing notification
             setIsProcessing(false);
-            return handleClosePosition(availableTokens);
+            return handleClosePosition(availableTokens, positionOutcomeMint);
           }
         }
         
-        toast({ title: 'Sell Failed', description: errorMsg, variant: 'destructive' });
+        toast({ title: isRedemption ? 'Redeem Failed' : 'Sell Failed', description: errorMsg, variant: 'destructive' });
         setCloseModalOpen(false);
         setIsProcessing(false);
         return;
@@ -260,7 +293,7 @@ export default function Activity() {
       const pnl = usdcReceived - costBasis;
       const pnlPercent = costBasis > 0 ? ((pnl / costBasis) * 100) : 0;
       
-      console.log('[Activity] Position sold! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent);
+      console.log('[Activity] Position closed! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent);
       
       // Update the database
       const token = await getAccessToken();
@@ -277,17 +310,18 @@ export default function Activity() {
       });
 
       if (!res.ok) {
-        console.error('[Activity] Failed to update database after sell');
+        console.error('[Activity] Failed to update database after close');
       }
 
       // SUCCESS - Close modal and show success
       setCloseModalOpen(false);
       setIsProcessing(false);
       
-      // Format: "Sold for $X.XX (+Y%)" - always positive since sale succeeded
+      // Format message based on whether it was a redemption or sale
       const pnlSign = pnl >= 0 ? '+' : '';
+      const action = isRedemption ? 'Redeemed' : 'Sold';
       toast({ 
-        title: `Sold for $${usdcReceived.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`, 
+        title: `${action} for $${usdcReceived.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`, 
         description: 'Position closed successfully',
         variant: 'default'
       });

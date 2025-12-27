@@ -6,7 +6,7 @@ import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
-import { getPondQuote, getMarketTokens, getOrderStatus, SOLANA_TOKENS } from "./pond-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, SOLANA_TOKENS } from "./pond-trading";
 import fetch from "node-fetch";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
@@ -608,6 +608,56 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('Error getting order status:', error);
       res.status(500).json({ error: error.message || 'Failed to get order status' });
+    }
+  });
+
+  // Check if a market position can be redeemed (market settled)
+  app.get('/api/pond/redemption-status/:outcomeMint', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { outcomeMint } = req.params;
+      const status = await checkRedemptionStatus(outcomeMint);
+      res.json(status);
+    } catch (error: any) {
+      console.error('Error checking redemption status:', error);
+      res.status(500).json({ error: error.message || 'Failed to check redemption status' });
+    }
+  });
+
+  // Redeem endpoint - redeems winning outcome tokens from settled markets
+  app.post('/api/pond/redeem', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { outcomeMint, shares, userPublicKey, slippageBps = 100 } = req.body;
+
+      if (!outcomeMint || !shares || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required fields: outcomeMint, shares, userPublicKey' });
+      }
+
+      // Convert shares to atomic units (outcome tokens have 6 decimals)
+      const amountAtomic = Math.floor(shares * 1_000_000);
+
+      console.log('[Pond Redeem] Redeeming tokens:', { outcomeMint, shares, amountAtomic, userPublicKey });
+
+      // For redemption, input is outcome token, output is USDC
+      // Same as sell, but used for settled markets
+      const orderResponse = await getPondQuote(
+        outcomeMint,
+        SOLANA_TOKENS.USDC,
+        amountAtomic,
+        userPublicKey,
+        slippageBps,
+        DFLOW_API_KEY || undefined
+      );
+
+      console.log('[Pond Redeem] Order received, executionMode:', orderResponse.executionMode);
+
+      res.json({
+        transaction: orderResponse.transaction,
+        quote: orderResponse.quote,
+        executionMode: orderResponse.executionMode,
+      });
+    } catch (error: any) {
+      console.error('Error getting redemption order:', error);
+      res.status(500).json({ error: error.message || 'Failed to get redemption order' });
     }
   });
 

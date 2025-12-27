@@ -137,6 +137,118 @@ export async function getOrderStatus(signature: string, apiKey?: string): Promis
   return response.json();
 }
 
+export interface RedemptionStatus {
+  isRedeemable: boolean;
+  marketStatus: string;
+  result: string;
+  redemptionStatus: string;
+  outcomeMint: string;
+  settlementMint: string;
+  scalarOutcomePct?: number;
+  marketTitle?: string;
+}
+
+export async function checkRedemptionStatus(
+  outcomeMint: string
+): Promise<RedemptionStatus> {
+  const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  
+  try {
+    const url = `${POND_METADATA_API}/api/v1/market/by-mint/${outcomeMint}`;
+    console.log('[Pond] Checking redemption status:', url);
+    
+    const response = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      console.error('[Pond] Failed to check redemption status:', response.status);
+      return {
+        isRedeemable: false,
+        marketStatus: 'unknown',
+        result: '',
+        redemptionStatus: 'unknown',
+        outcomeMint,
+        settlementMint: USDC_MINT,
+      };
+    }
+    
+    const market = await response.json();
+    console.log('[Pond] Market status:', market.status, 'Result:', market.result);
+    
+    // Check if market is determined or finalized
+    if (market.status !== 'determined' && market.status !== 'finalized') {
+      return {
+        isRedeemable: false,
+        marketStatus: market.status || 'active',
+        result: market.result || '',
+        redemptionStatus: 'not_settled',
+        outcomeMint,
+        settlementMint: USDC_MINT,
+        marketTitle: market.title,
+      };
+    }
+    
+    // Check USDC account for redemption status
+    const accounts = market.accounts || {};
+    const usdcAccount = accounts[USDC_MINT];
+    
+    if (!usdcAccount) {
+      return {
+        isRedeemable: false,
+        marketStatus: market.status,
+        result: market.result || '',
+        redemptionStatus: 'no_usdc_account',
+        outcomeMint,
+        settlementMint: USDC_MINT,
+        marketTitle: market.title,
+      };
+    }
+    
+    const result = market.result; // "yes", "no", or "" for scalar
+    let isRedeemable = false;
+    
+    if (usdcAccount.redemptionStatus === 'open') {
+      // Case 1: Standard determined outcome (result is "yes" or "no")
+      if (result === 'yes' || result === 'no') {
+        if ((result === 'yes' && usdcAccount.yesMint === outcomeMint) ||
+            (result === 'no' && usdcAccount.noMint === outcomeMint)) {
+          isRedeemable = true;
+        }
+      }
+      // Case 2: Scalar outcome (result is empty, use scalarOutcomePct)
+      else if (result === '' && usdcAccount.scalarOutcomePct !== null && usdcAccount.scalarOutcomePct !== undefined) {
+        if (usdcAccount.yesMint === outcomeMint || usdcAccount.noMint === outcomeMint) {
+          isRedeemable = true;
+        }
+      }
+    }
+    
+    console.log('[Pond] Redemption check result:', { isRedeemable, result, redemptionStatus: usdcAccount.redemptionStatus });
+    
+    return {
+      isRedeemable,
+      marketStatus: market.status,
+      result: result || '',
+      redemptionStatus: usdcAccount.redemptionStatus || 'unknown',
+      outcomeMint,
+      settlementMint: USDC_MINT,
+      scalarOutcomePct: usdcAccount.scalarOutcomePct,
+      marketTitle: market.title,
+    };
+  } catch (error) {
+    console.error('[Pond] Error checking redemption status:', error);
+    return {
+      isRedeemable: false,
+      marketStatus: 'error',
+      result: '',
+      redemptionStatus: 'error',
+      outcomeMint,
+      settlementMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    };
+  }
+}
+
 export const SOLANA_TOKENS = {
   SOL: 'So11111111111111111111111111111111111111112',
   USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',

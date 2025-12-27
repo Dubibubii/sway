@@ -484,9 +484,163 @@ export function usePondTrading() {
     }
   }, [getAccessToken, wallets, signAndSendTransaction]);
 
+  // Redeem winning tokens from settled markets
+  const redeemPosition = useCallback(async (
+    outcomeMint: string,
+    shares: number,
+    embeddedWalletAddress?: string
+  ): Promise<PondTradeResult> => {
+    setIsTrading(true);
+    setError(null);
+
+    try {
+      console.log('[PondTrading] ========== REDEEMING POSITION ==========');
+      console.log('[PondTrading] Outcome mint:', outcomeMint);
+      console.log('[PondTrading] Shares to redeem:', shares);
+      
+      // Find embedded wallet
+      let embeddedWallet = embeddedWalletAddress 
+        ? wallets.find((w: any) => w.address === embeddedWalletAddress)
+        : null;
+        
+      if (!embeddedWallet) {
+        embeddedWallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || w.connectorType === 'embedded'
+        );
+      }
+      
+      if (!embeddedWallet && wallets.length > 0) {
+        embeddedWallet = wallets[0];
+      }
+      
+      if (!embeddedWallet) {
+        throw new Error('No embedded wallet found. Please log in to redeem your position.');
+      }
+
+      const tradingWallet = embeddedWallet;
+      const userPublicKey = tradingWallet.address;
+      
+      console.log('[PondTrading] User wallet:', userPublicKey);
+
+      const token = await getAccessToken();
+
+      // Call the redeem endpoint
+      const redeemResponse = await fetch('/api/pond/redeem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          outcomeMint,
+          shares,
+          userPublicKey,
+          slippageBps: 100, // Lower slippage for redemption
+        }),
+      });
+
+      console.log('[PondTrading] Redeem response status:', redeemResponse.status);
+
+      if (!redeemResponse.ok) {
+        const errorText = await redeemResponse.text();
+        console.error('[PondTrading] Redeem failed:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Server error: ${redeemResponse.status} - ${errorText}`);
+        }
+        throw new Error(errorData.error || 'Failed to get redemption order');
+      }
+
+      const orderData = await redeemResponse.json();
+      const expectedUSDC = orderData.quote?.outAmount 
+        ? parseInt(orderData.quote.outAmount) / 1_000_000 
+        : shares; // Each winning token redeems for $1
+      
+      console.log('[PondTrading] Redeem order received, expected USDC:', expectedUSDC);
+      
+      const { transaction, executionMode } = orderData;
+
+      if (!transaction) {
+        throw new Error('No transaction returned for redemption');
+      }
+
+      console.log('[PondTrading] Signing redemption transaction...');
+      
+      const transactionBytes = base64ToUint8Array(transaction);
+
+      let result;
+      try {
+        result = await signAndSendTransaction({
+          transaction: transactionBytes,
+          wallet: tradingWallet,
+        });
+      } catch (signError: any) {
+        const errorMsg = signError?.message 
+          || signError?.error?.message 
+          || signError?.error 
+          || signError?.details
+          || (typeof signError === 'object' ? JSON.stringify(signError) : String(signError));
+        
+        console.error('[PondTrading] Redemption transaction error:', errorMsg);
+        throw new Error(`Redemption failed: ${errorMsg.slice(0, 150)}`);
+      }
+
+      const signature = typeof result === 'string' 
+        ? result 
+        : (result as any).signature || (result as any).hash || String(result);
+
+      console.log('[PondTrading] Position redeemed! Signature:', signature);
+      console.log('[PondTrading] USDC received:', expectedUSDC);
+      
+      setIsTrading(false);
+      return {
+        success: true,
+        signature,
+        executionMode,
+        expectedUSDC,
+      };
+    } catch (err: any) {
+      console.error('[PondTrading] Redemption failed:', err);
+      const errorMessage = err.message || 'Redemption failed';
+      setError(errorMessage);
+      setIsTrading(false);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }, [getAccessToken, wallets, signAndSendTransaction]);
+
+  // Check if a position can be redeemed (market settled and won)
+  const checkRedemption = useCallback(async (outcomeMint: string): Promise<{
+    isRedeemable: boolean;
+    marketStatus: string;
+    result: string;
+  }> => {
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(`/api/pond/redemption-status/${outcomeMint}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        return { isRedeemable: false, marketStatus: 'unknown', result: '' };
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[PondTrading] Error checking redemption status:', error);
+      return { isRedeemable: false, marketStatus: 'error', result: '' };
+    }
+  }, [getAccessToken]);
+
   return {
     placeTrade,
     sellPosition,
+    redeemPosition,
+    checkRedemption,
     isTrading,
     error,
   };
