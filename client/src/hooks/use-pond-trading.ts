@@ -169,10 +169,13 @@ export function usePondTrading() {
       }
 
       // Check balance - if insufficient, throw specific error for funding prompt
+      console.log('[PondTrading] Balance check - usdcBalance:', usdcBalance, 'type:', typeof usdcBalance, 'amountUSDC:', amountUSDC);
       if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
+        console.log('[PondTrading] Insufficient funds - throwing INSUFFICIENT_FUNDS error');
         const err = new Error(`INSUFFICIENT_FUNDS:${usdcBalance.toFixed(2)}:${amountUSDC.toFixed(2)}`);
         throw err;
       }
+      console.log('[PondTrading] Balance check passed, proceeding with trade');
       
       const tradingWallet = embeddedWallet;
       const userPublicKey = tradingWallet.address;
@@ -334,8 +337,21 @@ export function usePondTrading() {
         actualShares: actualShares || expectedShares, // Use actual if available, fallback to expected
       };
     } catch (err: any) {
-      console.error('[PondTrading] Trade failed:', err);
-      const errorMessage = err.message || 'Trade failed';
+      // Enhanced error logging for debugging
+      console.error('[PondTrading] Trade failed - raw error:', err);
+      console.error('[PondTrading] Error type:', typeof err);
+      console.error('[PondTrading] Error message:', err?.message);
+      console.error('[PondTrading] Error string:', String(err));
+      
+      // Extract error message from various formats
+      const errorMessage = err?.message 
+        || (typeof err === 'string' ? err : null)
+        || (err?.error?.message)
+        || (err?.details)
+        || String(err) 
+        || 'Trade failed';
+        
+      console.error('[PondTrading] Final error message:', errorMessage);
       setError(errorMessage);
       setIsTrading(false);
       return {
