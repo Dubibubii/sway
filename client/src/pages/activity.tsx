@@ -288,12 +288,25 @@ export default function Activity() {
         return;
       }
       
-      // Calculate PnL based on USDC received
-      const usdcReceived = result.expectedUSDC || 0;
+      // Calculate USDC received - for async orders, API often returns 0
+      // Estimate based on shares sold * entry price when API returns 0
+      let usdcReceived = result.expectedUSDC || 0;
+      let isEstimate = false;
+      
+      // If expectedUSDC is 0 (common for async sells), estimate based on entry price and shares
+      if (usdcReceived === 0 && shares > 0) {
+        // Parse entry price from position (stored as string like "0.32" for 32 cents)
+        const entryPrice = parseFloat(selectedPosition.price) || 0;
+        // Estimate: shares sold * entry price (conservative estimate - actual may differ)
+        usdcReceived = shares * entryPrice;
+        isEstimate = true;
+        console.log('[Activity] API returned 0, estimating USDC received:', usdcReceived, '(shares:', shares, '× price:', entryPrice, ')');
+      }
+      
       const pnl = usdcReceived - costBasis;
       const pnlPercent = costBasis > 0 ? ((pnl / costBasis) * 100) : 0;
       
-      console.log('[Activity] Position closed! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent);
+      console.log('[Activity] Position closed! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent, isEstimate ? '(estimate)' : '');
       
       // Update the database
       const token = await getAccessToken();
@@ -320,9 +333,10 @@ export default function Activity() {
       // Format message based on whether it was a redemption or sale
       const pnlSign = pnl >= 0 ? '+' : '';
       const action = isRedemption ? 'Redeemed' : 'Sold';
+      const estimateNote = isEstimate ? ' (est.)' : '';
       toast({ 
-        title: `${action} for $${usdcReceived.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`, 
-        description: 'Position closed successfully',
+        title: `${action} for ~$${usdcReceived.toFixed(2)}${estimateNote}`, 
+        description: 'Position closed - check wallet for actual amount',
         variant: 'default'
       });
       
