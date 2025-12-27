@@ -323,119 +323,89 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
   );
 }
 
-function PriceChart({ data }: { data: PriceHistory[] }) {
-  if (data.length < 2) {
-    return null;
-  }
+function PriceChart({ data, currentPrice }: { data: PriceHistory[]; currentPrice?: number }) {
+  // Calculate chart data - if we have history, use it. Otherwise create synthetic data for display
+  const hasHistory = data.length >= 2;
   
-  const chartData = data.map((d) => ({
-    time: new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    price: Math.round(d.price * 100),
-  }));
+  const chartData = hasHistory 
+    ? data.map((d) => ({
+        time: new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        price: Math.round(d.price * 100),
+      }))
+    : currentPrice !== undefined 
+      ? [
+          { time: 'Earlier', price: Math.round(currentPrice * 100) },
+          { time: 'Now', price: Math.round(currentPrice * 100) }
+        ]
+      : [];
 
-  const minPrice = Math.max(0, Math.min(...chartData.map(d => d.price)) - 5);
-  const maxPrice = Math.min(100, Math.max(...chartData.map(d => d.price)) + 5);
+  if (chartData.length === 0) return null;
+
+  const prices = chartData.map(d => d.price);
+  const minPrice = Math.max(0, Math.min(...prices) - 10);
+  const maxPrice = Math.min(100, Math.max(...prices) + 10);
+  
+  // Calculate price change
+  const currentPriceVal = chartData[chartData.length - 1].price;
+  const firstPrice = chartData[0].price;
+  const priceChange = currentPriceVal - firstPrice;
+  const isUp = priceChange >= 0;
+  const lineColor = hasHistory ? (isUp ? '#1ED78B' : '#ef4444') : '#1ED78B';
 
   return (
-    <div className="w-full h-full px-4 pt-12">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-          <XAxis 
-            dataKey="time" 
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: '#666', fontSize: 10 }}
-            interval="preserveStartEnd"
-          />
-          <YAxis 
-            domain={[minPrice, maxPrice]}
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: '#666', fontSize: 10 }}
-            tickFormatter={(v) => `${v}%`}
-          />
-          <Tooltip
-            contentStyle={{ 
-              backgroundColor: '#1a1a1a', 
-              border: '1px solid #333',
-              borderRadius: '8px',
-              padding: '8px 12px'
-            }}
-            labelStyle={{ color: '#999', fontSize: 12 }}
-            formatter={(value: number) => [`${value}%`, 'Yes Price']}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="price" 
-            stroke="#1ED78B" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4, fill: '#1ED78B' }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function PriceDisplayWithMiniChart({ yesPrice, volume }: { yesPrice: number; volume?: number }) {
-  const yesPercent = Math.round(yesPrice * 100);
-  
-  // Create a simple visual representation when no history is available
-  // Show a horizontal line at the current price level
-  return (
-    <div className="w-full h-full flex flex-col px-4 pt-10">
+    <div className="w-full h-full flex flex-col px-4 pt-8">
+      {/* Price header like Kalshi */}
       <div className="flex items-baseline gap-2 mb-2">
-        <span className="text-3xl font-bold text-[#1ED78B]">{yesPercent}%</span>
+        <span className="text-3xl font-bold text-[#1ED78B]">{currentPriceVal}%</span>
         <span className="text-sm text-muted-foreground">chance</span>
+        {hasHistory && priceChange !== 0 && (
+          <span className={`text-sm font-medium ${isUp ? 'text-[#1ED78B]' : 'text-red-500'}`}>
+            {isUp ? '▲' : '▼'} {Math.abs(priceChange).toFixed(1)}
+          </span>
+        )}
       </div>
       
-      {/* Mini chart placeholder showing current price level */}
-      <div className="flex-1 relative">
+      {/* Chart */}
+      <div className="flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart 
-            data={[
-              { time: 'now', price: yesPercent }
-            ]} 
-            margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-          >
+          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
             <XAxis 
               dataKey="time" 
-              hide 
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#666', fontSize: 10 }}
+              interval="preserveStartEnd"
             />
             <YAxis 
-              domain={[0, 100]} 
-              hide
+              domain={[minPrice, maxPrice]}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#666', fontSize: 10 }}
+              tickFormatter={(v) => `${v}%`}
+              orientation="right"
+              width={35}
             />
-            {/* Reference line at current price */}
-            <Line
-              type="monotone"
-              dataKey="price"
-              stroke="#1ED78B"
+            <Tooltip
+              contentStyle={{ 
+                backgroundColor: '#1a1a1a', 
+                border: '1px solid #333',
+                borderRadius: '8px',
+                padding: '8px 12px'
+              }}
+              labelStyle={{ color: '#999', fontSize: 12 }}
+              formatter={(value: number) => [`${value}%`, 'Yes Price']}
+            />
+            <Line 
+              type="stepAfter"
+              dataKey="price" 
+              stroke={lineColor}
               strokeWidth={2}
-              dot={{ r: 6, fill: '#1ED78B', strokeWidth: 2, stroke: '#1ED78B' }}
+              dot={false}
+              activeDot={{ r: 4, fill: lineColor }}
             />
           </LineChart>
         </ResponsiveContainer>
-        
-        {/* Price level indicator */}
-        <div 
-          className="absolute right-0 text-xs text-[#1ED78B] font-medium"
-          style={{ top: `${100 - yesPercent}%`, transform: 'translateY(-50%)' }}
-        >
-          {yesPercent}%
-        </div>
-        
-        {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 text-xs text-muted-foreground/50">100%</div>
-        <div className="absolute left-0 bottom-4 text-xs text-muted-foreground/50">0%</div>
       </div>
-      
-      {volume && (
-        <div className="text-xs text-muted-foreground mt-1">
-          ${volume.toLocaleString()} vol
-        </div>
-      )}
     </div>
   );
 }
@@ -528,15 +498,13 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetail
             <X size={20} />
           </button>
 
-          <div className="h-56 bg-zinc-900">
+          <div className="h-52 bg-zinc-900">
             {isLoadingHistory ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            ) : historyData?.history && historyData.history.length >= 2 ? (
-              <PriceChart data={historyData.history} />
             ) : (
-              <PriceDisplayWithMiniChart yesPrice={market.yesPrice} volume={market.volume} />
+              <PriceChart data={historyData?.history || []} currentPrice={market.yesPrice} />
             )}
           </div>
 
