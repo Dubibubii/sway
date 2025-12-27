@@ -3,7 +3,7 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -12,8 +12,11 @@ import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePondTrading } from '@/hooks/use-pond-trading';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { FEE_CONFIG } from '@shared/schema';
+
+type BulkSellMode = 'all' | 'losing' | 'winning' | null;
 
 interface Trade {
   id: string;
@@ -39,6 +42,15 @@ export default function Activity() {
   const [selectedPosition, setSelectedPosition] = useState<Trade | null>(null);
   const [addAmount, setAddAmount] = useState('5');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Bulk sell state
+  const [bulkSellMode, setBulkSellMode] = useState<BulkSellMode>(null);
+  const [bulkSellModalOpen, setBulkSellModalOpen] = useState(false);
+  const [bulkSellProgress, setBulkSellProgress] = useState({ current: 0, total: 0, successes: 0, failures: 0 });
+  const [isBulkSelling, setIsBulkSelling] = useState(false);
+  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+  const [priceFetchError, setPriceFetchError] = useState<string | null>(null);
   
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
@@ -86,6 +98,209 @@ export default function Activity() {
     const currentValue = shares * price;
     return acc + currentValue;
   }, 0);
+
+  // Calculate PnL for each position using current prices when available
+  const getPositionPnL = (pos: Trade, useLivePrices = false) => {
+    const shares = parseFloat(pos.shares);
+    const entryPrice = parseFloat(pos.price);
+    const costBasis = pos.wagerAmount / 100;
+    // Use current price if available, otherwise fall back to entry price
+    const currentPrice = useLivePrices && currentPrices[pos.marketId] !== undefined 
+      ? currentPrices[pos.marketId] 
+      : entryPrice;
+    const currentValue = shares * currentPrice;
+    return currentValue - costBasis;
+  };
+
+  // Get positions filtered by mode (uses live prices for accurate filtering)
+  const getPositionsToSell = (mode: BulkSellMode): Trade[] => {
+    if (!mode) return [];
+    if (mode === 'all') return activePositions;
+    // Only include positions where we have live prices for PnL filtering
+    const positionsWithPrices = activePositions.filter(pos => currentPrices[pos.marketId] !== undefined);
+    if (mode === 'losing') return positionsWithPrices.filter(pos => getPositionPnL(pos, true) < 0);
+    if (mode === 'winning') return positionsWithPrices.filter(pos => getPositionPnL(pos, true) >= 0);
+    return [];
+  };
+
+  const positionsToSell = getPositionsToSell(bulkSellMode);
+
+  // Fetch current prices for all positions using Kalshi API
+  const fetchCurrentPrices = async () => {
+    if (activePositions.length === 0) return;
+    
+    setIsLoadingPrices(true);
+    setPriceFetchError(null);
+    const prices: Record<string, number> = {};
+    let fetchedCount = 0;
+    
+    try {
+      // Fetch prices in parallel for all unique market IDs
+      const uniqueMarketIds = Array.from(new Set(activePositions.map(p => p.marketId)));
+      
+      await Promise.all(uniqueMarketIds.map(async (marketId) => {
+        try {
+          // Use the market history endpoint which fetches from Kalshi API
+          const res = await fetch(`/api/markets/${marketId}/history`);
+          if (res.ok) {
+            const data = await res.json();
+            // Accept lastPrice of 0 as valid (check for undefined/null, not truthiness)
+            if (data.marketInfo?.lastPrice !== undefined && data.marketInfo?.lastPrice !== null) {
+              // lastPrice is the YES price (already normalized to 0-1), calculate NO price
+              const yesPrice = data.marketInfo.lastPrice;
+              const noPrice = 1 - yesPrice;
+              
+              // Find the position to determine which price to use
+              const position = activePositions.find(p => p.marketId === marketId);
+              if (position) {
+                prices[marketId] = position.direction === 'YES' ? yesPrice : noPrice;
+                fetchedCount++;
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[BulkSell] Failed to fetch price for', marketId, err);
+        }
+      }));
+      
+      console.log(`[BulkSell] Fetched ${fetchedCount}/${uniqueMarketIds.length} market prices`);
+      setCurrentPrices(prices);
+      
+      // Set blocking error if any prices are missing for PnL filtering
+      const missingCount = uniqueMarketIds.length - fetchedCount;
+      if (missingCount > 0) {
+        setPriceFetchError(`Could not fetch prices for ${missingCount} market${missingCount > 1 ? 's' : ''}. PnL filtering unavailable.`);
+      }
+    } catch (err) {
+      console.error('[BulkSell] Failed to fetch prices:', err);
+      setPriceFetchError('Failed to fetch current prices. PnL filtering unavailable.');
+    } finally {
+      setIsLoadingPrices(false);
+    }
+  };
+
+  // Bulk sell handler
+  const handleBulkSell = async () => {
+    if (positionsToSell.length === 0) return;
+    
+    // Get auth token once at the start
+    const authToken = await getAccessToken();
+    
+    setIsBulkSelling(true);
+    setBulkSellProgress({ current: 0, total: positionsToSell.length, successes: 0, failures: 0 });
+    
+    let successes = 0;
+    let failures = 0;
+    
+    for (let i = 0; i < positionsToSell.length; i++) {
+      const position = positionsToSell[i];
+      setBulkSellProgress(prev => ({ ...prev, current: i + 1 }));
+      
+      try {
+        const side = position.direction.toLowerCase() as 'yes' | 'no';
+        let shares = parseFloat(position.shares);
+        const entryPrice = parseFloat(position.price);
+        
+        // Fetch token data once and reuse
+        const redemptionRes = await fetch(`/api/pond/market/${position.marketId}/tokens`);
+        let isRedemption = false;
+        let tokenMint = '';
+        let tokenData: any = null;
+        
+        if (redemptionRes.ok) {
+          tokenData = await redemptionRes.json();
+          tokenMint = side === 'yes' ? tokenData.yesMint : tokenData.noMint;
+          const redemptionCheck = await checkRedemption(tokenMint);
+          isRedemption = redemptionCheck?.isRedeemable || false;
+        }
+        
+        // Try to sell/redeem
+        let result: any;
+        let actualUsdcReceived: number;
+        
+        if (isRedemption && tokenMint) {
+          result = await redeemPosition(tokenMint, shares);
+          // Redemption pays $1 per share for winning positions
+          actualUsdcReceived = result.success ? shares : 0;
+        } else {
+          result = await sellPosition(position.marketId, side, shares, embeddedWallet?.address);
+          
+          // Handle partial fill
+          if (!result.success && result.error?.includes('tokens available')) {
+            const match = result.error.match(/have ([\d.]+) tokens/);
+            if (match) {
+              const availableShares = parseFloat(match[1]);
+              if (availableShares > 0) {
+                shares = availableShares;
+                result = await sellPosition(position.marketId, side, shares, embeddedWallet?.address);
+              }
+            }
+          }
+          
+          // Use expectedUSDC from API if available, otherwise estimate
+          actualUsdcReceived = result.expectedUSDC && result.expectedUSDC > 0 
+            ? result.expectedUSDC 
+            : shares * entryPrice;
+        }
+        
+        if (result.success) {
+          // Close in database with best available payout info
+          const costBasis = position.wagerAmount / 100;
+          const pnl = actualUsdcReceived - costBasis;
+          
+          await fetch(`/api/trades/${position.id}/close`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ pnl: pnl.toFixed(2), payout: actualUsdcReceived }),
+          });
+          
+          successes++;
+        } else {
+          console.error('[BulkSell] Failed to sell position:', position.id, result.error);
+          failures++;
+        }
+      } catch (err) {
+        console.error('[BulkSell] Error selling position:', position.id, err);
+        failures++;
+      }
+      
+      setBulkSellProgress(prev => ({ ...prev, successes, failures }));
+      
+      // Small delay between transactions to avoid rate limiting
+      if (i < positionsToSell.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    setIsBulkSelling(false);
+    setBulkSellModalOpen(false);
+    setBulkSellMode(null);
+    
+    toast({
+      title: 'Bulk Sell Complete',
+      description: `Sold ${successes} positions. ${failures > 0 ? `${failures} failed.` : ''}`,
+      variant: failures > 0 ? 'destructive' : 'default'
+    });
+    
+    // Refresh data
+    setTimeout(() => {
+      refetchBalance();
+      queryClient.invalidateQueries({ queryKey: ['positions'] });
+      queryClient.invalidateQueries({ queryKey: ['trades'] });
+    }, 2000);
+  };
+
+  const openBulkSellModal = async (mode: BulkSellMode) => {
+    setBulkSellMode(mode);
+    setBulkSellProgress({ current: 0, total: 0, successes: 0, failures: 0 });
+    setPriceFetchError(null);
+    setBulkSellModalOpen(true);
+    
+    // Fetch live prices for PnL-based filtering
+    if (mode === 'losing' || mode === 'winning') {
+      await fetchCurrentPrices();
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -492,6 +707,96 @@ export default function Activity() {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk Sell Modal */}
+      <Dialog open={bulkSellModalOpen} onOpenChange={(open) => { if (!isBulkSelling) { setBulkSellModalOpen(open); if (!open) setBulkSellMode(null); } }}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>
+              {bulkSellMode === 'all' && 'Sell All Positions'}
+              {bulkSellMode === 'losing' && 'Sell Losing Positions'}
+              {bulkSellMode === 'winning' && 'Sell Winning Positions'}
+            </DialogTitle>
+            <DialogDescription>
+              {isBulkSelling 
+                ? `Selling positions... ${bulkSellProgress.current} of ${bulkSellProgress.total}`
+                : isLoadingPrices
+                  ? 'Loading current prices...'
+                  : `This will sell ${positionsToSell.length} position${positionsToSell.length !== 1 ? 's' : ''}.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {isLoadingPrices ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : isBulkSelling ? (
+              <div className="space-y-3">
+                <Progress value={(bulkSellProgress.current / bulkSellProgress.total) * 100} className="h-2" />
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#1ED78B]">{bulkSellProgress.successes} sold</span>
+                  <span className="text-rose-500">{bulkSellProgress.failures} failed</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="bg-zinc-800 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Positions to Sell</span>
+                    <span>{positionsToSell.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Est. Total Value</span>
+                    <span>${positionsToSell.reduce((acc, pos) => {
+                      const shares = parseFloat(pos.shares);
+                      const price = currentPrices[pos.marketId] ?? parseFloat(pos.price);
+                      return acc + shares * price;
+                    }, 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Cost Basis</span>
+                    <span>${positionsToSell.reduce((acc, pos) => acc + pos.wagerAmount / 100, 0).toFixed(2)}</span>
+                  </div>
+                </div>
+                {priceFetchError && (bulkSellMode === 'losing' || bulkSellMode === 'winning') ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-xs text-amber-400">
+                      {priceFetchError}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {(bulkSellMode === 'losing' || bulkSellMode === 'winning') 
+                      ? 'Positions filtered using current market prices. Actual amounts may vary.'
+                      : 'Positions will be sold one by one. Actual amounts may vary due to market conditions.'
+                    }
+                  </p>
+                )}
+              </>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setBulkSellModalOpen(false); setBulkSellMode(null); }}
+                disabled={isBulkSelling}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-rose-500 hover:bg-rose-600"
+                onClick={handleBulkSell}
+                disabled={isBulkSelling || isLoadingPrices || positionsToSell.length === 0 || (priceFetchError && (bulkSellMode === 'losing' || bulkSellMode === 'winning'))}
+                data-testid="button-confirm-bulk-sell"
+              >
+                {isBulkSelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isBulkSelling ? 'Selling...' : positionsToSell.length === 0 ? 'No Positions Found' : `Sell ${positionsToSell.length} Positions`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold">Activity</h1>
@@ -509,7 +814,40 @@ export default function Activity() {
           <div className="space-y-4">
              {/* Active Positions */}
              <div className="mb-8">
-               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Active Positions</h2>
+               <div className="flex items-center justify-between mb-4">
+                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active Positions</h2>
+                 {activePositions.length > 0 && (
+                   <div className="flex gap-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="h-7 text-xs px-2 border-zinc-700 hover:bg-zinc-800"
+                       onClick={() => openBulkSellModal('all')}
+                       data-testid="button-sell-all"
+                     >
+                       Sell All
+                     </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="h-7 text-xs px-2 border-rose-500/50 text-rose-400 hover:bg-rose-500/10"
+                       onClick={() => openBulkSellModal('losing')}
+                       data-testid="button-sell-losing"
+                     >
+                       Sell -PnL
+                     </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="h-7 text-xs px-2 border-[#1ED78B]/50 text-[#1ED78B] hover:bg-[#1ED78B]/10"
+                       onClick={() => openBulkSellModal('winning')}
+                       data-testid="button-sell-winning"
+                     >
+                       Sell +PnL
+                     </Button>
+                   </div>
+                 )}
+               </div>
                
                {activePositions.length === 0 ? (
                  <div className="text-center py-8 text-muted-foreground text-sm">
