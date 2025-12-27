@@ -22,6 +22,7 @@ export const trades = pgTable("trades", {
   marketId: text("market_id").notNull(),
   marketTitle: text("market_title").notNull(),
   marketCategory: text("market_category"),
+  optionLabel: text("option_label"), // e.g., "Democratic Party" - what the user bet on
   direction: text("direction").notNull(),
   wagerAmount: integer("wager_amount").notNull(), // Stored in cents
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),

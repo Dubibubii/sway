@@ -118,10 +118,13 @@ export default function Home() {
         return null;
       }
       const price = trade.direction === 'YES' ? trade.market.yesPrice : trade.market.noPrice;
+      // Get the option label based on bet direction
+      const optionLabel = trade.direction === 'YES' ? trade.market.yesLabel : trade.market.noLabel;
       return createTrade(settings.privyId, {
         marketId: trade.market.id,
         marketTitle: trade.market.question,
         marketCategory: trade.market.category,
+        optionLabel: optionLabel !== trade.direction ? optionLabel : null, // Only store if different from YES/NO
         direction: trade.direction,
         wagerAmount: trade.wagerAmount,
         price,

@@ -265,7 +265,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const { marketId, marketTitle, marketCategory, direction, wagerAmount, price, actualShares, signature, executionMode } = req.body;
+      const { marketId, marketTitle, marketCategory, optionLabel, direction, wagerAmount, price, actualShares, signature, executionMode } = req.body;
       
       if (!marketId || !direction || !wagerAmount || price === undefined) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -342,6 +342,7 @@ export async function registerRoutes(
           marketId,
           marketTitle: marketTitle || '',
           marketCategory: marketCategory || null,
+          optionLabel: optionLabel || null, // e.g., "Democratic Party"
           direction,
           wagerAmount: wagerAmountCents, // Store as cents (integer)
           price: price.toFixed(2),

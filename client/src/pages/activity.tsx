@@ -20,6 +20,7 @@ interface Trade {
   marketId: string;
   marketTitle: string;
   marketCategory: string | null;
+  optionLabel: string | null; // e.g., "Democratic Party" - what the user bet on
   direction: string;
   wagerAmount: number; // Stored in cents
   price: string;
@@ -539,7 +540,7 @@ export default function Activity() {
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                   <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5`}>
-                                    {position.direction}
+                                    {position.direction}{position.optionLabel ? `: ${position.optionLabel}` : ''}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares @ {(price * 100).toFixed(0)}¢</span>
                                   <span className="text-[10px] text-muted-foreground/60">• {formatDate(position.createdAt)}</span>

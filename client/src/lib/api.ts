@@ -110,6 +110,7 @@ export async function createTrade(
     marketId: string;
     marketTitle: string;
     marketCategory: string | null;
+    optionLabel?: string | null; // e.g., "Democratic Party" - what the user bet on
     direction: 'YES' | 'NO';
     wagerAmount: number;
     price: number;
