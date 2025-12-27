@@ -378,27 +378,64 @@ function PriceChart({ data }: { data: PriceHistory[] }) {
   );
 }
 
-function PriceDisplay({ yesPrice }: { yesPrice: number }) {
+function PriceDisplayWithMiniChart({ yesPrice, volume }: { yesPrice: number; volume?: number }) {
   const yesPercent = Math.round(yesPrice * 100);
-  const noPercent = 100 - yesPercent;
   
+  // Create a simple visual representation when no history is available
+  // Show a horizontal line at the current price level
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center px-6 pt-12">
-      <div className="text-center mb-4">
-        <div className="text-4xl font-bold text-[#1ED78B]">{yesPercent}%</div>
-        <div className="text-sm text-muted-foreground">Current Yes Price</div>
+    <div className="w-full h-full flex flex-col px-4 pt-10">
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-3xl font-bold text-[#1ED78B]">{yesPercent}%</span>
+        <span className="text-sm text-muted-foreground">chance</span>
       </div>
-      <div className="w-full max-w-sm h-3 bg-white/10 rounded-full overflow-hidden">
+      
+      {/* Mini chart placeholder showing current price level */}
+      <div className="flex-1 relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart 
+            data={[
+              { time: 'now', price: yesPercent }
+            ]} 
+            margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+          >
+            <XAxis 
+              dataKey="time" 
+              hide 
+            />
+            <YAxis 
+              domain={[0, 100]} 
+              hide
+            />
+            {/* Reference line at current price */}
+            <Line
+              type="monotone"
+              dataKey="price"
+              stroke="#1ED78B"
+              strokeWidth={2}
+              dot={{ r: 6, fill: '#1ED78B', strokeWidth: 2, stroke: '#1ED78B' }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        
+        {/* Price level indicator */}
         <div 
-          className="h-full bg-gradient-to-r from-[#1ED78B] to-[#6EE7B7] transition-all duration-500"
-          style={{ width: `${yesPercent}%` }}
-        />
+          className="absolute right-0 text-xs text-[#1ED78B] font-medium"
+          style={{ top: `${100 - yesPercent}%`, transform: 'translateY(-50%)' }}
+        >
+          {yesPercent}%
+        </div>
+        
+        {/* Y-axis labels */}
+        <div className="absolute left-0 top-0 text-xs text-muted-foreground/50">100%</div>
+        <div className="absolute left-0 bottom-4 text-xs text-muted-foreground/50">0%</div>
       </div>
-      <div className="flex justify-between w-full max-w-sm mt-2 text-xs text-muted-foreground">
-        <span>0%</span>
-        <span>50%</span>
-        <span>100%</span>
-      </div>
+      
+      {volume && (
+        <div className="text-xs text-muted-foreground mt-1">
+          ${volume.toLocaleString()} vol
+        </div>
+      )}
     </div>
   );
 }
@@ -491,13 +528,15 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetail
             <X size={20} />
           </button>
 
-          <div className="h-48 bg-zinc-900 flex items-center justify-center">
+          <div className="h-56 bg-zinc-900">
             {isLoadingHistory ? (
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
             ) : historyData?.history && historyData.history.length >= 2 ? (
               <PriceChart data={historyData.history} />
             ) : (
-              <PriceDisplay yesPrice={market.yesPrice} />
+              <PriceDisplayWithMiniChart yesPrice={market.yesPrice} volume={market.volume} />
             )}
           </div>
 
