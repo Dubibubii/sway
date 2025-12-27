@@ -537,11 +537,12 @@ export default function Activity() {
                              </div>
                              <div className="flex-1">
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
-                                <div className="flex gap-2 mt-1">
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                   <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5`}>
                                     {position.direction}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares @ {(price * 100).toFixed(0)}¢</span>
+                                  <span className="text-[10px] text-muted-foreground/60">• {formatDate(position.createdAt)}</span>
                                 </div>
                              </div>
                              <div className="text-right">
