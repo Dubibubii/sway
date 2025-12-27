@@ -946,7 +946,7 @@ export default function Activity() {
                    No trade history yet
                  </div>
                ) : (
-                 <div className="space-y-4">
+                 <div className="max-h-[50vh] overflow-y-auto pr-2 space-y-4">
                     {closedTrades.map((trade) => {
                       const pnl = parseFloat(trade.pnl || '0');
                       return (
