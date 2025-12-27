@@ -240,8 +240,9 @@ export default function Activity() {
       // Calculate PnL based on USDC received
       const usdcReceived = result.expectedUSDC || 0;
       const pnl = usdcReceived - costBasis;
+      const pnlPercent = costBasis > 0 ? ((pnl / costBasis) * 100) : 0;
       
-      console.log('[Activity] Position sold! USDC received:', usdcReceived, 'PnL:', pnl);
+      console.log('[Activity] Position sold! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent);
       
       // Update the database
       const token = await getAccessToken();
@@ -265,9 +266,12 @@ export default function Activity() {
       setCloseModalOpen(false);
       setIsProcessing(false);
       
+      // Format: "Received $X.XX +Y%" with sign
+      const pnlSign = pnl >= 0 ? '+' : '';
       toast({ 
-        title: 'Position Sold', 
-        description: `Received $${usdcReceived.toFixed(2)} USDC. ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)}` 
+        title: `Received $${usdcReceived.toFixed(2)} ${pnlSign}${pnlPercent.toFixed(0)}%`, 
+        description: pnl >= 0 ? 'Position sold successfully' : 'Position closed at a loss',
+        variant: pnl >= 0 ? 'default' : 'destructive'
       });
       
       // Refresh balance and positions in background
