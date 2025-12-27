@@ -90,7 +90,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: string; noMint: string } | null> {
+async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: string; noMint: string; isInitialized: boolean } | null> {
   console.log('[PondTrading] Fetching market tokens via server for:', marketId);
   
   try {
@@ -112,7 +112,7 @@ async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: s
       return null;
     }
     
-    return { yesMint: data.yesMint, noMint: data.noMint };
+    return { yesMint: data.yesMint, noMint: data.noMint, isInitialized: data.isInitialized ?? false };
   } catch (error) {
     console.error('[PondTrading] Error fetching market tokens:', error);
     return null;
@@ -192,6 +192,12 @@ export function usePondTrading() {
       
       if (!marketTokens) {
         throw new Error('This market is not yet available for on-chain trading. Try a different market.');
+      }
+
+      // Check if market is initialized on-chain
+      if (!marketTokens.isInitialized) {
+        console.error('[PondTrading] Market not initialized on-chain:', marketId);
+        throw new Error('This market is not yet set up for trading. Please try another market.');
       }
 
       const outputMint = side === 'yes' ? marketTokens.yesMint : marketTokens.noMint;
