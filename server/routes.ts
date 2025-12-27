@@ -136,13 +136,58 @@ export async function registerRoutes(
       const { ticker } = req.params;
       const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
       
-      // Get last 7 days of hourly data
+      // First, get market info to find creation date
+      const marketResponse = await fetch(
+        `${KALSHI_BASE_URL}/markets/${ticker}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      
+      let startTs: number;
       const endTs = Math.floor(Date.now() / 1000);
-      const startTs = endTs - (7 * 24 * 60 * 60); // 7 days ago
+      
+      if (marketResponse.ok) {
+        const marketData = await marketResponse.json() as { 
+          market?: { 
+            open_time?: string;
+            created_time?: string;
+          } 
+        };
+        const openTime = marketData.market?.open_time || marketData.market?.created_time;
+        if (openTime) {
+          startTs = Math.floor(new Date(openTime).getTime() / 1000);
+        } else {
+          // Fallback to 90 days ago
+          startTs = endTs - (90 * 24 * 60 * 60);
+        }
+      } else {
+        // Fallback to 90 days ago
+        startTs = endTs - (90 * 24 * 60 * 60);
+      }
+      
+      // Calculate age in days to determine interval
+      const ageInDays = (endTs - startTs) / (24 * 60 * 60);
+      
+      // Use appropriate interval based on market age:
+      // - Less than 7 days: hourly (60 min)
+      // - 7-30 days: 4-hourly (240 min) 
+      // - 30-90 days: daily (1440 min)
+      // - Over 90 days: daily and limit start date
+      let periodInterval = 60; // hourly default
+      if (ageInDays > 90) {
+        periodInterval = 1440; // daily
+        startTs = endTs - (90 * 24 * 60 * 60); // Limit to 90 days
+      } else if (ageInDays > 30) {
+        periodInterval = 1440; // daily
+      } else if (ageInDays > 7) {
+        periodInterval = 240; // 4-hourly
+      }
       
       // Fetch candlestick history from Kalshi API
       const response = await fetch(
-        `${KALSHI_BASE_URL}/markets/${ticker}/candlesticks?period_interval=60&start_ts=${startTs}&end_ts=${endTs}`, 
+        `${KALSHI_BASE_URL}/markets/${ticker}/candlesticks?period_interval=${periodInterval}&start_ts=${startTs}&end_ts=${endTs}`, 
         {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -150,7 +195,7 @@ export async function registerRoutes(
       );
       
       if (!response.ok) {
-        console.error('Kalshi history API error:', response.status);
+        console.error('Kalshi history API error:', response.status, await response.text());
         return res.json({ history: [] });
       }
       
@@ -158,17 +203,27 @@ export async function registerRoutes(
         candlesticks?: Array<{ 
           end_period_ts: number; 
           price?: { close: number };
+          yes_price?: { close: number };
         }> 
       };
       const candlesticks = data.candlesticks || [];
       
       // Transform to simpler format for chart (prices are in cents, convert to decimal)
+      // Try yes_price first (some markets use this), fall back to price
       const history = candlesticks.map((c) => ({
         timestamp: c.end_period_ts * 1000,
-        price: (c.price?.close || 0) / 100,
+        price: ((c.yes_price?.close || c.price?.close || 0)) / 100,
       })).filter((h) => h.price > 0);
       
-      res.json({ history });
+      // Sample data if too many points (keep ~50 points for smooth chart)
+      const maxPoints = 50;
+      let sampledHistory = history;
+      if (history.length > maxPoints) {
+        const step = Math.ceil(history.length / maxPoints);
+        sampledHistory = history.filter((_, i) => i % step === 0 || i === history.length - 1);
+      }
+      
+      res.json({ history: sampledHistory });
     } catch (error) {
       console.error('Error fetching market history:', error);
       res.json({ history: [] });
