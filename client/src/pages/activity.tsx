@@ -354,9 +354,11 @@ export default function Activity() {
       const pnlSign = pnl >= 0 ? '+' : '';
       const action = isRedemption ? 'Redeemed' : 'Sold';
       const estimateNote = isEstimate ? ' (est.)' : '';
+      const recordedShares = parseFloat(selectedPosition.shares);
+      const sharesNote = shares < recordedShares ? ` (${shares.toFixed(0)} of ${recordedShares.toFixed(0)} shares - partial fill)` : '';
       toast({ 
         title: `${action} for ~$${usdcReceived.toFixed(2)}${estimateNote}`, 
-        description: 'Position closed - check wallet for actual amount',
+        description: sharesNote || 'Position closed - check wallet for actual amount',
         variant: 'default'
       });
       
@@ -463,7 +465,7 @@ export default function Activity() {
                   <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Actual USDC received will depend on current market price and slippage.
+                  Actual USDC received will depend on current market price, slippage, and actual on-chain balance (may differ from recorded shares due to partial fills).
                 </p>
               </div>
             )}
