@@ -601,6 +601,55 @@ export async function registerRoutes(
     }
   });
 
+  // Sell endpoint - converts outcome tokens back to USDC
+  app.post('/api/pond/sell', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { marketId, side, shares, userPublicKey, slippageBps = 300 } = req.body;
+
+      if (!marketId || !side || !shares || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required fields: marketId, side, shares, userPublicKey' });
+      }
+
+      // Get market tokens
+      const marketTokens = await getMarketTokens(marketId);
+      if (!marketTokens) {
+        return res.status(400).json({ error: 'Market not available for trading on Pond/DFlow' });
+      }
+
+      // Input is the outcome token, output is USDC
+      const inputMint = side === 'yes' ? marketTokens.yesMint : marketTokens.noMint;
+      const outputMint = SOLANA_TOKENS.USDC;
+
+      // Convert shares to atomic units (outcome tokens have 6 decimals like USDC)
+      const amountAtomic = Math.floor(shares * 1_000_000);
+
+      console.log('[Pond Sell] Selling position:', { marketId, side, shares, amountAtomic, inputMint, outputMint, userPublicKey });
+
+      // Get sell order from DFlow (swap outcome tokens -> USDC)
+      const orderResponse = await getPondQuote(
+        inputMint,
+        outputMint,
+        amountAtomic,
+        userPublicKey,
+        slippageBps,
+        DFLOW_API_KEY || undefined
+      );
+
+      console.log('[Pond Sell] Response received, has transaction:', !!orderResponse.transaction);
+      console.log('[Pond Sell] Expected USDC out:', orderResponse.quote?.outAmount ? parseInt(orderResponse.quote.outAmount) / 1_000_000 : 'unknown');
+
+      res.json({
+        transaction: orderResponse.transaction,
+        quote: orderResponse.quote,
+        executionMode: orderResponse.executionMode,
+        expectedUSDC: orderResponse.quote?.outAmount ? parseInt(orderResponse.quote.outAmount) / 1_000_000 : 0,
+      });
+    } catch (error: any) {
+      console.error('Error getting Pond sell order:', error);
+      res.status(500).json({ error: error.message || 'Failed to get sell order' });
+    }
+  });
+
   // Helius RPC endpoint for Solana
   const HELIUS_API_KEY = process.env.HELIUS_API_KEY || '';
   const HELIUS_RPC_URL = HELIUS_API_KEY 
