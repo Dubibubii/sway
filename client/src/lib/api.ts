@@ -113,6 +113,9 @@ export async function createTrade(
     direction: 'YES' | 'NO';
     wagerAmount: number;
     price: number;
+    actualShares?: number; // Actual filled shares from async trade polling
+    signature?: string;
+    executionMode?: 'sync' | 'async';
   }
 ): Promise<{ trade: Trade }> {
   return fetchWithAuth('/trades', {

@@ -162,9 +162,11 @@ export default function Activity() {
         return;
       }
       
-      // Record the trade in the database
+      // Record the trade in the database with actual shares from async trade polling
       const token = await getAccessToken();
       const currentPrice = parseFloat(selectedPosition.price);
+      
+      console.log('[Activity] Recording trade with actualShares:', result.actualShares, 'executionMode:', result.executionMode);
       
       const recordRes = await fetch('/api/trades', {
         method: 'POST',
@@ -179,6 +181,9 @@ export default function Activity() {
           direction: selectedPosition.direction,
           wagerAmount: amount,
           price: currentPrice,
+          actualShares: result.actualShares, // Pass actual filled shares for async trades
+          signature: result.signature,
+          executionMode: result.executionMode,
         }),
       });
       

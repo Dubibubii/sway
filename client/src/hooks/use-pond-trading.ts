@@ -10,7 +10,75 @@ export interface PondTradeResult {
   error?: string;
   executionMode?: 'sync' | 'async';
   expectedShares?: number;
+  actualShares?: number; // Actual filled shares from order status polling
   expectedUSDC?: number;
+}
+
+interface OrderStatusFill {
+  outAmount: string;
+  inAmount: string;
+}
+
+interface OrderStatusResponse {
+  status: 'open' | 'pendingClose' | 'closed' | 'failed';
+  fills?: OrderStatusFill[];
+}
+
+// Poll order status for async trades to get actual fill amounts
+async function pollOrderStatus(
+  signature: string,
+  token: string,
+  maxAttempts: number = 10,
+  delayMs: number = 2000
+): Promise<{ actualShares: number; status: string } | null> {
+  console.log('[PondTrading] Polling order status for signature:', signature);
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await fetch(`/api/pond/order-status/${signature}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        console.warn('[PondTrading] Order status request failed:', response.status);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      
+      const data: OrderStatusResponse = await response.json();
+      console.log('[PondTrading] Order status:', data.status, 'fills:', data.fills?.length || 0);
+      
+      // If order is complete, calculate actual shares from fills
+      if (data.status === 'closed' || data.status === 'pendingClose') {
+        if (data.fills && data.fills.length > 0) {
+          // Sum up all fill amounts (outAmount is the tokens received)
+          const totalOutAmount = data.fills.reduce((sum, fill) => {
+            return sum + parseInt(fill.outAmount || '0');
+          }, 0);
+          const actualShares = totalOutAmount / 1_000_000; // Convert from atomic units
+          console.log('[PondTrading] Order complete! Actual shares:', actualShares);
+          return { actualShares, status: data.status };
+        }
+        // Order closed but no fills - might be cancelled
+        console.warn('[PondTrading] Order closed with no fills');
+        return { actualShares: 0, status: data.status };
+      }
+      
+      if (data.status === 'failed') {
+        console.error('[PondTrading] Order failed');
+        return null;
+      }
+      
+      // Still open, wait and retry
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    } catch (error) {
+      console.error('[PondTrading] Error polling order status:', error);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  console.warn('[PondTrading] Order status polling timed out after', maxAttempts, 'attempts');
+  return null;
 }
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -234,12 +302,30 @@ export function usePondTrading() {
         ? parseInt(quote.outAmount) / 1_000_000
         : undefined;
       
+      // For async trades, poll order status to get actual fill amounts
+      let actualShares: number | undefined;
+      if (executionMode === 'async') {
+        console.log('[PondTrading] Async trade detected, polling for actual fill...');
+        const token = await getAccessToken();
+        const orderResult = await pollOrderStatus(signature, token || '', 15, 2000);
+        if (orderResult) {
+          actualShares = orderResult.actualShares;
+          console.log('[PondTrading] Async trade filled! Expected:', expectedShares, 'Actual:', actualShares);
+          if (actualShares !== expectedShares) {
+            console.warn('[PondTrading] FILL DISCREPANCY: Expected', expectedShares, 'but got', actualShares);
+          }
+        } else {
+          console.warn('[PondTrading] Could not get actual fill for async trade, using expected');
+        }
+      }
+      
       setIsTrading(false);
       return {
         success: true,
         signature,
         executionMode,
         expectedShares,
+        actualShares: actualShares || expectedShares, // Use actual if available, fallback to expected
       };
     } catch (err: any) {
       console.error('[PondTrading] Trade failed:', err);

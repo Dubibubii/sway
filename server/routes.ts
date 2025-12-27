@@ -228,7 +228,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const { marketId, marketTitle, marketCategory, direction, wagerAmount, price } = req.body;
+      const { marketId, marketTitle, marketCategory, direction, wagerAmount, price, actualShares, signature, executionMode } = req.body;
       
       if (!marketId || !direction || !wagerAmount || price === undefined) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -239,13 +239,23 @@ export async function registerRoutes(
       const wagerAmountCents = Math.round(wagerAmountDollars * 100);
       
       console.log(`[Trade] On-chain tx successful, attempting DB write...`);
-      console.log(`[Trade] Data payload: marketId=${marketId}, direction=${direction}, wagerAmount=$${wagerAmountDollars} (${wagerAmountCents} cents), price=${price}`);
+      console.log(`[Trade] Data payload: marketId=${marketId}, direction=${direction}, wagerAmount=$${wagerAmountDollars} (${wagerAmountCents} cents), price=${price}, actualShares=${actualShares}`);
 
       // Calculate 1% entry fee (in dollars for display)
       const entryFee = wagerAmountDollars * FEE_CONFIG.FEE_PERCENTAGE;
       const netWagerAmount = wagerAmountDollars - entryFee;
       
-      const newShares = Math.round((netWagerAmount / price) * 100) / 100;
+      // Use actual filled shares if provided (from async trade polling), otherwise calculate from quote
+      const newShares = actualShares 
+        ? Math.round(parseFloat(actualShares) * 100) / 100
+        : Math.round((netWagerAmount / price) * 100) / 100;
+      
+      console.log(`[Trade] Using shares: ${newShares} (actualShares provided: ${!!actualShares}, executionMode: ${executionMode || 'unknown'})`);
+      
+      // Warn if async trade didn't provide actual shares
+      if (executionMode === 'async' && !actualShares) {
+        console.warn(`[Trade] WARNING: Async trade recorded without actual fill data - shares may be inaccurate`);
+      }
       const newEstimatedPayout = Math.round(newShares * 100) / 100;
 
       // Check if there's an existing open position for this market/direction

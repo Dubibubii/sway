@@ -106,7 +106,14 @@ export default function Home() {
   }, [marketsData, getVisibleCards]);
   
   const tradeMutation = useMutation({
-    mutationFn: async (trade: { market: DisplayMarket; direction: 'YES' | 'NO'; wagerAmount: number }) => {
+    mutationFn: async (trade: { 
+      market: DisplayMarket; 
+      direction: 'YES' | 'NO'; 
+      wagerAmount: number;
+      actualShares?: number;
+      signature?: string;
+      executionMode?: 'sync' | 'async';
+    }) => {
       if (!settings.connected || !settings.privyId) {
         return null;
       }
@@ -118,6 +125,9 @@ export default function Home() {
         direction: trade.direction,
         wagerAmount: trade.wagerAmount,
         price,
+        actualShares: trade.actualShares,
+        signature: trade.signature,
+        executionMode: trade.executionMode,
       });
     },
     onSuccess: () => {
@@ -174,7 +184,14 @@ export default function Home() {
         if (result.success) {
           // Refresh balance after successful trade
           setTimeout(() => refetchBalance(), 2000);
-          tradeMutation.mutate({ market, direction: 'YES', wagerAmount: settings.yesWager });
+          tradeMutation.mutate({ 
+            market, 
+            direction: 'YES', 
+            wagerAmount: settings.yesWager,
+            actualShares: result.actualShares,
+            signature: result.signature,
+            executionMode: result.executionMode,
+          });
           trackBet(market.id, market.question, settings.yesWager);
           toast({
             title: (
@@ -249,7 +266,14 @@ export default function Home() {
         if (result.success) {
           // Refresh balance after successful trade
           setTimeout(() => refetchBalance(), 2000);
-          tradeMutation.mutate({ market, direction: 'NO', wagerAmount: settings.noWager });
+          tradeMutation.mutate({ 
+            market, 
+            direction: 'NO', 
+            wagerAmount: settings.noWager,
+            actualShares: result.actualShares,
+            signature: result.signature,
+            executionMode: result.executionMode,
+          });
           trackBet(market.id, market.question, settings.noWager);
           toast({
             title: (
