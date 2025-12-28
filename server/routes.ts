@@ -663,23 +663,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Missing required fields: inputMint, outputMint, amountUSDC, userPublicKey' });
       }
 
-      // Calculate channel-based fee (fee is charged ON TOP of wager)
+      // Convert USDC amount to atomic units (USDC has 6 decimals)
+      const amountAtomic = Math.floor(amountUSDC * 1_000_000);
+      
+      // Calculate channel-based fee (fee is deducted from wager by DFlow)
       const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'swipe') as FeeChannel;
-      const { feeUSDC, feeBps, grossInput } = calculateSwayFee(amountUSDC, validChannel);
-
-      // Convert GROSS input to atomic units (USDC has 6 decimals)
-      // This is wager + fee, so DFlow takes fee from input and user still gets wager worth of tokens
-      const grossInputAtomic = Math.floor(grossInput * 1_000_000);
+      const { feeUSDC, feeBps } = calculateSwayFee(amountUSDC, validChannel);
 
       console.log('[Pond Order] Getting order for:', { 
-        inputMint, outputMint, 
-        wagerUSDC: amountUSDC,
-        grossInputUSDC: grossInput,
-        grossInputAtomic,
-        userPublicKey,
-        channel: validChannel, 
-        feeBps, 
-        feeUSDC: feeUSDC.toFixed(4)
+        inputMint, outputMint, amountAtomic, userPublicKey,
+        channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4)
       });
 
       // Get order from DFlow with platform fee
@@ -692,7 +685,7 @@ export async function registerRoutes(
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
-        grossInputAtomic,  // Send wager + fee to DFlow
+        amountAtomic,
         userPublicKey,
         slippageBps,
         DFLOW_API_KEY || undefined,
