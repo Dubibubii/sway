@@ -675,10 +675,9 @@ export async function registerRoutes(
         channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4)
       });
 
-      // Get order from DFlow
-      // TEMPORARY: Disable fees to debug "route not found" error
-      // TODO: Re-enable fees once trade routing is confirmed working
-      console.log('[Pond Order] Fee disabled for debugging - feeBps:', feeBps, 'feeUSDC:', feeUSDC);
+      // Get order from DFlow with platform fee
+      // Fee is collected in USDC and sent to our fee account
+      console.log('[Pond Order] Requesting order with fee:', { feeBps, feeUSDC: feeUSDC.toFixed(4), feeAccount: FEE_CONFIG.FEE_RECIPIENT });
       
       const orderResponse = await getPondQuote(
         inputMint,
@@ -686,8 +685,11 @@ export async function registerRoutes(
         amountAtomic,
         userPublicKey,
         slippageBps,
-        DFLOW_API_KEY || undefined
-        // Fee params temporarily disabled
+        DFLOW_API_KEY || undefined,
+        feeBps > 0 ? {
+          platformFeeBps: feeBps,
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+        } : undefined
       );
 
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
