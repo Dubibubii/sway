@@ -413,8 +413,17 @@ export default function Activity() {
       setAddModalOpen(false);
       setIsProcessing(false);
       
-      // Show prominent success toast
-      toast({ title: 'Trade Executed', description: `Added $${amount.toFixed(2)} to your position!` });
+      // Calculate shares bought
+      const actualShares = result.actualShares || result.expectedShares || (amount / currentPrice);
+      const direction = selectedPosition.direction;
+      const isAsync = result.executionMode === 'async';
+      
+      // Show prominent success toast with actual shares info
+      toast({ 
+        title: `Trade Executed: ${actualShares.toFixed(2)} ${direction} shares @ ${Math.round(currentPrice * 100)}¢`,
+        description: `Spent: $${amount.toFixed(2)}${isAsync ? ' (processing...)' : ''}`,
+        className: direction === 'YES' ? 'bg-zinc-950/90 border-[#1ED78B]/20 text-white' : 'bg-zinc-950/90 border-rose-500/20 text-white'
+      });
       
       // Refresh balance and positions in background
       setTimeout(() => {
@@ -568,15 +577,23 @@ export default function Activity() {
       setIsProcessing(false);
       
       // Format message based on whether it was a redemption or sale
-      const pnlSign = pnl >= 0 ? '+' : '';
       const action = isRedemption ? 'Redeemed' : 'Sold';
-      const estimateNote = isEstimate ? ' (est.)' : '';
       const recordedShares = parseFloat(selectedPosition.shares);
-      const sharesNote = shares < recordedShares ? ` (${shares.toFixed(0)} of ${recordedShares.toFixed(0)} shares - partial fill)` : '';
+      const isPartialFill = shares < recordedShares;
+      const direction = selectedPosition.direction;
+      const pnlSign = pnl >= 0 ? '+' : '';
+      
+      // Build description with all relevant info
+      let description = `${shares.toFixed(2)} shares for $${usdcReceived.toFixed(2)}${isEstimate ? ' (est.)' : ''}`;
+      if (isPartialFill) {
+        description += ` | Partial: ${shares.toFixed(0)}/${recordedShares.toFixed(0)} shares`;
+      }
+      description += ` | P&L: ${pnlSign}$${pnl.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`;
+      
       toast({ 
-        title: `${action} for ~$${usdcReceived.toFixed(2)}${estimateNote}`, 
-        description: sharesNote || 'Position closed - check wallet for actual amount',
-        variant: 'default'
+        title: `Position ${action}: $${usdcReceived.toFixed(2)}`,
+        description,
+        className: direction === 'YES' ? 'bg-zinc-950/90 border-[#1ED78B]/20 text-white' : 'bg-zinc-950/90 border-rose-500/20 text-white'
       });
       
       // Refresh balance and positions in background

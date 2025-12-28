@@ -197,6 +197,13 @@ export default function Home() {
             executionMode: result.executionMode,
           });
           trackBet(market.id, market.question, settings.yesWager);
+          
+          // Calculate actual shares from trade result or estimate
+          const actualShares = result.actualShares || result.expectedShares || shares;
+          const actualPayout = actualShares.toFixed(2);
+          const pricePerShare = Math.round(market.yesPrice * 100);
+          const isAsync = result.executionMode === 'async';
+          
           toast({
             title: (
               <div className="flex items-center gap-2">
@@ -210,12 +217,18 @@ export default function Home() {
               <div className="mt-2 space-y-2">
                 <div className="flex justify-between items-baseline">
                   <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-                  <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
+                  <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{pricePerShare}¢</span>
                 </div>
                 <div className="h-px bg-white/10 w-full" />
-                <div className="flex justify-between text-xs text-zinc-400 font-medium">
-                  <span>Spent: <span className="text-zinc-200">${settings.yesWager} USDC</span></span>
-                  <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${payout}</span></span>
+                <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
+                  <div className="flex justify-between">
+                    <span>Bought: <span className="text-zinc-200">{actualShares.toFixed(2)} shares</span></span>
+                    <span>Spent: <span className="text-zinc-200">${settings.yesWager.toFixed(2)}</span></span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${actualPayout}</span></span>
+                    {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
+                  </div>
                 </div>
               </div>
             ),
@@ -280,6 +293,13 @@ export default function Home() {
             executionMode: result.executionMode,
           });
           trackBet(market.id, market.question, settings.noWager);
+          
+          // Calculate actual shares from trade result or estimate
+          const actualShares = result.actualShares || result.expectedShares || shares;
+          const actualPayout = actualShares.toFixed(2);
+          const pricePerShare = Math.round(market.noPrice * 100);
+          const isAsync = result.executionMode === 'async';
+          
           toast({
             title: (
               <div className="flex items-center gap-2">
@@ -293,12 +313,18 @@ export default function Home() {
               <div className="mt-2 space-y-2">
                 <div className="flex justify-between items-baseline">
                   <span className="text-3xl font-black tracking-tighter text-white">NO</span>
-                  <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{Math.round(market.noPrice * 100)}¢</span>
+                  <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{pricePerShare}¢</span>
                 </div>
                 <div className="h-px bg-white/10 w-full" />
-                <div className="flex justify-between text-xs text-zinc-400 font-medium">
-                  <span>Spent: <span className="text-zinc-200">${settings.noWager} USDC</span></span>
-                  <span>Payout if No: <span className="text-rose-400 font-mono">${payout}</span></span>
+                <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
+                  <div className="flex justify-between">
+                    <span>Bought: <span className="text-zinc-200">{actualShares.toFixed(2)} shares</span></span>
+                    <span>Spent: <span className="text-zinc-200">${settings.noWager.toFixed(2)}</span></span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Payout if No: <span className="text-rose-400 font-mono">${actualPayout}</span></span>
+                    {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
+                  </div>
                 </div>
               </div>
             ),
