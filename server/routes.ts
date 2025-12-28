@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
-import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema } from "@shared/schema";
+import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, SOLANA_TOKENS } from "./pond-trading";
 import fetch from "node-fetch";
@@ -654,9 +654,10 @@ export async function registerRoutes(
   });
 
   // New endpoint that accepts token mints directly (client fetches them to bypass 403)
+  // Accepts optional 'channel' parameter for channel-based fees (swipe, discovery, positions)
   app.post('/api/pond/order', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { inputMint, outputMint, amountUSDC, userPublicKey, slippageBps = 100 } = req.body;
+      const { inputMint, outputMint, amountUSDC, userPublicKey, slippageBps = 100, channel = 'swipe' } = req.body;
 
       if (!inputMint || !outputMint || !amountUSDC || !userPublicKey) {
         return res.status(400).json({ error: 'Missing required fields: inputMint, outputMint, amountUSDC, userPublicKey' });
@@ -664,17 +665,28 @@ export async function registerRoutes(
 
       // Convert USDC amount to atomic units (USDC has 6 decimals)
       const amountAtomic = Math.floor(amountUSDC * 1_000_000);
+      
+      // Calculate channel-based fee
+      const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'swipe') as FeeChannel;
+      const { feeUSDC, feeBps } = calculateSwayFee(amountUSDC, validChannel);
 
-      console.log('[Pond Order] Getting order for:', { inputMint, outputMint, amountAtomic, userPublicKey });
+      console.log('[Pond Order] Getting order for:', { 
+        inputMint, outputMint, amountAtomic, userPublicKey,
+        channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4)
+      });
 
-      // Get order from DFlow
+      // Get order from DFlow with platform fee
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
         amountAtomic,
         userPublicKey,
         slippageBps,
-        DFLOW_API_KEY || undefined
+        DFLOW_API_KEY || undefined,
+        {
+          platformFeeBps: feeBps,
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+        }
       );
 
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
@@ -683,6 +695,12 @@ export async function registerRoutes(
         transaction: orderResponse.transaction,
         quote: orderResponse.quote,
         executionMode: orderResponse.executionMode,
+        platformFee: {
+          channel: validChannel,
+          feeUSDC,
+          feeBps,
+          feeRecipient: FEE_CONFIG.FEE_RECIPIENT,
+        },
       });
     } catch (error: any) {
       console.error('Error getting Pond order:', error);
@@ -714,6 +732,7 @@ export async function registerRoutes(
   });
 
   // Redeem endpoint - redeems winning outcome tokens from settled markets
+  // Uses 'positions' channel fee (0.25%) since redemption is a position management action
   app.post('/api/pond/redeem', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { outcomeMint, shares, userPublicKey, slippageBps = 100 } = req.body;
@@ -724,18 +743,29 @@ export async function registerRoutes(
 
       // Convert shares to atomic units (outcome tokens have 6 decimals)
       const amountAtomic = Math.floor(shares * 1_000_000);
+      
+      // Calculate positions channel fee for redemption (each share = $1)
+      const estimatedUSDC = shares;
+      const { feeUSDC, feeBps } = calculateSwayFee(estimatedUSDC, 'positions');
 
-      console.log('[Pond Redeem] Redeeming tokens:', { outcomeMint, shares, amountAtomic, userPublicKey });
+      console.log('[Pond Redeem] Redeeming tokens:', { 
+        outcomeMint, shares, amountAtomic, userPublicKey,
+        feeBps, feeUSDC: feeUSDC.toFixed(4)
+      });
 
       // For redemption, input is outcome token, output is USDC
-      // Same as sell, but used for settled markets
+      // Same as sell, but used for settled markets - include platform fee
       const orderResponse = await getPondQuote(
         outcomeMint,
         SOLANA_TOKENS.USDC,
         amountAtomic,
         userPublicKey,
         slippageBps,
-        DFLOW_API_KEY || undefined
+        DFLOW_API_KEY || undefined,
+        {
+          platformFeeBps: feeBps,
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+        }
       );
 
       console.log('[Pond Redeem] Order received, executionMode:', orderResponse.executionMode);
@@ -744,6 +774,12 @@ export async function registerRoutes(
         transaction: orderResponse.transaction,
         quote: orderResponse.quote,
         executionMode: orderResponse.executionMode,
+        platformFee: {
+          channel: 'positions' as FeeChannel,
+          feeUSDC,
+          feeBps,
+          feeRecipient: FEE_CONFIG.FEE_RECIPIENT,
+        },
       });
     } catch (error: any) {
       console.error('Error getting redemption order:', error);
@@ -752,9 +788,10 @@ export async function registerRoutes(
   });
 
   // Sell endpoint - converts outcome tokens back to USDC
+  // Uses 'positions' channel fee by default (0.25%)
   app.post('/api/pond/sell', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { marketId, side, shares, userPublicKey, slippageBps = 300 } = req.body;
+      const { marketId, side, shares, userPublicKey, slippageBps = 300, channel = 'positions' } = req.body;
 
       if (!marketId || !side || !shares || !userPublicKey) {
         return res.status(400).json({ error: 'Missing required fields: marketId, side, shares, userPublicKey' });
@@ -834,14 +871,27 @@ export async function registerRoutes(
         // Continue anyway - the transaction will fail if tokens aren't there
       }
 
-      // Get sell order from DFlow (swap outcome tokens -> USDC)
+      // Calculate expected USDC from selling (estimate based on shares - will be refined by quote)
+      const estimatedUSDC = shares; // Approximate, actual quote may differ
+      
+      // Calculate channel-based fee for sell
+      const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'positions') as FeeChannel;
+      const { feeUSDC, feeBps } = calculateSwayFee(estimatedUSDC, validChannel);
+      
+      console.log('[Pond Sell] Fee calculation:', { channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4) });
+
+      // Get sell order from DFlow (swap outcome tokens -> USDC) with platform fee
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
         amountAtomic,
         userPublicKey,
         slippageBps,
-        DFLOW_API_KEY || undefined
+        DFLOW_API_KEY || undefined,
+        {
+          platformFeeBps: feeBps,
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+        }
       );
 
       console.log('[Pond Sell] Response received, has transaction:', !!orderResponse.transaction);
@@ -852,6 +902,12 @@ export async function registerRoutes(
         quote: orderResponse.quote,
         executionMode: orderResponse.executionMode,
         expectedUSDC: orderResponse.quote?.outAmount ? parseInt(orderResponse.quote.outAmount) / 1_000_000 : 0,
+        platformFee: {
+          channel: validChannel,
+          feeUSDC,
+          feeBps,
+          feeRecipient: FEE_CONFIG.FEE_RECIPIENT,
+        },
       });
     } catch (error: any) {
       console.error('Error getting Pond sell order:', error);
