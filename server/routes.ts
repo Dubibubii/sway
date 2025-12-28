@@ -663,16 +663,23 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Missing required fields: inputMint, outputMint, amountUSDC, userPublicKey' });
       }
 
-      // Convert USDC amount to atomic units (USDC has 6 decimals)
-      const amountAtomic = Math.floor(amountUSDC * 1_000_000);
-      
-      // Calculate channel-based fee
+      // Calculate channel-based fee (fee is charged ON TOP of wager)
       const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'swipe') as FeeChannel;
-      const { feeUSDC, feeBps } = calculateSwayFee(amountUSDC, validChannel);
+      const { feeUSDC, feeBps, grossInput } = calculateSwayFee(amountUSDC, validChannel);
+
+      // Convert GROSS input to atomic units (USDC has 6 decimals)
+      // This is wager + fee, so DFlow takes fee from input and user still gets wager worth of tokens
+      const grossInputAtomic = Math.floor(grossInput * 1_000_000);
 
       console.log('[Pond Order] Getting order for:', { 
-        inputMint, outputMint, amountAtomic, userPublicKey,
-        channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4)
+        inputMint, outputMint, 
+        wagerUSDC: amountUSDC,
+        grossInputUSDC: grossInput,
+        grossInputAtomic,
+        userPublicKey,
+        channel: validChannel, 
+        feeBps, 
+        feeUSDC: feeUSDC.toFixed(4)
       });
 
       // Get order from DFlow with platform fee
@@ -685,7 +692,7 @@ export async function registerRoutes(
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
-        amountAtomic,
+        grossInputAtomic,  // Send wager + fee to DFlow
         userPublicKey,
         slippageBps,
         DFLOW_API_KEY || undefined,
@@ -748,6 +755,7 @@ export async function registerRoutes(
       const amountAtomic = Math.floor(shares * 1_000_000);
       
       // Calculate positions channel fee for redemption (each share = $1)
+      // For redemption, fee is taken from output USDC, so we don't need grossInput
       const estimatedUSDC = shares;
       const { feeUSDC, feeBps } = calculateSwayFee(estimatedUSDC, 'positions');
 
@@ -875,6 +883,7 @@ export async function registerRoutes(
       }
 
       // Calculate expected USDC from selling (estimate based on shares - will be refined by quote)
+      // For sells, fee is taken from output USDC, so we don't need grossInput
       const estimatedUSDC = shares; // Approximate, actual quote may differ
       
       // Calculate channel-based fee for sell

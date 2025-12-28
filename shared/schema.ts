@@ -91,39 +91,59 @@ export const FEE_CONFIG = {
 
 /**
  * Calculates the platform fee based on where the user is in the app.
- * @param amount - The USDC size of the trade.
+ * The fee is charged on TOP of the wager, so total cost = wager + fee.
+ * 
+ * @param wagerAmount - The USDC wager (what user wants to bet).
  * @param channel - 'swipe', 'discovery', or 'positions'.
- * @returns Object with fee amount in USDC and basis points for API
+ * @returns Object with fee amount, gross input (wager + fee), and basis points for API
  */
-export function calculateSwayFee(amount: number, channel: FeeChannel): { feeUSDC: number; feeBps: number } {
+export function calculateSwayFee(wagerAmount: number, channel: FeeChannel): { 
+  feeUSDC: number; 
+  feeBps: number; 
+  grossInput: number;  // Total amount to send to DFlow (wager + fee)
+  wagerAmount: number; // Original wager amount
+} {
   // Validate input - handle zero/negative amounts gracefully
-  if (!amount || amount <= 0) {
-    return { feeUSDC: 0, feeBps: 0 };
+  if (!wagerAmount || wagerAmount <= 0) {
+    return { feeUSDC: 0, feeBps: 0, grossInput: 0, wagerAmount: 0 };
   }
+  
+  let feeUSDC: number;
   
   switch (channel) {
     case 'swipe':
-      // Fixed $0.05 fee for swipe trades (high margin on micro-trades)
-      // Convert to effective BPS for API: (0.05 / amount) * 10000
-      // For $0.50 min trade: 1000 bps (10%)
-      // For $2.50 avg trade: 200 bps (2%)
-      // For $5.00 trade: 100 bps (1%)
-      const effectiveBps = Math.round((0.05 / amount) * 10000);
-      // Cap at 1000 bps (10%) to handle $0.50 minimum trade size
-      return { feeUSDC: 0.05, feeBps: Math.min(effectiveBps, 1000) };
+      // Fixed $0.05 fee for swipe trades
+      feeUSDC = 0.05;
+      break;
       
     case 'discovery':
-      // 0.75% of trade amount
-      return { feeUSDC: amount * 0.0075, feeBps: 75 };
+      // 0.75% of wager amount
+      feeUSDC = wagerAmount * 0.0075;
+      break;
       
     case 'positions':
-      // 0.25% of trade amount
-      return { feeUSDC: amount * 0.0025, feeBps: 25 };
+      // 0.25% of wager amount
+      feeUSDC = wagerAmount * 0.0025;
+      break;
       
     default:
       // 1% safety fallback
-      return { feeUSDC: amount * 0.01, feeBps: 100 };
+      feeUSDC = wagerAmount * 0.01;
   }
+  
+  // Gross input = wager + fee (what we send to DFlow)
+  const grossInput = wagerAmount + feeUSDC;
+  
+  // Calculate BPS against the gross input (since DFlow deducts from input)
+  // feeBps = (fee / grossInput) * 10000
+  const feeBps = Math.round((feeUSDC / grossInput) * 10000);
+  
+  return { 
+    feeUSDC, 
+    feeBps, 
+    grossInput,
+    wagerAmount 
+  };
 }
 
 export const insertUserSchema = createInsertSchema(users).omit({
