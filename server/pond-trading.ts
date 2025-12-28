@@ -1,7 +1,7 @@
-// DFlow Dev API endpoints for testing (will switch to prod once API keys are provided)
-// Note: Using real capital on dev endpoints - be willing to lose test capital
-const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://dev-quote-api.dflow.net';
-const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://dev-prediction-markets-api.dflow.net';
+// DFlow PRODUCTION API endpoints (using API key for authentication)
+// Note: Switched from dev to prod since dev API was returning 503 errors
+const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://quote-api.dflow.net';
+const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://prediction-markets-api.dflow.net';
 
 // Cache for available DFlow market tickers
 let dflowMarketCache: Set<string> | null = null;
