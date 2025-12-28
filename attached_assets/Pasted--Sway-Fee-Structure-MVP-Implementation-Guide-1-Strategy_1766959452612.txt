@@ -1,0 +1,66 @@
+# Sway Fee Structure: MVP Implementation Guide
+
+## 1. Strategy Overview
+- **Goal:** Maintain an average ~1% platform take-rate across the entire user lifecycle.
+- **Gas Model:** User-Paid. Fees are pure platform profit. Gas is deducted from the user's pre-funded SOL reserve.
+- **Primary Channels:** Swipe (Gamified), Discovery (Intent-based), and Position Management (Exits).
+
+---
+
+## 2. Channel-Based Fee Tiers
+
+| Channel | User Intent | Logic | Effective Rate |
+| :--- | :--- | :--- | :--- |
+| **Swipe Tab** | Low-value / High-frequency | **$0.05 Flat** (The Nickel) | ~2.0% (on $2.50 avg) |
+| **Discovery Tab** | High-conviction / Search | **0.75% of Trade** | 0.75% |
+| **Positions Tab** | Selling / Re-balancing | **0.25% of Trade** | 0.25% |
+
+---
+
+## 3. Revenue Projections (1.2% Weighted Average)
+
+Assuming 40% Swipe Vol, 50% Discovery Vol, and 10% Position Mgmt:
+
+| Total Volume | Swipe Rev ($0.05 flat) | Discovery Rev (0.75%) | Positions Rev (0.25%) | Total Revenue |
+| :--- | :--- | :--- | :--- | :--- |
+| **$10,000** | $80.00 | $37.50 | $2.50 | **$120.00** |
+| **$50,000** | $400.00 | $187.50 | $12.50 | **$600.00** |
+| **$300,000** | $2,400.00 | $1,125.00 | $75.00 | **$3,600.00** |
+
+---
+
+## 4. Technical Implementation (Pseudo-Code)
+
+Copy this logic into your transaction handler:
+
+```javascript
+/**
+ * Calculates the platform fee based on where the user is in the app.
+ * @param {number} amount - The USDC size of the trade.
+ * @param {string} channel - 'swipe', 'discovery', or 'positions'.
+ * @returns {number} The fee in USDC.
+ */
+function calculateSwayFee(amount, channel) {
+    const CHANNELS = {
+        SWIPE: 'swipe',
+        DISCOVERY: 'discovery',
+        POSITIONS: 'positions'
+    };
+
+    switch(channel) {
+        case CHANNELS.SWIPE:
+            // High margin on micro-trades
+            return 0.05; 
+            
+        case CHANNELS.DISCOVERY:
+            // Competitive rate for intentional bets
+            return amount * 0.0075; 
+            
+        case CHANNELS.POSITIONS:
+            // Low friction to encourage selling/active play
+            return amount * 0.0025; 
+            
+        default:
+            return amount * 0.01; // 1% Safety fallback
+    }
+}

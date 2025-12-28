@@ -49,11 +49,69 @@ export const analyticsEvents = pgTable("analytics_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Fee configuration
+// Fee configuration - Channel-based fee structure
+// Swipe: $0.05 flat (high margin on micro-trades)
+// Discovery: 0.75% (competitive rate for intentional bets)
+// Positions: 0.25% (low friction for selling/active play)
+export type FeeChannel = 'swipe' | 'discovery' | 'positions';
+
 export const FEE_CONFIG = {
-  FEE_PERCENTAGE: 0.01, // 1% fee
+  // Fee recipient wallet (USDC token account)
   FEE_RECIPIENT: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY',
+  
+  // Channel-based fee rates
+  CHANNELS: {
+    SWIPE: {
+      type: 'flat' as const,
+      amount: 0.05, // $0.05 flat fee
+      bps: null, // Not used for flat fees
+    },
+    DISCOVERY: {
+      type: 'percentage' as const,
+      amount: null,
+      bps: 75, // 0.75% = 75 basis points
+    },
+    POSITIONS: {
+      type: 'percentage' as const,
+      amount: null,
+      bps: 25, // 0.25% = 25 basis points
+    },
+  },
+  
+  // Fallback for legacy or unknown channels
+  DEFAULT_BPS: 100, // 1% = 100 basis points
+  
+  // Legacy percentage (for DB fee calculations)
+  FEE_PERCENTAGE: 0.01, // 1% default fallback
 };
+
+/**
+ * Calculates the platform fee based on where the user is in the app.
+ * @param amount - The USDC size of the trade.
+ * @param channel - 'swipe', 'discovery', or 'positions'.
+ * @returns Object with fee amount in USDC and basis points for API
+ */
+export function calculateSwayFee(amount: number, channel: FeeChannel): { feeUSDC: number; feeBps: number } {
+  switch (channel) {
+    case 'swipe':
+      // Fixed $0.05 fee for swipe trades
+      // Convert to effective BPS for API: (0.05 / amount) * 10000
+      const effectiveBps = Math.round((0.05 / amount) * 10000);
+      return { feeUSDC: 0.05, feeBps: Math.min(effectiveBps, 500) }; // Cap at 5% for very small trades
+      
+    case 'discovery':
+      // 0.75% of trade amount
+      return { feeUSDC: amount * 0.0075, feeBps: 75 };
+      
+    case 'positions':
+      // 0.25% of trade amount
+      return { feeUSDC: amount * 0.0025, feeBps: 25 };
+      
+    default:
+      // 1% safety fallback
+      return { feeUSDC: amount * 0.01, feeBps: 100 };
+  }
+}
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
