@@ -62,8 +62,8 @@ export async function getPondQuote(
     if (feeParams.feeAccount) {
       queryParams.append('feeAccount', feeParams.feeAccount);
     }
-    // For outcome tokens, platformFeeMode is ignored - fee always in settlement mint
-    queryParams.append('platformFeeMode', 'outputMint');
+    // Note: platformFeeMode parameter may not be supported by all API versions
+    // DEV API may not support this parameter - only add if needed
   }
 
   const headers: Record<string, string> = {

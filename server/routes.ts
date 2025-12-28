@@ -676,6 +676,12 @@ export async function registerRoutes(
       });
 
       // Get order from DFlow with platform fee
+      // Note: Only include fee params if feeBps > 0 to avoid API issues
+      const feeParams = feeBps > 0 ? {
+        platformFeeBps: feeBps,
+        feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+      } : undefined;
+      
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
@@ -683,10 +689,7 @@ export async function registerRoutes(
         userPublicKey,
         slippageBps,
         DFLOW_API_KEY || undefined,
-        {
-          platformFeeBps: feeBps,
-          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
-        }
+        feeParams
       );
 
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
