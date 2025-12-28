@@ -92,12 +92,21 @@ export const FEE_CONFIG = {
  * @returns Object with fee amount in USDC and basis points for API
  */
 export function calculateSwayFee(amount: number, channel: FeeChannel): { feeUSDC: number; feeBps: number } {
+  // Validate input - handle zero/negative amounts gracefully
+  if (!amount || amount <= 0) {
+    return { feeUSDC: 0, feeBps: 0 };
+  }
+  
   switch (channel) {
     case 'swipe':
-      // Fixed $0.05 fee for swipe trades
+      // Fixed $0.05 fee for swipe trades (high margin on micro-trades)
       // Convert to effective BPS for API: (0.05 / amount) * 10000
+      // For $0.50 min trade: 1000 bps (10%)
+      // For $2.50 avg trade: 200 bps (2%)
+      // For $5.00 trade: 100 bps (1%)
       const effectiveBps = Math.round((0.05 / amount) * 10000);
-      return { feeUSDC: 0.05, feeBps: Math.min(effectiveBps, 500) }; // Cap at 5% for very small trades
+      // Cap at 1000 bps (10%) to handle $0.50 minimum trade size
+      return { feeUSDC: 0.05, feeBps: Math.min(effectiveBps, 1000) };
       
     case 'discovery':
       // 0.75% of trade amount
