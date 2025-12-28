@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { calculateSwayFee, type FeeChannel } from '@shared/schema';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -170,10 +171,12 @@ export function usePondTrading() {
       }
 
       // Check balance - if insufficient, throw specific error for funding prompt
-      console.log('[PondTrading] Balance check - usdcBalance:', usdcBalance, 'type:', typeof usdcBalance, 'amountUSDC:', amountUSDC);
-      if (usdcBalance !== undefined && usdcBalance < amountUSDC) {
+      // Calculate total cost = wager + fee using channel-based fees
+      const { grossInput: totalCost, feeUSDC } = calculateSwayFee(amountUSDC, channel as FeeChannel);
+      console.log('[PondTrading] Balance check - usdcBalance:', usdcBalance, 'wager:', amountUSDC, 'fee:', feeUSDC.toFixed(4), 'totalCost:', totalCost.toFixed(4));
+      if (usdcBalance !== undefined && usdcBalance < totalCost) {
         console.log('[PondTrading] Insufficient funds - throwing INSUFFICIENT_FUNDS error');
-        const err = new Error(`INSUFFICIENT_FUNDS:${usdcBalance.toFixed(2)}:${amountUSDC.toFixed(2)}`);
+        const err = new Error(`INSUFFICIENT_FUNDS:${usdcBalance.toFixed(2)}:${totalCost.toFixed(2)}`);
         throw err;
       }
       console.log('[PondTrading] Balance check passed, proceeding with trade');
