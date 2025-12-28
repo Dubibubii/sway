@@ -56,8 +56,12 @@ export const analyticsEvents = pgTable("analytics_events", {
 export type FeeChannel = 'swipe' | 'discovery' | 'positions';
 
 export const FEE_CONFIG = {
-  // Fee recipient wallet (USDC token account)
-  FEE_RECIPIENT: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY',
+  // Fee recipient: USDC Associated Token Account (ATA) for wallet 9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY
+  // DFlow requires the SPL token account, not the wallet address
+  FEE_RECIPIENT: 'Csdoc9fHj4XBw6HcDq69SVx5dHQtubb9dCkXGGbus7Zy',
+  
+  // Original wallet address (for reference/logging)
+  FEE_WALLET: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY',
   
   // Channel-based fee rates
   CHANNELS: {
