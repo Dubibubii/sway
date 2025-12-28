@@ -34,13 +34,19 @@ export interface PondMarketToken {
   outcome: 'yes' | 'no';
 }
 
+export interface PlatformFeeParams {
+  platformFeeBps?: number;     // Fee in basis points (e.g., 75 = 0.75%)
+  feeAccount?: string;         // USDC token account to receive fees
+}
+
 export async function getPondQuote(
   inputMint: string,
   outputMint: string,
   amount: number,
   userPublicKey: string,
   slippageBps: number = 100,
-  apiKey?: string
+  apiKey?: string,
+  feeParams?: PlatformFeeParams
 ): Promise<PondOrderResponse> {
   const queryParams = new URLSearchParams();
   queryParams.append('inputMint', inputMint);
@@ -48,6 +54,17 @@ export async function getPondQuote(
   queryParams.append('amount', amount.toString());
   queryParams.append('slippageBps', slippageBps.toString());
   queryParams.append('userPublicKey', userPublicKey);
+  
+  // Add platform fee parameters if provided
+  // For outcome token trades, fee is always collected in settlement mint (USDC)
+  if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
+    queryParams.append('platformFeeBps', feeParams.platformFeeBps.toString());
+    if (feeParams.feeAccount) {
+      queryParams.append('feeAccount', feeParams.feeAccount);
+    }
+    // For outcome tokens, platformFeeMode is ignored - fee always in settlement mint
+    queryParams.append('platformFeeMode', 'outputMint');
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,6 +73,14 @@ export async function getPondQuote(
   if (apiKey) {
     headers['x-api-key'] = apiKey;
   }
+
+  console.log('[Pond] Order request with fee params:', {
+    inputMint: inputMint.slice(0, 8) + '...',
+    outputMint: outputMint.slice(0, 8) + '...',
+    amount,
+    platformFeeBps: feeParams?.platformFeeBps || 0,
+    feeAccount: feeParams?.feeAccount?.slice(0, 8) + '...' || 'none'
+  });
 
   const response = await fetch(
     `${DFLOW_API_BASE}/order?${queryParams.toString()}`,
