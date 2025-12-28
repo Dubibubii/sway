@@ -73,6 +73,11 @@ Preferred communication style: Simple, everyday language.
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
   - Required env var: `DFLOW_API_KEY` (for production access)
+  - **Platform Fees**: Channel-based fees collected via DFlow's platformFeeBps parameter
+    - Swipe tab: $0.05 flat fee (effective 1000 bps on $0.50 min, 200 bps on $2.50 avg)
+    - Discovery tab: 0.75% (75 bps)
+    - Positions tab: 0.25% (25 bps)
+    - Fee account: 9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY
 
 - **Jupiter Aggregator**: SOL to USDC swaps
   - Quote API: `https://quote-api.jup.ag/v6/quote`
