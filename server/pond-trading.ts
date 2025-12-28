@@ -100,7 +100,13 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
     const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
     console.log('[Pond] Fetching market tokens from:', url);
     
-    const response = await fetch(url);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const apiKey = process.env.DFLOW_API_KEY;
+    if (apiKey) {
+      headers['x-api-key'] = apiKey;
+    }
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error('[Pond] Failed to fetch market tokens:', response.status, await response.text());
@@ -167,10 +173,16 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
     const pageSize = 500;
     let hasMore = true;
     
+    const metadataHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    const metadataApiKey = process.env.DFLOW_API_KEY;
+    if (metadataApiKey) {
+      metadataHeaders['x-api-key'] = metadataApiKey;
+    }
+    
     while (hasMore) {
       const response = await fetch(
         `${POND_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=${pageSize}&offset=${offset}`,
-        { headers: { 'Content-Type': 'application/json' } }
+        { headers: metadataHeaders }
       );
       
       if (!response.ok) {
@@ -214,7 +226,7 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
       try {
         const marketsResponse = await fetch(
           `${POND_METADATA_API}/api/v1/markets?status=active&limit=${pageSize}&offset=${offset}`,
-          { headers: { 'Content-Type': 'application/json' } }
+          { headers: metadataHeaders }
         );
         
         if (marketsResponse.ok) {
