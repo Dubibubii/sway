@@ -182,7 +182,8 @@ export default function Home() {
       
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined);
+        // Use 'swipe' channel - $0.05 flat fee
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined, 'swipe');
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -264,7 +265,8 @@ export default function Home() {
 
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined);
+        // Use 'swipe' channel - $0.05 flat fee
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined, 'swipe');
         
         if (result.success) {
           // Refresh balance after successful trade

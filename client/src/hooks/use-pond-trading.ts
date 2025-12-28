@@ -131,7 +131,8 @@ export function usePondTrading() {
     side: 'yes' | 'no',
     amountUSDC: number,
     usdcBalance?: number,
-    embeddedWalletAddress?: string
+    embeddedWalletAddress?: string,
+    channel: 'swipe' | 'discovery' | 'positions' = 'swipe'
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
@@ -220,6 +221,7 @@ export function usePondTrading() {
           amountUSDC,
           userPublicKey,
           slippageBps: 100,
+          channel, // Pass channel for fee calculation
         }),
       });
 

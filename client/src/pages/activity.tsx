@@ -353,12 +353,14 @@ export default function Activity() {
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       console.log('[Activity] Starting add to position trade:', selectedPosition.marketId, side, amount);
       
+      // Use 'positions' channel for adding to position - 0.25% fee
       const result = await placePondTrade(
         selectedPosition.marketId, 
         side, 
         amount, 
         usdcBalance,
-        embeddedWallet?.address
+        embeddedWallet?.address,
+        'positions'
       );
       
       console.log('[Activity] Trade result:', result);

@@ -54,8 +54,8 @@ export default function Discovery() {
       return;
     }
     
-    // Execute trade
-    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address);
+    // Execute trade using 'discovery' channel - 0.75% fee
+    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address, 'discovery');
     
     if (result.success) {
       // Record trade in database
