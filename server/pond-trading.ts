@@ -91,10 +91,11 @@ export async function getPondQuote(
     feeAccount: feeParams?.feeAccount?.slice(0, 8) + '...' || 'none'
   });
 
-  const response = await fetch(
-    `${DFLOW_API_BASE}/order?${queryParams.toString()}`,
-    { headers }
-  );
+  // DFlow dev quote API uses /api/v1/order endpoint
+  const orderUrl = `${DFLOW_API_BASE}/api/v1/order?${queryParams.toString()}`;
+  console.log('[Pond] Calling quote API:', orderUrl.split('?')[0]);
+  
+  const response = await fetch(orderUrl, { headers });
 
   if (!response.ok) {
     const error = await response.text();
