@@ -52,11 +52,22 @@ export default function Activity() {
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [priceFetchError, setPriceFetchError] = useState<string | null>(null);
   
+  // Sell quote state
+  const [sellQuote, setSellQuote] = useState<{
+    expectedUSDC: number;
+    priceImpactPct: number;
+    pricePerShare: number;
+    warning: string | null;
+    devApiWarning: string;
+    error?: string;
+  } | null>(null);
+  const [isLoadingSellQuote, setIsLoadingSellQuote] = useState(false);
+  
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
   const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
-  const { placeTrade: placePondTrade, sellPosition, redeemPosition, checkRedemption, isTrading: isPondTrading } = usePondTrading();
+  const { placeTrade: placePondTrade, sellPosition, getSellQuote, redeemPosition, checkRedemption, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -132,22 +143,6 @@ export default function Activity() {
     .map(p => `${p.marketId}:${p.direction}`)
     .sort()
     .join(',');
-  
-  // Fetch live prices on page load and when positions change
-  useEffect(() => {
-    if (activePositions.length === 0) {
-      // Clear stale prices when no positions
-      setCurrentPrices({});
-      return;
-    }
-    
-    // Skip if already fetching to avoid overlapping requests
-    if (isLoadingPrices) return;
-    
-    // Always fetch fresh prices when positions change
-    fetchCurrentPrices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positionsKey]);
 
   // Fetch current prices for all positions using Kalshi API
   const fetchCurrentPrices = async () => {
@@ -202,6 +197,22 @@ export default function Activity() {
       setIsLoadingPrices(false);
     }
   };
+
+  // Fetch live prices on page load and when positions change
+  useEffect(() => {
+    if (activePositions.length === 0) {
+      // Clear stale prices when no positions
+      setCurrentPrices({});
+      return;
+    }
+    
+    // Skip if already fetching to avoid overlapping requests
+    if (isLoadingPrices) return;
+    
+    // Always fetch fresh prices when positions change
+    fetchCurrentPrices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsKey]);
 
   // Bulk sell handler
   const handleBulkSell = async () => {
@@ -343,10 +354,26 @@ export default function Activity() {
     setAddModalOpen(true);
   };
 
-  const handleCloseClick = (e: React.MouseEvent, position: Trade) => {
+  const handleCloseClick = async (e: React.MouseEvent, position: Trade) => {
     e.stopPropagation();
     setSelectedPosition(position);
+    setSellQuote(null);
     setCloseModalOpen(true);
+    
+    // Fetch sell quote for accurate pricing
+    if (embeddedWallet?.address) {
+      setIsLoadingSellQuote(true);
+      try {
+        const side = position.direction.toLowerCase() as 'yes' | 'no';
+        const shares = parseFloat(position.shares);
+        const quote = await getSellQuote(position.marketId, side, shares, embeddedWallet.address);
+        setSellQuote(quote);
+      } catch (err) {
+        console.error('[Activity] Failed to get sell quote:', err);
+      } finally {
+        setIsLoadingSellQuote(false);
+      }
+    }
   };
 
   const handleAddPosition = async () => {
@@ -718,13 +745,54 @@ export default function Activity() {
                   <span className="text-muted-foreground">Cost Basis</span>
                   <span>${(selectedPosition.wagerAmount / 100).toFixed(2)}</span>
                 </div>
-                <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
-                  <span>Est. Value (at entry price)</span>
-                  <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Actual USDC received will depend on current market price, slippage, and actual on-chain balance (may differ from recorded shares due to partial fills).
-                </p>
+                
+                {/* Sell Quote Section */}
+                {isLoadingSellQuote ? (
+                  <div className="border-t border-zinc-700 pt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Getting current quote...</span>
+                  </div>
+                ) : sellQuote && !sellQuote.error && sellQuote.expectedUSDC > 0 ? (
+                  <>
+                    <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                      <span>Expected USDC</span>
+                      <span className="text-[#1ED78B]">
+                        ${sellQuote.expectedUSDC.toFixed(2)}
+                      </span>
+                    </div>
+                    {sellQuote.priceImpactPct > 1 && (
+                      <div className="flex justify-between text-xs text-amber-400">
+                        <span>Price Impact</span>
+                        <span>-{sellQuote.priceImpactPct.toFixed(1)}%</span>
+                      </div>
+                    )}
+                    {sellQuote.warning && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
+                        <p className="text-xs text-amber-400">{sellQuote.warning}</p>
+                      </div>
+                    )}
+                    <div className="bg-zinc-700/50 rounded p-2 mt-2">
+                      <p className="text-xs text-muted-foreground">{sellQuote.devApiWarning}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                      <span>Est. Value (at entry price)</span>
+                      <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
+                      <p className="text-xs text-amber-400">
+                        {sellQuote?.error || 'Could not get live quote. Actual sale proceeds may differ significantly due to market liquidity.'}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-700/50 rounded p-2 mt-1">
+                      <p className="text-xs text-muted-foreground">
+                        The dev API has limited liquidity. Production will have better prices.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <div className="flex gap-2">

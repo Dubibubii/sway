@@ -878,6 +878,74 @@ export async function registerRoutes(
     }
   });
 
+  // Sell quote endpoint - returns expected proceeds WITHOUT executing
+  // This allows users to see what they'll receive before confirming
+  app.post('/api/pond/sell-quote', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { marketId, side, shares, userPublicKey, slippageBps = 300 } = req.body;
+
+      if (!marketId || !side || !shares || !userPublicKey) {
+        return res.status(400).json({ error: 'Missing required fields: marketId, side, shares, userPublicKey' });
+      }
+
+      // Get market tokens
+      const marketTokens = await getMarketTokens(marketId);
+      if (!marketTokens) {
+        return res.status(400).json({ error: 'Market not available for trading on Pond/DFlow' });
+      }
+
+      // Input is the outcome token, output is USDC
+      const inputMint = side === 'yes' ? marketTokens.yesMint : marketTokens.noMint;
+      const outputMint = SOLANA_TOKENS.USDC;
+
+      // Convert shares to atomic units (outcome tokens have 6 decimals like USDC)
+      const amountAtomic = Math.floor(shares * 1_000_000);
+
+      console.log('[Pond Sell Quote] Getting quote:', { marketId, side, shares, amountAtomic });
+
+      // Get quote from DFlow
+      const orderResponse = await getPondQuote(
+        inputMint,
+        outputMint,
+        amountAtomic,
+        userPublicKey,
+        slippageBps,
+        DFLOW_API_KEY || undefined,
+        {
+          platformFeeScale: 3, // 0.25% fee for positions channel
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+          referralAccount: FEE_CONFIG.FEE_WALLET,
+        }
+      );
+
+      // Calculate expected USDC from quote
+      const outAmount = parseInt(orderResponse.quote?.outAmount || '0');
+      const expectedUSDC = outAmount / 1_000_000;
+      const priceImpactPct = parseFloat(orderResponse.quote?.priceImpactPct || '0');
+      const pricePerShare = shares > 0 ? expectedUSDC / shares : 0;
+
+      console.log('[Pond Sell Quote] Quote received:', {
+        expectedUSDC,
+        priceImpactPct,
+        pricePerShare,
+        executionMode: orderResponse.executionMode
+      });
+
+      res.json({
+        expectedUSDC,
+        priceImpactPct,
+        pricePerShare,
+        shares,
+        executionMode: orderResponse.executionMode,
+        warning: priceImpactPct > 5 ? 'High price impact detected. This market has low liquidity.' : null,
+        devApiWarning: 'The dev API has limited liquidity. Production will have better prices.',
+      });
+    } catch (error: any) {
+      console.error('Error getting sell quote:', error);
+      res.status(500).json({ error: error.message || 'Failed to get sell quote' });
+    }
+  });
+
   // Sell endpoint - converts outcome tokens back to USDC
   // Uses 'positions' channel fee by default (0.25%)
   app.post('/api/pond/sell', requireAuth, async (req: AuthenticatedRequest, res: Response) => {

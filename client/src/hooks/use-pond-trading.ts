@@ -639,6 +639,64 @@ export function usePondTrading() {
     }
   }, [getAccessToken, wallets, signAndSendTransaction]);
 
+  // Get a sell quote to show expected proceeds before confirming
+  const getSellQuote = useCallback(async (
+    marketId: string,
+    side: 'yes' | 'no',
+    shares: number,
+    userPublicKey: string
+  ): Promise<{
+    expectedUSDC: number;
+    priceImpactPct: number;
+    pricePerShare: number;
+    warning: string | null;
+    devApiWarning: string;
+    error?: string;
+  }> => {
+    try {
+      const token = await getAccessToken();
+      const response = await fetch('/api/pond/sell-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          marketId,
+          side,
+          shares,
+          userPublicKey,
+          slippageBps: 300,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[PondTrading] Sell quote failed:', errorText);
+        return {
+          expectedUSDC: 0,
+          priceImpactPct: 0,
+          pricePerShare: 0,
+          warning: 'Failed to get quote',
+          devApiWarning: '',
+          error: 'Failed to get sell quote',
+        };
+      }
+      
+      return await response.json();
+    } catch (error: any) {
+      console.error('[PondTrading] Error getting sell quote:', error);
+      return {
+        expectedUSDC: 0,
+        priceImpactPct: 0,
+        pricePerShare: 0,
+        warning: null,
+        devApiWarning: '',
+        error: error.message || 'Failed to get sell quote',
+      };
+    }
+  }, [getAccessToken]);
+
   // Check if a position can be redeemed (market settled and won)
   const checkRedemption = useCallback(async (outcomeMint: string): Promise<{
     isRedeemable: boolean;
@@ -665,6 +723,7 @@ export function usePondTrading() {
   return {
     placeTrade,
     sellPosition,
+    getSellQuote,
     redeemPosition,
     checkRedemption,
     isTrading,
