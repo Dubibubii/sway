@@ -37,6 +37,7 @@ export interface PondMarketToken {
 export interface PlatformFeeParams {
   platformFeeBps?: number;     // Fee in basis points (e.g., 75 = 0.75%)
   feeAccount?: string;         // USDC token account to receive fees
+  referralAccount?: string;    // Wallet address to auto-create fee account if needed
 }
 
 export async function getPondQuote(
@@ -57,13 +58,16 @@ export async function getPondQuote(
   
   // Add platform fee parameters if provided
   // For outcome token trades, fee is always collected in settlement mint (USDC)
+  // See: https://pond.dflow.net/quickstart/platform-fees
   if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
     queryParams.append('platformFeeBps', feeParams.platformFeeBps.toString());
     if (feeParams.feeAccount) {
       queryParams.append('feeAccount', feeParams.feeAccount);
     }
-    // Note: platformFeeMode parameter may not be supported by all API versions
-    // DEV API may not support this parameter - only add if needed
+    // Add referralAccount to auto-create fee account if it doesn't exist
+    if (feeParams.referralAccount) {
+      queryParams.append('referralAccount', feeParams.referralAccount);
+    }
   }
 
   const headers: Record<string, string> = {

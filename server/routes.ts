@@ -689,10 +689,14 @@ export async function registerRoutes(
         feeBps > 0 ? {
           platformFeeBps: feeBps,
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
         } : undefined
       );
 
+      // Log platform fee from DFlow response (if returned)
+      const dflowFeeInfo = (orderResponse as any).platformFee;
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
+      console.log('[Pond Order] DFlow platformFee response:', dflowFeeInfo || 'not included in response');
 
       res.json({
         transaction: orderResponse.transaction,
@@ -769,10 +773,14 @@ export async function registerRoutes(
         {
           platformFeeBps: feeBps,
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
         }
       );
 
+      // Log platform fee from DFlow response
+      const dflowFeeInfo = (orderResponse as any).platformFee;
       console.log('[Pond Redeem] Order received, executionMode:', orderResponse.executionMode);
+      console.log('[Pond Redeem] DFlow platformFee response:', dflowFeeInfo || 'not included in response');
 
       res.json({
         transaction: orderResponse.transaction,
@@ -896,10 +904,14 @@ export async function registerRoutes(
         {
           platformFeeBps: feeBps,
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
         }
       );
 
+      // Log platform fee from DFlow response
+      const dflowFeeInfo = (orderResponse as any).platformFee;
       console.log('[Pond Sell] Response received, has transaction:', !!orderResponse.transaction);
+      console.log('[Pond Sell] DFlow platformFee response:', dflowFeeInfo || 'not included in response');
       console.log('[Pond Sell] Expected USDC out:', orderResponse.quote?.outAmount ? parseInt(orderResponse.quote.outAmount) / 1_000_000 : 'unknown');
 
       res.json({
