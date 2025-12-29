@@ -182,7 +182,11 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
   );
 }
 
-const solanaConnectors = toSolanaWalletConnectors();
+// Enable Solana wallet connectors with auto-connect for external wallets
+// This includes Seed Vault Wallet (Solflare-based) on Solana Seeker devices
+const solanaConnectors = toSolanaWalletConnectors({
+  shouldAutoConnect: true,
+});
 
 function PrivyWrapperComponent({ children }: { children: ReactNode }) {
   const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
@@ -205,7 +209,9 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           accentColor: '#10b981',
           showWalletLoginFirst: true,
           walletChainType: 'solana-only',
-          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack'],
+          // Include detected wallets + popular Solana wallets
+          // Solflare is key for Seeker's Seed Vault Wallet which is Solflare-based
+          walletList: ['detected_solana_wallets', 'solflare', 'phantom', 'backpack'],
         },
         loginMethods: ['wallet', 'email', 'google'],
         embeddedWallets: {
