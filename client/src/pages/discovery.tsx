@@ -265,6 +265,7 @@ export default function Discovery() {
             onClose={() => setSelectedMarket(null)}
             onTrade={handleTrade}
             isTrading={isTrading}
+            userWalletAddress={embeddedWallet?.address}
           />
         )}
       </AnimatePresence>
@@ -415,9 +416,10 @@ interface MarketDetailModalProps {
   onClose: () => void;
   onTrade: (marketId: string, side: 'yes' | 'no', amount: number, marketTitle: string, marketCategory: string | undefined, price: number) => Promise<void>;
   isTrading: boolean;
+  userWalletAddress?: string; // For fetching accurate quotes
 }
 
-function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetailModalProps) {
+function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddress }: MarketDetailModalProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string>(market.id);
   const [betDirection, setBetDirection] = useState<'YES' | 'NO'>('YES');
   const [betAmount, setBetAmount] = useState(1);
@@ -425,6 +427,9 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetail
   const [customAmountText, setCustomAmountText] = useState('');
   const [showResolutionInfo, setShowResolutionInfo] = useState(false);
   const [showAllOptions, setShowAllOptions] = useState(false);
+  
+  // Debounce bet amount for quote fetching
+  const debouncedBetAmount = useDebounce(betAmount, 500);
 
   const { data: eventMarketsData } = useQuery({
     queryKey: ['/api/events', market.eventTicker, 'markets'],
@@ -447,10 +452,47 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetail
   const yesPercent = Math.round(selectedMarket.yesPrice * 100);
   const noPercent = Math.round(selectedMarket.noPrice * 100);
   const price = betDirection === 'YES' ? selectedMarket.yesPrice : selectedMarket.noPrice;
-  const estimatedShares = betAmount / price;
-  const potentialPayout = estimatedShares * 1;
-  const potentialProfit = potentialPayout - betAmount;
-  const returnMultiple = (potentialPayout / betAmount).toFixed(2);
+  
+  // Fetch accurate quote from DFlow API for precise share estimates
+  // Requires valid wallet address to get real quote data
+  const { data: quoteData, isLoading: isLoadingQuote, isError: isQuoteError } = useQuery({
+    queryKey: ['/api/pond/quote', selectedMarket.id, betDirection.toLowerCase(), debouncedBetAmount, userWalletAddress],
+    queryFn: async () => {
+      if (debouncedBetAmount < 0.10 || !userWalletAddress) return null;
+      const response = await fetch('/api/pond/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          marketId: selectedMarket.id,
+          side: betDirection.toLowerCase(),
+          amountUSDC: debouncedBetAmount,
+          userPublicKey: userWalletAddress, // Use actual wallet for accurate quote
+          channel: 'discovery',
+        }),
+      });
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: debouncedBetAmount >= 0.10 && !!userWalletAddress,
+    staleTime: 10000, // Cache for 10 seconds
+    retry: false, // Don't retry failed quotes
+  });
+  
+  // Use API quote data if available for accurate numbers
+  const costBreakdown = quoteData?.costBreakdown;
+  const hasAccurateQuote = !!costBreakdown?.expectedShares && costBreakdown.expectedShares > 0;
+  
+  // Use actual quote data when available, otherwise show simple estimate with disclaimer
+  const estimatedShares = hasAccurateQuote 
+    ? costBreakdown.expectedShares 
+    : (betAmount * 0.95 / price); // Conservative fallback
+  const actualCostUSDC = hasAccurateQuote 
+    ? costBreakdown.inputUSDC 
+    : betAmount; // Use bet amount if no quote
+  const potentialPayout = estimatedShares * 1; // Each share pays $1 if correct
+  const potentialProfit = potentialPayout - actualCostUSDC; // Profit = payout - actual cost
+  const returnMultiple = actualCostUSDC > 0 ? (potentialPayout / actualCostUSDC).toFixed(2) : '0.00';
 
   const amountOptions = [1, 5, 10, 25, 50, 100];
 
@@ -642,21 +684,31 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading }: MarketDetail
                     <span>${betAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">Shares ({(price * 100).toFixed(0)}¢ each)</span>
-                    <span>{estimatedShares.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      Shares ({(price * 100).toFixed(0)}¢ each)
+                      {isLoadingQuote && <Loader2 className="w-3 h-3 ml-1 inline animate-spin" />}
+                    </span>
+                    <span className={hasAccurateQuote ? 'text-white font-medium' : 'text-zinc-400'}>
+                      {hasAccurateQuote ? '' : '~'}{estimatedShares.toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">If you win</span>
                     <span className={betDirection === 'YES' ? 'text-[#1ED78B]' : 'text-rose-400'}>
-                      ${potentialPayout.toFixed(2)}
+                      {hasAccurateQuote ? '' : '~'}${potentialPayout.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm font-bold pt-2 border-t border-white/10">
                     <span>Profit</span>
                     <span className={betDirection === 'YES' ? 'text-[#1ED78B]' : 'text-rose-400'}>
-                      +${potentialProfit.toFixed(2)} ({returnMultiple}x)
+                      {hasAccurateQuote ? '' : '~'}${potentialProfit.toFixed(2)} ({returnMultiple}x)
                     </span>
                   </div>
+                  {!hasAccurateQuote && !isLoadingQuote && userWalletAddress && betAmount >= 0.5 && (
+                    <div className="text-[10px] text-amber-400/70 mt-1 text-center">
+                      Estimates may vary. Final shares determined at execution.
+                    </div>
+                  )}
                 </div>
 
                 <Button 

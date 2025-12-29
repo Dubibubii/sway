@@ -610,9 +610,11 @@ export async function registerRoutes(
     }
   });
 
+  // Quote preview endpoint - returns accurate cost breakdown for UI display
+  // This endpoint includes platform fees to show users accurate numbers before trading
   app.post('/api/pond/quote', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { marketId, side, amountUSDC, userPublicKey, slippageBps = 100 } = req.body;
+      const { marketId, side, amountUSDC, userPublicKey, slippageBps = 100, channel = 'discovery' } = req.body;
 
       if (!marketId || !side || !amountUSDC || !userPublicKey) {
         return res.status(400).json({ error: 'Missing required fields: marketId, side, amountUSDC, userPublicKey' });
@@ -627,18 +629,47 @@ export async function registerRoutes(
       // Determine which token to buy (YES or NO outcome)
       const outputMint = side.toLowerCase() === 'yes' ? tokens.yesMint : tokens.noMint;
       
-      // Convert USDC amount to lamports (USDC has 6 decimals)
-      const amountLamports = Math.floor(amountUSDC * 1_000_000);
+      // Convert USDC amount to atomic units (USDC has 6 decimals)
+      const amountAtomic = Math.floor(amountUSDC * 1_000_000);
+      
+      // Calculate channel-based fee for accurate preview
+      const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'discovery') as FeeChannel;
+      const { feeUSDC, feeBps, feeScale } = calculateSwayFee(amountUSDC, validChannel);
 
-      // Get quote from DFlow
-      const quote = await getPondQuote(
+      // Get quote from DFlow WITH platform fee to get accurate numbers
+      const quoteResponse = await getPondQuote(
         SOLANA_TOKENS.USDC,
         outputMint,
-        amountLamports,
+        amountAtomic,
         userPublicKey,
         slippageBps,
-        DFLOW_API_KEY || undefined
+        DFLOW_API_KEY || undefined,
+        feeScale > 0 ? {
+          platformFeeScale: feeScale,
+          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+          referralAccount: FEE_CONFIG.FEE_WALLET,
+        } : undefined
       );
+
+      const quote = quoteResponse.quote;
+      const dflowFeeInfo = (quoteResponse as any).platformFee;
+      
+      // Parse actual amounts from DFlow quote
+      const actualInAmount = quote?.inAmount ? parseInt(quote.inAmount) / 1_000_000 : amountUSDC;
+      const actualOutAmount = quote?.outAmount ? parseInt(quote.outAmount) / 1_000_000 : 0;
+      const priceImpactPct = quote?.priceImpactPct ? parseFloat(quote.priceImpactPct) : 0;
+      const actualPlatformFeeUSDC = dflowFeeInfo?.amount ? parseInt(dflowFeeInfo.amount) / 1_000_000 : feeUSDC;
+      
+      // Calculate effective price per share
+      const effectivePricePerShare = actualOutAmount > 0 ? actualInAmount / actualOutAmount : 0;
+      
+      console.log('[Pond Quote Preview] Accurate quote data:', {
+        channel: validChannel,
+        inputUSDC: actualInAmount,
+        expectedShares: actualOutAmount,
+        platformFee: actualPlatformFeeUSDC,
+        priceImpact: priceImpactPct
+      });
 
       res.json({
         quote,
@@ -646,6 +677,15 @@ export async function registerRoutes(
         side,
         outputMint,
         inputMint: SOLANA_TOKENS.USDC,
+        // Accurate cost breakdown for UI
+        costBreakdown: {
+          inputUSDC: actualInAmount,           // Actual USDC being spent
+          expectedShares: actualOutAmount,     // Accurate expected shares
+          platformFeeUSDC: actualPlatformFeeUSDC, // Actual platform fee
+          priceImpactPct,                      // Market impact percentage
+          effectivePricePerShare,              // True cost per share
+          channel: validChannel,
+        },
       });
     } catch (error: any) {
       console.error('Error getting Pond quote:', error);
@@ -694,19 +734,54 @@ export async function registerRoutes(
         } : undefined
       );
 
-      // Log platform fee from DFlow response (if returned)
+      // Parse DFlow quote response for accurate numbers
       const dflowFeeInfo = (orderResponse as any).platformFee;
+      const quote = orderResponse.quote;
+      
+      // Get actual amounts from DFlow quote (in atomic units, 6 decimals)
+      const actualInAmount = quote?.inAmount ? parseInt(quote.inAmount) / 1_000_000 : amountUSDC;
+      const actualOutAmount = quote?.outAmount ? parseInt(quote.outAmount) / 1_000_000 : 0;
+      const priceImpactPct = quote?.priceImpactPct ? parseFloat(quote.priceImpactPct) : 0;
+      
+      // Get actual platform fee from DFlow response (in microUSDC)
+      const actualPlatformFeeUSDC = dflowFeeInfo?.amount ? parseInt(dflowFeeInfo.amount) / 1_000_000 : feeUSDC;
+      const actualFeeBps = dflowFeeInfo?.feeBps || feeBps;
+      
+      // Calculate effective price per share (what user actually pays per share)
+      const effectivePricePerShare = actualOutAmount > 0 ? actualInAmount / actualOutAmount : 0;
+      
+      // Calculate total cost (USDC in + estimated gas in USD)
+      const estimatedGasUSD = 0.02; // Rough estimate for Solana gas
+      const totalCostUSDC = actualInAmount + estimatedGasUSD;
+      
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
       console.log('[Pond Order] DFlow platformFee response:', dflowFeeInfo || 'not included in response');
+      console.log('[Pond Order] Accurate quote data:', {
+        actualInAmount,
+        actualOutAmount,
+        actualPlatformFeeUSDC,
+        priceImpactPct,
+        effectivePricePerShare: effectivePricePerShare.toFixed(4)
+      });
 
       res.json({
         transaction: orderResponse.transaction,
         quote: orderResponse.quote,
         executionMode: orderResponse.executionMode,
+        // Accurate cost breakdown for UI
+        costBreakdown: {
+          inputUSDC: actualInAmount,           // Actual USDC being spent
+          expectedShares: actualOutAmount,     // Accurate expected shares from DFlow
+          platformFeeUSDC: actualPlatformFeeUSDC, // Actual platform fee
+          priceImpactPct,                      // Market impact
+          effectivePricePerShare,              // True cost per share
+          estimatedGasUSD,                     // Est. gas in USD
+          totalCostUSDC,                       // Total all-in cost
+        },
         platformFee: {
           channel: validChannel,
-          feeUSDC,
-          feeBps,
+          feeUSDC: actualPlatformFeeUSDC,
+          feeBps: actualFeeBps,
           feeRecipient: FEE_CONFIG.FEE_RECIPIENT,
         },
       });

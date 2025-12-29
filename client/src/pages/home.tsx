@@ -177,7 +177,13 @@ export default function Home() {
     if (!market) return;
 
     if (direction === 'right') {
-      const shares = settings.yesWager / market.yesPrice;
+      // Apply accurate cost adjustments using swipe channel fee ($0.05 flat)
+      const platformFee = 0.05; // $0.05 flat fee for swipe channel
+      // Conservative price impact estimate (smaller for swipe's typically smaller trades)
+      const priceImpactRate = settings.yesWager < 5 ? 0.015 : 0.01;
+      const priceImpact = settings.yesWager * priceImpactRate;
+      const effectiveBetAmount = Math.max(0.01, settings.yesWager - platformFee - priceImpact);
+      const shares = effectiveBetAmount / market.yesPrice;
       const payout = shares.toFixed(2);
       
       if (settings.connected) {
@@ -273,7 +279,13 @@ export default function Home() {
         });
       }
     } else if (direction === 'left') {
-      const shares = settings.noWager / market.noPrice;
+      // Apply accurate cost adjustments using swipe channel fee ($0.05 flat)
+      const platformFee = 0.05; // $0.05 flat fee for swipe channel
+      // Conservative price impact estimate (smaller for swipe's typically smaller trades)
+      const priceImpactRate = settings.noWager < 5 ? 0.015 : 0.01;
+      const priceImpact = settings.noWager * priceImpactRate;
+      const effectiveBetAmount = Math.max(0.01, settings.noWager - platformFee - priceImpact);
+      const shares = effectiveBetAmount / market.noPrice;
       const payout = shares.toFixed(2);
 
       if (settings.connected) {
