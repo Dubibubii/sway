@@ -199,45 +199,11 @@ function ProfileContent() {
                   <span className="text-white/70">Positions</span>
                   <span className="font-medium">${positionsValue.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5">
-                  <Fuel size={12} className="text-orange-300" />
-                  <span className="text-white/70">Gas</span>
-                  <span className="font-medium">{solBalance.toFixed(4)} SOL</span>
-                </div>
               </div>
               
               {isSwapping && (
                 <div className="mt-4 text-xs px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full inline-flex items-center gap-2">
                   <Loader2 size={14} className="animate-spin" /> Converting SOL to USDC...
-                </div>
-              )}
-              {activeWalletAddress && solBalance > 0.02 && !isSwapping && (
-                <div className="mt-4">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      console.log('[ForceConvert] Button clicked, SOL balance:', solBalance, 'wallet:', activeWalletAddress);
-                      const gasReserve = solBalance < 0.1 ? 0.015 : solBalance < 0.5 ? 0.03 : 0.05;
-                      checkAndAutoSwap(
-                        solBalance,
-                        activeWalletAddress,
-                        () => toast({ title: "Converting SOL to USDC...", description: `Swapping ${(solBalance - gasReserve).toFixed(4)} SOL (keeping ${gasReserve} for gas)` }),
-                        (result) => {
-                          if (result.success) {
-                            toast({ title: "Conversion Complete!", description: `Received ~$${result.usdcReceived?.toFixed(2) || '0'} USDC` });
-                            refetchBalance();
-                          } else {
-                            toast({ title: "Conversion Failed", description: result.error || "Check console for details", variant: "destructive" });
-                          }
-                        },
-                        true
-                      );
-                    }}
-                    className="h-9 px-5 text-sm gap-2 bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
-                    data-testid="button-force-convert"
-                  >
-                    <RefreshCw size={14} /> Convert SOL → USDC
-                  </Button>
                 </div>
               )}
             </div>
