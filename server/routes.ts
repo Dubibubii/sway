@@ -289,6 +289,12 @@ export async function registerRoutes(
       
       console.log(`[Trade] Using shares: ${newShares} (actualShares provided: ${!!actualShares}, executionMode: ${executionMode || 'unknown'})`);
       
+      // Calculate ACTUAL entry price based on what was paid per share
+      // This accounts for price impact and slippage, giving accurate P&L later
+      // Entry price = cost / shares (what you actually paid per share)
+      const actualEntryPrice = newShares > 0 ? wagerAmountDollars / newShares : price;
+      console.log(`[Trade] Market mid-price: ${price}, Actual entry price: ${actualEntryPrice.toFixed(4)} (includes slippage/price impact)`);
+      
       // Warn if async trade didn't provide actual shares
       if (executionMode === 'async' && !actualShares) {
         console.warn(`[Trade] WARNING: Async trade recorded without actual fill data - shares may be inaccurate`);
@@ -311,15 +317,12 @@ export async function registerRoutes(
         const totalEntryFee = existingEntryFee + entryFee;
         const totalEstimatedPayout = totalShares; // Each share pays $1 at settlement
         
-        // Calculate weighted average price
-        // Old cost basis: existingShares * existingPrice
-        // New cost basis: newShares * price
-        // Total cost = old + new, divide by total shares
-        const oldCostBasis = existingShares * existingPrice;
-        const newCostBasis = newShares * price;
-        const weightedAvgPrice = (oldCostBasis + newCostBasis) / totalShares;
+        // Calculate weighted average entry price based on actual cost basis
+        // This uses the ACTUAL entry price (cost/shares) not the market mid-price
+        // Total cost basis / total shares = true average entry price
+        const weightedAvgPrice = (totalWagerCents / 100) / totalShares;
         
-        console.log(`[Trade] Consolidating position: ${existingShares} shares @ $${existingPrice} + ${newShares} shares @ $${price} = ${totalShares} shares @ $${weightedAvgPrice.toFixed(2)}`);
+        console.log(`[Trade] Consolidating position: ${existingShares} shares + ${newShares} shares = ${totalShares} shares @ avg ${weightedAvgPrice.toFixed(4)}/share`);
         console.log(`[Trade] Entry fee: $${existingEntryFee.toFixed(4)} + $${entryFee.toFixed(4)} = $${totalEntryFee.toFixed(4)}`);
 
         const updatedTrade = await storage.updateTradePosition(existingTrade.id, {
@@ -327,7 +330,7 @@ export async function registerRoutes(
           shares: totalShares.toFixed(2),
           entryFee: totalEntryFee.toFixed(4),
           estimatedPayout: totalEstimatedPayout.toFixed(2),
-          price: weightedAvgPrice.toFixed(2),
+          price: weightedAvgPrice.toFixed(4), // Store with 4 decimal precision for accurate entry price
         });
 
         console.log(`[Trade] Position consolidated. Total wager: $${(totalWagerCents / 100).toFixed(2)}, Total shares: ${totalShares.toFixed(2)}`);
@@ -345,7 +348,7 @@ export async function registerRoutes(
           optionLabel: optionLabel || null, // e.g., "Democratic Party"
           direction,
           wagerAmount: wagerAmountCents, // Store as cents (integer)
-          price: price.toFixed(2),
+          price: actualEntryPrice.toFixed(4), // Store ACTUAL entry price (cost/shares) not market mid-price
           shares: newShares.toFixed(2),
           estimatedPayout: newEstimatedPayout.toFixed(2),
           entryFee: entryFee.toFixed(4),
@@ -423,8 +426,8 @@ export async function registerRoutes(
       }
 
       // Get the existing trade
-      const trades = await storage.getTradesByUser(req.userId);
-      const trade = trades.find(t => t.id === tradeId);
+      const trades = await storage.getUserTrades(req.userId!);
+      const trade = trades.find((t: any) => t.id === tradeId);
       
       if (!trade) {
         return res.status(404).json({ error: 'Trade not found' });

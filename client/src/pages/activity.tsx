@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -92,9 +92,11 @@ export default function Activity() {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  // Calculate total portfolio value using live prices when available
   const totalValue = activePositions.reduce((acc, pos) => {
     const shares = parseFloat(pos.shares);
-    const price = parseFloat(pos.price);
+    const livePrice = currentPrices[pos.marketId];
+    const price = livePrice !== undefined ? livePrice : parseFloat(pos.price);
     const currentValue = shares * price;
     return acc + currentValue;
   }, 0);
@@ -124,6 +126,28 @@ export default function Activity() {
   };
 
   const positionsToSell = getPositionsToSell(bulkSellMode);
+  
+  // Stable position key for dependency tracking - includes market ID and direction
+  const positionsKey = activePositions
+    .map(p => `${p.marketId}:${p.direction}`)
+    .sort()
+    .join(',');
+  
+  // Fetch live prices on page load and when positions change
+  useEffect(() => {
+    if (activePositions.length === 0) {
+      // Clear stale prices when no positions
+      setCurrentPrices({});
+      return;
+    }
+    
+    // Skip if already fetching to avoid overlapping requests
+    if (isLoadingPrices) return;
+    
+    // Always fetch fresh prices when positions change
+    fetchCurrentPrices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsKey]);
 
   // Fetch current prices for all positions using Kalshi API
   const fetchCurrentPrices = async () => {
@@ -887,14 +911,17 @@ export default function Activity() {
                    {activePositions.map((position) => {
                      const isYes = position.direction === 'YES';
                      const shares = parseFloat(position.shares);
-                     const currentPrice = parseFloat(position.price);
+                     const storedPrice = parseFloat(position.price); // This is the entry price (cost/shares)
                      const estimatedPayout = parseFloat(position.estimatedPayout);
                      const costBasis = position.wagerAmount / 100; // Convert cents to dollars
+                     // Use LIVE market price for current value, fall back to entry price if not available
+                     const livePrice = currentPrices[position.marketId];
+                     const hasLivePrice = livePrice !== undefined;
+                     const currentPrice = hasLivePrice ? livePrice : storedPrice;
                      const currentValue = shares * currentPrice;
                      const pnl = currentValue - costBasis;
                      const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
-                     // Calculate entry price (what they actually paid per share)
-                     const entryPrice = shares > 0 ? costBasis / shares : currentPrice;
+                     const entryPrice = storedPrice; // Entry price is stored in DB
                      
                      return (
                        <Card 
