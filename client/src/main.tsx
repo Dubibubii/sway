@@ -10,6 +10,31 @@ import { SolanaTransactionContext, SolanaTransactionContextType, createSOLTransf
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import { useFundWallet, useSignAndSendTransaction, useWallets, toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import {
+  createDefaultAuthorizationCache,
+  createDefaultChainSelector,
+  createDefaultWalletNotFoundHandler,
+  registerMwa
+} from '@solana-mobile/wallet-standard-mobile';
+
+// Register Solana Mobile Wallet Adapter for Android devices (Seeker, etc.)
+// This enables hardware wallet connections on mobile
+try {
+  registerMwa({
+    appIdentity: {
+      name: 'SWAY',
+      uri: window.location.origin,
+      icon: '/icon.png'
+    },
+    authorizationCache: createDefaultAuthorizationCache(),
+    chains: ['solana:mainnet'],
+    chainSelector: createDefaultChainSelector(),
+    onWalletNotFound: createDefaultWalletNotFoundHandler()
+  });
+  console.log('[MWA] Solana Mobile Wallet Adapter registered');
+} catch (err) {
+  console.log('[MWA] Mobile Wallet Adapter not available (expected on desktop):', err);
+}
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
 const PRIVY_CLIENT_ID = import.meta.env.VITE_PRIVY_CLIENT_ID;
@@ -51,6 +76,23 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     address: embeddedWalletData.address,
     walletClientType: embeddedWalletData.walletClientType,
   } : null;
+  
+  // Detect external wallet address (e.g., from MWA, Phantom, Solflare)
+  const externalWalletAddress = useMemo(() => {
+    if (!privy.user?.linkedAccounts) return null;
+    
+    const externalWallet = privy.user.linkedAccounts.find(
+      (account: any) => 
+        account.type === 'wallet' && 
+        account.walletClientType !== 'privy' &&
+        account.chainType === 'solana'
+    );
+    
+    if (externalWallet && 'address' in externalWallet) {
+      return (externalWallet as any).address;
+    }
+    return null;
+  }, [privy.user?.linkedAccounts]);
   
   const createWalletWrapper = async () => {
     try {
@@ -161,6 +203,7 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     getAccessToken: privy.getAccessToken,
     ready: privy.ready,
     embeddedWallet,
+    externalWalletAddress,
     createWallet: createWalletWrapper,
     fundWallet: fundWalletWrapper,
     exportWallet: exportWalletWrapper,
