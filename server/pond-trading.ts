@@ -40,7 +40,8 @@ export interface PondMarketToken {
 }
 
 export interface PlatformFeeParams {
-  platformFeeBps?: number;     // Fee in basis points (e.g., 75 = 0.75%)
+  platformFeeBps?: number;     // Fee in basis points for sync swaps (e.g., 75 = 0.75%)
+  platformFeeScale?: number;   // Fee scale for async prediction market swaps (e.g., 50 = 5%)
   feeAccount?: string;         // USDC token account to receive fees
   referralAccount?: string;    // Wallet address to auto-create fee account if needed
 }
@@ -62,14 +63,24 @@ export async function getPondQuote(
   queryParams.append('userPublicKey', userPublicKey);
   
   // Add platform fee parameters if provided
-  // For outcome token trades, fee is always collected in settlement mint (USDC)
+  // For async prediction market trades, use platformFeeScale (not platformFeeBps)
   // See: https://pond.dflow.net/quickstart/platform-fees
-  if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
+  // platformFeeScale: 3 decimals, e.g., 50 = 0.050 = 5%, 10 = 0.010 = 1%
+  if (feeParams?.platformFeeScale && feeParams.platformFeeScale > 0) {
+    // Use platformFeeScale for prediction market (async) trades
+    queryParams.append('platformFeeScale', feeParams.platformFeeScale.toString());
+    if (feeParams.feeAccount) {
+      queryParams.append('feeAccount', feeParams.feeAccount);
+    }
+    if (feeParams.referralAccount) {
+      queryParams.append('referralAccount', feeParams.referralAccount);
+    }
+  } else if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
+    // Fallback to platformFeeBps for sync swaps (non-prediction market)
     queryParams.append('platformFeeBps', feeParams.platformFeeBps.toString());
     if (feeParams.feeAccount) {
-      queryParams.append('feeAccount', feeParams.feeAccount); // DFlow uses 'feeAccount'
+      queryParams.append('feeAccount', feeParams.feeAccount);
     }
-    // Add referralAccount to auto-create fee account if it doesn't exist
     if (feeParams.referralAccount) {
       queryParams.append('referralAccount', feeParams.referralAccount);
     }
@@ -87,6 +98,7 @@ export async function getPondQuote(
     inputMint: inputMint.slice(0, 8) + '...',
     outputMint: outputMint.slice(0, 8) + '...',
     amount,
+    platformFeeScale: feeParams?.platformFeeScale || 0,
     platformFeeBps: feeParams?.platformFeeBps || 0,
     feeAccount: feeParams?.feeAccount?.slice(0, 8) + '...' || 'none'
   });

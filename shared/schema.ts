@@ -93,54 +93,69 @@ export const FEE_CONFIG = {
  * Calculates the platform fee based on where the user is in the app.
  * The fee is charged on TOP of the wager, so total cost = wager + fee.
  * 
+ * For prediction market trades (async), DFlow uses platformFeeScale instead of platformFeeBps.
+ * platformFeeScale has 3 decimals: e.g., 10 = 0.010 = 1%, 75 = 0.075 = 7.5%
+ * 
  * @param wagerAmount - The USDC wager (what user wants to bet).
  * @param channel - 'swipe', 'discovery', or 'positions'.
- * @returns Object with fee amount, gross input (wager + fee), and basis points for API
+ * @returns Object with fee amount, feeScale for DFlow API, and gross input
  */
 export function calculateSwayFee(wagerAmount: number, channel: FeeChannel): { 
   feeUSDC: number; 
-  feeBps: number; 
-  grossInput: number;  // Total amount to send to DFlow (wager + fee)
-  wagerAmount: number; // Original wager amount
+  feeBps: number;       // Legacy: basis points (kept for DB/display)
+  feeScale: number;     // For DFlow platformFeeScale (3 decimals): 10 = 1%, 75 = 7.5%
+  grossInput: number;   // Total amount to send to DFlow (wager + fee)
+  wagerAmount: number;  // Original wager amount
 } {
   // Validate input - handle zero/negative amounts gracefully
   if (!wagerAmount || wagerAmount <= 0) {
-    return { feeUSDC: 0, feeBps: 0, grossInput: 0, wagerAmount: 0 };
+    return { feeUSDC: 0, feeBps: 0, feeScale: 0, grossInput: 0, wagerAmount: 0 };
   }
   
   let feeUSDC: number;
+  let feeScale: number;  // DFlow platformFeeScale: 3 decimals (10 = 1%)
   
   switch (channel) {
     case 'swipe':
       // Fixed $0.05 fee for swipe trades
+      // For $1 trade: 5% fee -> feeScale = 50
+      // We calculate the effective percentage based on wager
       feeUSDC = 0.05;
+      // Calculate effective fee percentage: (fee / wager) * 1000 for 3 decimals
+      feeScale = Math.round((feeUSDC / wagerAmount) * 1000);
       break;
       
     case 'discovery':
-      // 0.75% of wager amount
+      // 0.75% of wager amount -> feeScale = 7.5 (round to 8)
       feeUSDC = wagerAmount * 0.0075;
+      feeScale = 8;  // 0.008 = 0.8% (closest to 0.75%)
       break;
       
     case 'positions':
-      // 0.25% of wager amount
+      // 0.25% of wager amount -> feeScale = 2.5 (round to 3)
       feeUSDC = wagerAmount * 0.0025;
+      feeScale = 3;  // 0.003 = 0.3% (closest to 0.25%)
       break;
       
     default:
-      // 1% safety fallback
+      // 1% safety fallback -> feeScale = 10
       feeUSDC = wagerAmount * 0.01;
+      feeScale = 10;
   }
+  
+  // Cap feeScale at 999 (max allowed by DFlow)
+  feeScale = Math.min(feeScale, 999);
   
   // Gross input = wager + fee (what we send to DFlow)
   const grossInput = wagerAmount + feeUSDC;
   
-  // Calculate BPS against the gross input (since DFlow deducts from input)
-  // feeBps = (fee / grossInput) * 10000
+  // Calculate BPS for display/DB (legacy field)
   const feeBps = Math.round((feeUSDC / grossInput) * 10000);
   
   return { 
     feeUSDC, 
-    feeBps, 
+    feeBps,
+    feeScale,
     grossInput,
     wagerAmount 
   };

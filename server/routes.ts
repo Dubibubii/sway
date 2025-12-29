@@ -668,16 +668,17 @@ export async function registerRoutes(
       
       // Calculate channel-based fee (fee is deducted from wager by DFlow)
       const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'swipe') as FeeChannel;
-      const { feeUSDC, feeBps } = calculateSwayFee(amountUSDC, validChannel);
+      const { feeUSDC, feeBps, feeScale } = calculateSwayFee(amountUSDC, validChannel);
 
       console.log('[Pond Order] Getting order for:', { 
         inputMint, outputMint, amountAtomic, userPublicKey,
-        channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4)
+        channel: validChannel, feeScale, feeBps, feeUSDC: feeUSDC.toFixed(4)
       });
 
       // Get order from DFlow with platform fee
-      // Fee is collected in USDC and sent to our fee account
-      console.log('[Pond Order] Requesting order with fee:', { feeBps, feeUSDC: feeUSDC.toFixed(4), feeAccount: FEE_CONFIG.FEE_RECIPIENT });
+      // For prediction market trades (async), use platformFeeScale instead of platformFeeBps
+      // Fee is collected in USDC (settlement mint) and sent to our fee account
+      console.log('[Pond Order] Requesting order with fee:', { feeScale, feeBps, feeUSDC: feeUSDC.toFixed(4), feeAccount: FEE_CONFIG.FEE_RECIPIENT });
       
       const orderResponse = await getPondQuote(
         inputMint,
@@ -686,10 +687,10 @@ export async function registerRoutes(
         userPublicKey,
         slippageBps,
         DFLOW_API_KEY || undefined,
-        feeBps > 0 ? {
-          platformFeeBps: feeBps,
+        feeScale > 0 ? {
+          platformFeeScale: feeScale,  // Use feeScale for async prediction market trades
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
-          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
+          referralAccount: FEE_CONFIG.FEE_WALLET,
         } : undefined
       );
 
@@ -754,15 +755,15 @@ export async function registerRoutes(
       // Calculate positions channel fee for redemption (each share = $1)
       // For redemption, fee is taken from output USDC, so we don't need grossInput
       const estimatedUSDC = shares;
-      const { feeUSDC, feeBps } = calculateSwayFee(estimatedUSDC, 'positions');
+      const { feeUSDC, feeBps, feeScale } = calculateSwayFee(estimatedUSDC, 'positions');
 
       console.log('[Pond Redeem] Redeeming tokens:', { 
         outcomeMint, shares, amountAtomic, userPublicKey,
-        feeBps, feeUSDC: feeUSDC.toFixed(4)
+        feeScale, feeBps, feeUSDC: feeUSDC.toFixed(4)
       });
 
       // For redemption, input is outcome token, output is USDC
-      // Same as sell, but used for settled markets - include platform fee
+      // Use platformFeeScale for async prediction market trades
       const orderResponse = await getPondQuote(
         outcomeMint,
         SOLANA_TOKENS.USDC,
@@ -771,9 +772,9 @@ export async function registerRoutes(
         slippageBps,
         DFLOW_API_KEY || undefined,
         {
-          platformFeeBps: feeBps,
+          platformFeeScale: feeScale,
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
-          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
+          referralAccount: FEE_CONFIG.FEE_WALLET,
         }
       );
 
@@ -889,11 +890,12 @@ export async function registerRoutes(
       
       // Calculate channel-based fee for sell
       const validChannel = (['swipe', 'discovery', 'positions'].includes(channel) ? channel : 'positions') as FeeChannel;
-      const { feeUSDC, feeBps } = calculateSwayFee(estimatedUSDC, validChannel);
+      const { feeUSDC, feeBps, feeScale } = calculateSwayFee(estimatedUSDC, validChannel);
       
-      console.log('[Pond Sell] Fee calculation:', { channel: validChannel, feeBps, feeUSDC: feeUSDC.toFixed(4) });
+      console.log('[Pond Sell] Fee calculation:', { channel: validChannel, feeScale, feeBps, feeUSDC: feeUSDC.toFixed(4) });
 
       // Get sell order from DFlow (swap outcome tokens -> USDC) with platform fee
+      // Use platformFeeScale for async prediction market trades
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
@@ -902,9 +904,9 @@ export async function registerRoutes(
         slippageBps,
         DFLOW_API_KEY || undefined,
         {
-          platformFeeBps: feeBps,
+          platformFeeScale: feeScale,
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
-          referralAccount: FEE_CONFIG.FEE_WALLET, // Wallet address to auto-create fee account
+          referralAccount: FEE_CONFIG.FEE_WALLET,
         }
       );
 
