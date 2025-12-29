@@ -100,63 +100,83 @@ export async function getPondQuote(
 }
 
 export async function getMarketTokens(marketId: string): Promise<{ yesMint: string; noMint: string; isInitialized: boolean } | null> {
-  try {
-    const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
-    console.log('[Pond] Fetching market tokens from:', url);
-    
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const apiKey = process.env.DFLOW_API_KEY;
-    if (apiKey) {
-      headers['x-api-key'] = apiKey;
-    }
-    
-    const response = await fetch(url, { headers });
-    
-    if (!response.ok) {
-      console.error('[Pond] Failed to fetch market tokens:', response.status, await response.text());
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('[Pond] Market data received:', JSON.stringify(data).slice(0, 500));
-    
-    // Token mints are nested under settlement mints in the accounts object
-    // Structure: accounts: { "USDC_MINT": { yesMint, noMint, isInitialized }, ... }
-    const accounts = data.accounts || {};
-    
-    // Look for USDC settlement mint first (preferred), then any other settlement mint
-    const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-    let settlementData = accounts[USDC_MINT];
-    
-    // If USDC not found, try to find any settlement mint with token data
-    if (!settlementData) {
-      for (const [mintKey, mintData] of Object.entries(accounts)) {
-        if (mintData && typeof mintData === 'object' && (mintData as any).yesMint && (mintData as any).noMint) {
-          settlementData = mintData;
-          console.log('[Pond] Using settlement mint:', mintKey);
-          break;
-        }
-      }
-    }
-    
-    if (!settlementData) {
-      console.error('[Pond] No settlement mint data found. Accounts:', JSON.stringify(accounts));
-      return null;
-    }
-    
-    const { yesMint, noMint, isInitialized } = settlementData as { yesMint: string; noMint: string; isInitialized: boolean };
-    
-    if (!yesMint || !noMint) {
-      console.error('[Pond] Market tokens not found in settlement data:', JSON.stringify(settlementData));
-      return null;
-    }
-    
-    console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint, 'isInitialized:', isInitialized);
-    return { yesMint, noMint, isInitialized: isInitialized ?? false };
-  } catch (error) {
-    console.error('[Pond] Error fetching market tokens:', error);
-    return null;
+  const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
+  console.log('[Pond] Fetching market tokens from:', url);
+  
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const apiKey = process.env.DFLOW_API_KEY;
+  if (apiKey) {
+    headers['x-api-key'] = apiKey;
   }
+  
+  // Retry with exponential backoff for transient 503 errors
+  const maxRetries = 3;
+  let lastError: string = '';
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, { headers });
+      
+      if (response.ok) {
+        // Success - continue with parsing
+        const data = await response.json();
+        console.log('[Pond] Market data received:', JSON.stringify(data).slice(0, 500));
+        
+        const accounts = data.accounts || {};
+        const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        let settlementData = accounts[USDC_MINT];
+        
+        if (!settlementData) {
+          for (const [mintKey, mintData] of Object.entries(accounts)) {
+            if (mintData && typeof mintData === 'object' && (mintData as any).yesMint && (mintData as any).noMint) {
+              settlementData = mintData;
+              console.log('[Pond] Using settlement mint:', mintKey);
+              break;
+            }
+          }
+        }
+        
+        if (!settlementData) {
+          console.error('[Pond] No settlement mint data found. Accounts:', JSON.stringify(accounts));
+          return null;
+        }
+        
+        const { yesMint, noMint, isInitialized } = settlementData as { yesMint: string; noMint: string; isInitialized: boolean };
+        
+        if (!yesMint || !noMint) {
+          console.error('[Pond] Market tokens not found in settlement data:', JSON.stringify(settlementData));
+          return null;
+        }
+        
+        console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint, 'isInitialized:', isInitialized);
+        return { yesMint, noMint, isInitialized: isInitialized ?? false };
+      }
+      
+      // Handle retryable errors (503, 502, 500)
+      if (response.status >= 500 && attempt < maxRetries - 1) {
+        const waitTime = Math.pow(2, attempt) * 500; // 500ms, 1000ms, 2000ms
+        console.log(`[Pond] Got ${response.status}, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      // Non-retryable error or max retries reached
+      lastError = await response.text();
+      console.error('[Pond] Failed to fetch market tokens:', response.status, lastError);
+      return null;
+    } catch (error) {
+      console.error('[Pond] Error fetching market tokens (attempt', attempt + 1, '):', error);
+      if (attempt < maxRetries - 1) {
+        const waitTime = Math.pow(2, attempt) * 500;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      return null;
+    }
+  }
+  
+  console.error('[Pond] Max retries exceeded for market tokens');
+  return null;
 }
 
 // Fetch all available markets from DFlow and cache them
