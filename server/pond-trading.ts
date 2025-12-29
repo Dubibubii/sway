@@ -1,7 +1,7 @@
-// DFlow PRODUCTION API endpoints (using API key for authentication)
-// Note: Switched from dev to prod since dev API was returning 503 errors
-const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://quote-api.dflow.net';
-const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://prediction-markets-api.dflow.net';
+// DFlow DEV API endpoints (working without auth - prod requires valid API key)
+// Note: Switched back to dev endpoints since they work without auth
+const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://dev-quote-api.dflow.net';
+const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://dev-prediction-markets-api.dflow.net';
 
 // Cache for available DFlow market tickers
 let dflowMarketCache: Set<string> | null = null;
