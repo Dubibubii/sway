@@ -57,9 +57,9 @@ export async function getPondQuote(
   const queryParams = new URLSearchParams();
   queryParams.append('inputMint', inputMint);
   queryParams.append('outputMint', outputMint);
-  queryParams.append('amount', amount.toString());
+  queryParams.append('inAmount', amount.toString()); // DFlow uses 'inAmount' not 'amount'
   queryParams.append('slippageBps', slippageBps.toString());
-  queryParams.append('userPublicKey', userPublicKey);
+  queryParams.append('userWallet', userPublicKey); // DFlow uses 'userWallet' not 'userPublicKey'
   
   // Add platform fee parameters if provided
   // For outcome token trades, fee is always collected in settlement mint (USDC)
@@ -67,7 +67,7 @@ export async function getPondQuote(
   if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
     queryParams.append('platformFeeBps', feeParams.platformFeeBps.toString());
     if (feeParams.feeAccount) {
-      queryParams.append('feeAccount', feeParams.feeAccount);
+      queryParams.append('platformFeeAccount', feeParams.feeAccount); // Correct param name
     }
     // Add referralAccount to auto-create fee account if it doesn't exist
     if (feeParams.referralAccount) {
@@ -91,8 +91,8 @@ export async function getPondQuote(
     feeAccount: feeParams?.feeAccount?.slice(0, 8) + '...' || 'none'
   });
 
-  // DFlow dev quote API uses /api/v1/order endpoint
-  const orderUrl = `${DFLOW_API_BASE}/api/v1/order?${queryParams.toString()}`;
+  // DFlow API uses /order endpoint directly (NOT /api/v1/order)
+  const orderUrl = `${DFLOW_API_BASE}/order?${queryParams.toString()}`;
   console.log('[Pond] Calling quote API:', orderUrl.split('?')[0]);
   
   const response = await fetch(orderUrl, { headers });
