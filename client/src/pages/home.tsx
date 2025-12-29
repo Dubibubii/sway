@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
-import { MWA_ENV } from '@/main';
+import { MWA_ENV } from '@/lib/mwa-env';
 
 interface DisplayMarket {
   id: string;
