@@ -887,12 +887,14 @@ export default function Activity() {
                    {activePositions.map((position) => {
                      const isYes = position.direction === 'YES';
                      const shares = parseFloat(position.shares);
-                     const price = parseFloat(position.price);
+                     const currentPrice = parseFloat(position.price);
                      const estimatedPayout = parseFloat(position.estimatedPayout);
                      const costBasis = position.wagerAmount / 100; // Convert cents to dollars
-                     const currentValue = shares * price;
+                     const currentValue = shares * currentPrice;
                      const pnl = currentValue - costBasis;
                      const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+                     // Calculate entry price (what they actually paid per share)
+                     const entryPrice = shares > 0 ? costBasis / shares : currentPrice;
                      
                      return (
                        <Card 
@@ -906,19 +908,24 @@ export default function Activity() {
                              <div className={`w-12 h-12 rounded-xl ${isYes ? 'bg-[#1ED78B]/10 text-[#1ED78B]' : 'bg-rose-500/10 text-rose-500'} flex items-center justify-center`}>
                                 {pnl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                              </div>
-                             <div className="flex-1">
+                             <div className="flex-1 min-w-0">
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                   <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5`}>
                                     {position.direction}{position.optionLabel ? `: ${position.optionLabel}` : ''}
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares @ {(price * 100).toFixed(0)}¢</span>
+                                  <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares</span>
                                   <span className="text-[10px] text-muted-foreground/60">• {formatDate(position.createdAt)}</span>
                                 </div>
+                                {/* Show clear cost breakdown */}
+                                <div className="flex items-center gap-3 mt-1.5 text-[10px]">
+                                  <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
+                                  <span className="text-muted-foreground">Value: <span className={pnl >= 0 ? 'text-[#1ED78B] font-medium' : 'text-red-400 font-medium'}>${currentValue.toFixed(2)}</span></span>
+                                </div>
                              </div>
-                             <div className="text-right">
+                             <div className="text-right shrink-0">
                                 <div className={`font-mono font-bold ${pnl >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}`}>
-                                  {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
+                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%
