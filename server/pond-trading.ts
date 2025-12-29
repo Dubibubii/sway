@@ -103,7 +103,10 @@ export async function getPondQuote(
     throw new Error(`DFlow API error: ${response.status} - ${error}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('[Pond] DFlow API response keys:', Object.keys(data));
+  console.log('[Pond] DFlow API response (truncated):', JSON.stringify(data).slice(0, 500));
+  return data;
 }
 
 export async function getMarketTokens(marketId: string): Promise<{ yesMint: string; noMint: string; isInitialized: boolean } | null> {
