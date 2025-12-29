@@ -8,6 +8,11 @@ let dflowMarketCache: Set<string> | null = null;
 let dflowMarketCacheTime: number = 0;
 const DFLOW_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Persistent cache for market tokens (survives API outages)
+// This allows trades to proceed even when DFlow metadata API returns 503
+const marketTokenCache: Map<string, { yesMint: string; noMint: string; isInitialized: boolean; cachedAt: number }> = new Map();
+const MARKET_TOKEN_CACHE_TTL = 30 * 60 * 1000; // 30 minutes - tokens don't change often
+
 export interface PondQuote {
   inputMint: string;
   outputMint: string;
@@ -103,6 +108,14 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
   const url = `${POND_METADATA_API}/api/v1/market/${marketId}`;
   console.log('[Pond] Fetching market tokens from:', url);
   
+  // Check cache first (serves as fallback during API outages)
+  const cached = marketTokenCache.get(marketId);
+  const now = Date.now();
+  if (cached && (now - cached.cachedAt) < MARKET_TOKEN_CACHE_TTL) {
+    console.log('[Pond] Using cached market tokens for', marketId);
+    return { yesMint: cached.yesMint, noMint: cached.noMint, isInitialized: cached.isInitialized };
+  }
+  
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const apiKey = process.env.DFLOW_API_KEY;
   if (apiKey) {
@@ -112,6 +125,7 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
   // Retry with exponential backoff for transient 503 errors
   const maxRetries = 3;
   let lastError: string = '';
+  let apiUnavailable = false;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -149,33 +163,45 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
         }
         
         console.log('[Pond] Found token mints - YES:', yesMint, 'NO:', noMint, 'isInitialized:', isInitialized);
+        
+        // Cache the successful result
+        marketTokenCache.set(marketId, { yesMint, noMint, isInitialized: isInitialized ?? false, cachedAt: now });
+        
         return { yesMint, noMint, isInitialized: isInitialized ?? false };
       }
       
       // Handle retryable errors (503, 502, 500)
-      if (response.status >= 500 && attempt < maxRetries - 1) {
-        const waitTime = Math.pow(2, attempt) * 500; // 500ms, 1000ms, 2000ms
-        console.log(`[Pond] Got ${response.status}, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
+      if (response.status >= 500) {
+        apiUnavailable = true;
+        if (attempt < maxRetries - 1) {
+          const waitTime = Math.pow(2, attempt) * 500; // 500ms, 1000ms, 2000ms
+          console.log(`[Pond] Got ${response.status}, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
       }
       
       // Non-retryable error or max retries reached
       lastError = await response.text();
       console.error('[Pond] Failed to fetch market tokens:', response.status, lastError);
-      return null;
     } catch (error) {
+      apiUnavailable = true;
       console.error('[Pond] Error fetching market tokens (attempt', attempt + 1, '):', error);
       if (attempt < maxRetries - 1) {
         const waitTime = Math.pow(2, attempt) * 500;
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
-      return null;
     }
   }
   
-  console.error('[Pond] Max retries exceeded for market tokens');
+  // API is unavailable - try using stale cache as fallback
+  if (apiUnavailable && cached) {
+    console.log('[Pond] API unavailable, using stale cached tokens for', marketId, '(cached', Math.round((now - cached.cachedAt) / 1000), 'seconds ago)');
+    return { yesMint: cached.yesMint, noMint: cached.noMint, isInitialized: cached.isInitialized };
+  }
+  
+  console.error('[Pond] Max retries exceeded for market tokens and no cache available');
   return null;
 }
 
