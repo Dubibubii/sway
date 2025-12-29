@@ -8,7 +8,7 @@ import { usePondTrading } from '@/hooks/use-pond-trading';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, type Market } from '@/lib/api';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
+import { MWA_ENV } from '@/main';
 
 interface DisplayMarket {
   id: string;
@@ -459,6 +460,15 @@ export default function Home() {
             <p className="text-zinc-600 text-[11px] mt-4 tracking-wide">
               Phantom, Solflare, Backpack & more
             </p>
+
+            {MWA_ENV.isWebView && MWA_ENV.isAndroid && (
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <p className="text-amber-400 text-xs text-center">
+                  <ExternalLink size={12} className="inline mr-1" />
+                  For Seed Vault/hardware wallet, open this app in Chrome browser
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

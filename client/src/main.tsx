@@ -17,23 +17,50 @@ import {
   registerMwa
 } from '@solana-mobile/wallet-standard-mobile';
 
+// Detect environment type for MWA compatibility
+const isAndroid = /Android/i.test(navigator.userAgent);
+const isWebView = (() => {
+  const ua = navigator.userAgent;
+  // Detect Android WebView (wv flag) or non-Chrome Android browser
+  const hasWebViewIndicator = /wv\)/.test(ua) || /; wv/.test(ua);
+  const isAndroidChrome = /Chrome/.test(ua) && /Android/.test(ua) && !/wv\)/.test(ua);
+  // WebView if Android + (has wv flag OR not Chrome)
+  return isAndroid && (hasWebViewIndicator || (!isAndroidChrome && !/Chrome/.test(ua)));
+})();
+const isSeekerDevice = /Seeker|SMS1/i.test(navigator.userAgent);
+
+// Export environment info for use in components
+export const MWA_ENV = {
+  isAndroid,
+  isWebView,
+  isSeekerDevice,
+  isSupported: isAndroid && !isWebView, // MWA only works in Android Chrome, not WebView
+};
+
+console.log('[MWA] Environment detection:', MWA_ENV);
+
 // Register Solana Mobile Wallet Adapter for Android devices (Seeker, etc.)
-// This enables hardware wallet connections on mobile
-try {
-  registerMwa({
-    appIdentity: {
-      name: 'SWAY',
-      uri: window.location.origin,
-      icon: '/icon.png'
-    },
-    authorizationCache: createDefaultAuthorizationCache(),
-    chains: ['solana:mainnet'],
-    chainSelector: createDefaultChainSelector(),
-    onWalletNotFound: createDefaultWalletNotFoundHandler()
-  });
-  console.log('[MWA] Solana Mobile Wallet Adapter registered');
-} catch (err) {
-  console.log('[MWA] Mobile Wallet Adapter not available (expected on desktop):', err);
+// This enables hardware wallet connections on mobile Chrome browser
+// NOTE: MWA does NOT work in WebView-based APKs - only Android Chrome browser
+if (!isWebView) {
+  try {
+    registerMwa({
+      appIdentity: {
+        name: 'SWAY',
+        uri: window.location.origin,
+        icon: window.location.origin + '/icon.png' // Use absolute URL for APK compatibility
+      },
+      authorizationCache: createDefaultAuthorizationCache(),
+      chains: ['solana:mainnet'],
+      chainSelector: createDefaultChainSelector(),
+      onWalletNotFound: createDefaultWalletNotFoundHandler()
+    });
+    console.log('[MWA] Solana Mobile Wallet Adapter registered successfully');
+  } catch (err) {
+    console.log('[MWA] Mobile Wallet Adapter registration failed:', err);
+  }
+} else {
+  console.log('[MWA] WebView detected - MWA not supported. Use Chrome browser for hardware wallet.');
 }
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
