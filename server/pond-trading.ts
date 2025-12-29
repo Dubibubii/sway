@@ -57,9 +57,9 @@ export async function getPondQuote(
   const queryParams = new URLSearchParams();
   queryParams.append('inputMint', inputMint);
   queryParams.append('outputMint', outputMint);
-  queryParams.append('inAmount', amount.toString()); // DFlow uses 'inAmount' not 'amount'
+  queryParams.append('amount', amount.toString()); // DFlow requires 'amount'
   queryParams.append('slippageBps', slippageBps.toString());
-  queryParams.append('userWallet', userPublicKey); // DFlow uses 'userWallet' not 'userPublicKey'
+  queryParams.append('userWallet', userPublicKey); // DFlow uses 'userWallet'
   
   // Add platform fee parameters if provided
   // For outcome token trades, fee is always collected in settlement mint (USDC)
