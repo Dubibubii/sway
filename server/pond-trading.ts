@@ -67,7 +67,7 @@ export async function getPondQuote(
   if (feeParams?.platformFeeBps && feeParams.platformFeeBps > 0) {
     queryParams.append('platformFeeBps', feeParams.platformFeeBps.toString());
     if (feeParams.feeAccount) {
-      queryParams.append('platformFeeAccount', feeParams.feeAccount); // Correct param name
+      queryParams.append('feeAccount', feeParams.feeAccount); // DFlow uses 'feeAccount'
     }
     // Add referralAccount to auto-create fee account if it doesn't exist
     if (feeParams.referralAccount) {
