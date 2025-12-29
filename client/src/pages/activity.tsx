@@ -751,7 +751,17 @@ export default function Activity() {
               </div>
             ) : isBulkSelling ? (
               <div className="space-y-3">
-                <Progress value={(bulkSellProgress.current / bulkSellProgress.total) * 100} className="h-2" />
+                {/* Progress bar showing sold (green) and failed (red) as portions of total */}
+                <div className="h-2 w-full bg-zinc-700 rounded-full overflow-hidden flex">
+                  <div 
+                    className="h-full bg-[#1ED78B] transition-all duration-300"
+                    style={{ width: `${(bulkSellProgress.successes / bulkSellProgress.total) * 100}%` }}
+                  />
+                  <div 
+                    className="h-full bg-rose-500 transition-all duration-300"
+                    style={{ width: `${(bulkSellProgress.failures / bulkSellProgress.total) * 100}%` }}
+                  />
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#1ED78B]">{bulkSellProgress.successes} sold</span>
                   <span className="text-rose-500">{bulkSellProgress.failures} failed</span>
