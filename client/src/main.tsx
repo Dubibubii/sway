@@ -25,16 +25,28 @@ console.log('[MWA] Environment detection:', MWA_ENV);
 // NOTE: MWA does NOT work in WebView-based APKs - only Android Chrome browser
 if (!MWA_ENV.isWebView) {
   try {
+    // Determine the app URI - use production domain for APK, otherwise current origin
+    const appUri = window.location.hostname.includes('swaymarkets.xyz') 
+      ? 'https://swaymarkets.xyz'
+      : window.location.origin;
+    
+    console.log('[MWA] Registering with app URI:', appUri);
+    
     registerMwa({
       appIdentity: {
         name: 'SWAY',
-        uri: window.location.origin,
-        icon: window.location.origin + '/icon.png' // Use absolute URL for APK compatibility
+        uri: appUri,
+        // Use a data URI for icon to ensure it's always available in APK context
+        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyNCIgZmlsbD0iIzBhMGEwZiIvPjx0ZXh0IHg9IjY0IiB5PSI4MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNDgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMTBiOTgxIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TV0FZPC90ZXh0Pjwvc3ZnPg=='
       },
       authorizationCache: createDefaultAuthorizationCache(),
       chains: ['solana:mainnet'],
       chainSelector: createDefaultChainSelector(),
-      onWalletNotFound: createDefaultWalletNotFoundHandler()
+      onWalletNotFound: () => {
+        console.log('[MWA] No wallet found - user may need to open Seed Vault Wallet first');
+        // Don't throw - let Privy handle the wallet not found case
+        return Promise.resolve();
+      }
     });
     console.log('[MWA] Solana Mobile Wallet Adapter registered successfully');
   } catch (err) {
