@@ -162,12 +162,23 @@ function ProfileContent() {
     updateWager('no', val[0]);
   };
 
+  const settingsRef = useRef<HTMLDivElement>(null);
+  
+  const scrollToSettings = () => {
+    settingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={scrollToSettings}
+            data-testid="button-settings"
+          >
             <SettingsIcon size={24} />
           </Button>
         </div>
@@ -329,7 +340,7 @@ function ProfileContent() {
         </Card>
 
         {/* Trading Settings */}
-        <div className="space-y-6">
+        <div className="space-y-6" ref={settingsRef}>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Trading Preferences</h3>
             <div className="flex items-center gap-2">
