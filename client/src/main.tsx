@@ -38,73 +38,55 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Register Solana Mobile Wallet Adapter ONLY when environment supports it
-// MWA connects via Android Intents on mobile Chrome browser and Seeker device
-// Desktop users would need remoteHostAuthority (reflector server) which is not yet available
+// Register Solana Mobile Wallet Adapter
+// Following Privy's recommended approach: https://docs.privy.io/recipes/solana/adding-solana-mwa
+// MWA only works on Android Chrome and Seeker devices, but registerMwa handles this internally
 if (MWA_ENV.isSupported) {
   try {
-    // Determine the app URI - use production domain for APK, otherwise current origin
+    // Use production domain if available, otherwise current origin
     const appUri = window.location.hostname.includes('swaymarkets.xyz') 
       ? 'https://swaymarkets.xyz'
       : window.location.origin;
     
-    console.log('[MWA] Registering MWA - environment is supported');
+    console.log('[MWA] Registering MWA - environment supported');
     console.log('[MWA] App URI:', appUri);
-    console.log('[MWA] Environment:', {
-      isAndroid: MWA_ENV.isAndroid,
-      isSeekerDevice: MWA_ENV.isSeekerDevice,
-      isWebView: MWA_ENV.isWebView,
-      isSupported: MWA_ENV.isSupported,
-    });
+    console.log('[MWA] Environment:', MWA_ENV);
     
-    const mwaResult = registerMwa({
+    // Register exactly as Privy recommends
+    registerMwa({
       appIdentity: {
         name: 'SWAY',
         uri: appUri,
-        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyNCIgZmlsbD0iIzBhMGEwZiIvPjx0ZXh0IHg9IjY0IiB5PSI4MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNDgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMTBiOTgxIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TV0FZPC90ZXh0Pjwvc3ZnPg=='
+        icon: '/favicon.png', // Relative path that resolves to appUri/favicon.png
       },
       authorizationCache: createDefaultAuthorizationCache(),
       chains: ['solana:mainnet'],
       chainSelector: createDefaultChainSelector(),
       onWalletNotFound: () => {
-        console.log('[MWA] onWalletNotFound triggered');
-        console.log('[MWA] No MWA-compatible wallet responded');
-        console.log('[MWA] On Seeker: Ensure Seed Vault Wallet is set up');
-        console.log('[MWA] On other Android: Ensure a compatible wallet app is installed (Phantom, Solflare, etc.)');
+        console.log('[MWA] No wallet found - user may need to install Phantom, Solflare, or similar');
         return Promise.resolve();
       }
     });
-    console.log('[MWA] Solana Mobile Wallet Adapter registered successfully');
-    console.log('[MWA] Registration result:', mwaResult);
+    console.log('[MWA] Mobile Wallet Adapter registered successfully');
     
-    // Monitor wallet-standard registration events
-    window.addEventListener('wallet-standard:register-wallet', (e: any) => {
-      console.log('[MWA-Debug] Wallet registered via wallet-standard:', e);
-    });
-    
-    // Check for registered wallets after initialization
+    // Check wallet-standard registry after a delay for debugging
     setTimeout(() => {
       console.log('[MWA-Debug] Checking wallet-standard registry...');
+      // The getWallets function from @wallet-standard/app provides access to registered wallets
       if ((window as any).navigator?.wallets) {
         console.log('[MWA-Debug] navigator.wallets:', (window as any).navigator.wallets);
       }
-      const walletStandard = (window as any)['wallet-standard'];
-      if (walletStandard) {
-        console.log('[MWA-Debug] wallet-standard registry found:', walletStandard);
-      }
     }, 2000);
   } catch (err) {
-    console.error('[MWA] Mobile Wallet Adapter registration failed:', err);
+    console.error('[MWA] Registration failed:', err);
   }
 } else {
-  console.log('[MWA] Environment not supported for MWA:', {
+  console.log('[MWA] Skipping - environment not supported:', {
     isAndroid: MWA_ENV.isAndroid,
-    isSeekerDevice: MWA_ENV.isSeekerDevice,
+    isSeekerDevice: MWA_ENV.isSeekerDevice, 
     isWebView: MWA_ENV.isWebView,
-    isSupported: MWA_ENV.isSupported,
-    userAgent: MWA_ENV.userAgent.substring(0, 80) + '...',
+    platform: navigator.userAgent.substring(0, 60),
   });
-  console.log('[MWA] MWA requires Android browser (Chrome) or Seeker device');
 }
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;

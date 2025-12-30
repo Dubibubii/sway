@@ -93,6 +93,19 @@ Preferred communication style: Simple, everyday language.
 - **Privy SDK Limitation**: Embedded wallet may not appear in `useWallets()` when user logs in with external wallet - manual button serves as fallback
 - **Gas Reserves**: 0.004 SOL kept for small balances, 0.02 SOL for larger balances
 
+### Mobile Wallet Adapter (MWA) Integration
+- **Purpose**: Enables Solana Seeker device users to connect Seed Vault hardware wallet via Chrome browser
+- **Package**: `@solana-mobile/wallet-standard-mobile` with `registerMwa()` function
+- **Privy Docs**: https://docs.privy.io/recipes/solana/adding-solana-mwa
+- **Solana Mobile Docs**: https://docs.solanamobile.com/developers/mobile-wallet-adapter-web
+- **Environment Detection**: `client/src/lib/mwa-env.ts` detects Android, Seeker devices, and WebViews
+  - Seeker detection regex: `/Solana\s*Seeker|Seeker|SMS1|SolanaMobile/i`
+  - MWA only registers when `isSupported` is true (Android Chrome or Seeker device)
+  - Seeker browser is NOT a WebView - it's a full Chrome-based browser
+- **Registration**: Called at app startup in `client/src/main.tsx` before React renders
+- **Wallet List**: Privy configured with `['detected_solana_wallets', 'solflare', 'phantom', 'backpack']`
+- **Limitation**: Desktop Chrome would need `remoteHostAuthority` (reflector server) which Solana Mobile hasn't publicly released
+
 ### Database
 - **PostgreSQL**: Primary data store
   - Required env var: `DATABASE_URL`
