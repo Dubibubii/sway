@@ -19,6 +19,24 @@ import {
 import { MWA_ENV } from '@/lib/mwa-env';
 
 console.log('[MWA] Environment detection:', MWA_ENV);
+console.log('[MWA] User Agent:', navigator.userAgent);
+console.log('[MWA] Current URL:', window.location.href);
+
+// Listen for Wallet Standard events for debugging
+if (typeof window !== 'undefined') {
+  const originalAddEventListener = window.addEventListener;
+  window.addEventListener = function(type: string, listener: any, options?: any) {
+    if (type.includes('wallet') || type.includes('standard')) {
+      console.log('[MWA-Debug] Event listener added:', type);
+    }
+    return originalAddEventListener.call(this, type, listener, options);
+  };
+  
+  // Monitor for wallet-standard:app-ready events
+  window.addEventListener('wallet-standard:app-ready', (e: any) => {
+    console.log('[MWA-Debug] wallet-standard:app-ready event:', e);
+  });
+}
 
 // Register Solana Mobile Wallet Adapter for Android devices (Seeker, etc.)
 // This enables hardware wallet connections on mobile Chrome browser
@@ -31,8 +49,9 @@ if (!MWA_ENV.isWebView) {
       : window.location.origin;
     
     console.log('[MWA] Registering with app URI:', appUri);
+    console.log('[MWA] App identity name: SWAY');
     
-    registerMwa({
+    const mwaResult = registerMwa({
       appIdentity: {
         name: 'SWAY',
         uri: appUri,
@@ -43,17 +62,32 @@ if (!MWA_ENV.isWebView) {
       chains: ['solana:mainnet'],
       chainSelector: createDefaultChainSelector(),
       onWalletNotFound: () => {
-        console.log('[MWA] No wallet found - user may need to open Seed Vault Wallet first');
-        // Don't throw - let Privy handle the wallet not found case
+        console.log('[MWA] onWalletNotFound triggered - Seed Vault may not be available');
+        console.log('[MWA] Please ensure Seed Vault Wallet app is installed and set up');
         return Promise.resolve();
       }
     });
     console.log('[MWA] Solana Mobile Wallet Adapter registered successfully');
+    console.log('[MWA] Registration result:', mwaResult);
+    
+    // Check for registered wallets after a delay
+    setTimeout(() => {
+      if ((window as any).navigator?.wallets) {
+        console.log('[MWA-Debug] navigator.wallets available:', (window as any).navigator.wallets);
+      }
+      // Check wallet-standard registry
+      const walletStandard = (window as any)['wallet-standard'];
+      if (walletStandard) {
+        console.log('[MWA-Debug] wallet-standard registry:', walletStandard);
+      }
+    }, 2000);
   } catch (err) {
     console.log('[MWA] Mobile Wallet Adapter registration failed:', err);
+    console.error('[MWA] Registration error details:', err);
   }
 } else {
   console.log('[MWA] WebView detected - MWA not supported. Use Chrome browser for hardware wallet.');
+  console.log('[MWA] WebView indicators found in UA');
 }
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID;
@@ -72,6 +106,56 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
   const [txIsLoading, setTxIsLoading] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
   
+  // Comprehensive debugging for wallet connection flow
+  useEffect(() => {
+    console.log('[Privy-Debug] === Connection State Update ===');
+    console.log('[Privy-Debug] ready:', privy.ready);
+    console.log('[Privy-Debug] authenticated:', privy.authenticated);
+    console.log('[Privy-Debug] user exists:', !!privy.user);
+    console.log('[Privy-Debug] user id:', privy.user?.id);
+    
+    if (privy.user?.linkedAccounts) {
+      console.log('[Privy-Debug] Total linked accounts:', privy.user.linkedAccounts.length);
+      privy.user.linkedAccounts.forEach((account: any, idx: number) => {
+        console.log(`[Privy-Debug] Account ${idx}:`, {
+          type: account.type,
+          chainType: account.chainType,
+          walletClientType: account.walletClientType,
+          address: account.address?.slice(0, 8) + '...' + account.address?.slice(-4),
+          connectorType: account.connectorType,
+          walletClient: account.walletClient,
+        });
+      });
+      
+      // Specifically look for external Solana wallets (MWA, Seed Vault)
+      const externalSolanaWallets = privy.user.linkedAccounts.filter(
+        (acc: any) => acc.type === 'wallet' && acc.chainType === 'solana' && acc.walletClientType !== 'privy'
+      );
+      console.log('[Privy-Debug] External Solana wallets found:', externalSolanaWallets.length);
+      externalSolanaWallets.forEach((w: any) => {
+        console.log('[Privy-Debug] External wallet:', {
+          address: w.address,
+          walletClientType: w.walletClientType,
+          connectorType: w.connectorType,
+        });
+      });
+    }
+  }, [privy.ready, privy.authenticated, privy.user, privy.user?.linkedAccounts]);
+  
+  // Debug privyWallets from useWallets hook
+  useEffect(() => {
+    console.log('[Privy-Debug] useWallets() returned:', privyWallets?.length || 0, 'wallets');
+    privyWallets?.forEach((wallet: any, idx: number) => {
+      console.log(`[Privy-Debug] Wallet ${idx}:`, {
+        address: wallet.address,
+        walletClientType: wallet.walletClientType,
+        chainType: wallet.chainType,
+        isConnected: wallet.isConnected,
+        connectionStatus: wallet.connectionStatus,
+      });
+    });
+  }, [privyWallets]);
+  
   const embeddedWalletData = useMemo(() => {
     if (!privy.user?.linkedAccounts) return null;
     
@@ -83,6 +167,7 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     );
     
     if (embedded && 'address' in embedded) {
+      console.log('[Privy-Debug] Found embedded Privy wallet:', (embedded as any).address);
       return {
         address: (embedded as any).address,
         walletClientType: 'privy',
@@ -99,7 +184,11 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
   
   // Detect external wallet address (e.g., from MWA, Phantom, Solflare)
   const externalWalletAddress = useMemo(() => {
-    if (!privy.user?.linkedAccounts) return null;
+    console.log('[Privy-Debug] Checking for external wallet address...');
+    if (!privy.user?.linkedAccounts) {
+      console.log('[Privy-Debug] No linked accounts available');
+      return null;
+    }
     
     const externalWallet = privy.user.linkedAccounts.find(
       (account: any) => 
@@ -109,8 +198,14 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     );
     
     if (externalWallet && 'address' in externalWallet) {
+      console.log('[Privy-Debug] Found external Solana wallet:', {
+        address: (externalWallet as any).address,
+        walletClientType: (externalWallet as any).walletClientType,
+        connectorType: (externalWallet as any).connectorType,
+      });
       return (externalWallet as any).address;
     }
+    console.log('[Privy-Debug] No external Solana wallet found in linked accounts');
     return null;
   }, [privy.user?.linkedAccounts]);
   
