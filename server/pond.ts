@@ -147,6 +147,32 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
   return getMockMarkets();
 }
 
+// Helper function to detect multi-leg parlay markets that should be filtered out
+// These markets have titles like "yes Player A,yes Player B,yes Team X wins..."
+function isMultiLegParlay(market: { title?: string; ticker?: string; event_ticker?: string }): boolean {
+  const title = market.title || '';
+  
+  // Pattern 1: Title starts with "yes " or "no " and contains multiple commas
+  // These are parlay bets with multiple legs concatenated
+  if (/^(yes |no )/i.test(title)) {
+    const commaCount = (title.match(/,/g) || []).length;
+    if (commaCount >= 2) {
+      return true;
+    }
+  }
+  
+  // Pattern 2: Event ticker contains multi-venue/multi-event markers
+  const eventTicker = market.event_ticker || '';
+  if (eventTicker.includes('KXMVENFLSINGLEGAME') || 
+      eventTicker.includes('KXMVNBA') ||
+      eventTicker.includes('KXMVMLB') ||
+      eventTicker.includes('KXMVNHL')) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Important series tickers to always include (high-traffic markets)
 const PRIORITY_SERIES = [
   'KXGOVSHUT',    // Government shutdown
@@ -224,6 +250,8 @@ async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
       for (const market of rawMarkets) {
         if (market.status !== 'active' && market.status !== 'open') continue;
         if (marketIds.has(market.ticker)) continue;
+        // Filter out multi-leg parlay markets (confusing for single-market UX)
+        if (isMultiLegParlay(market)) continue;
         
         markets.push(transformKalshiMarket(market));
         marketIds.add(market.ticker);
@@ -340,6 +368,8 @@ async function refreshMarketCache(): Promise<void> {
               for (const market of event.markets) {
                 if (market.status !== 'active') continue;
                 if (marketIds.has(market.ticker)) continue;
+                // Filter out multi-leg parlay markets
+                if (isMultiLegParlay(market)) continue;
                 allMarkets.push(transformKalshiMarket(market, event));
                 marketIds.add(market.ticker);
               }
@@ -405,6 +435,8 @@ async function refreshMarketCache(): Promise<void> {
       
       for (const market of rawMarkets) {
         if (marketIds.has(market.ticker)) continue;
+        // Filter out multi-leg parlay markets
+        if (isMultiLegParlay(market)) continue;
         allMarkets.push(transformKalshiMarket(market));
         marketIds.add(market.ticker);
       }
