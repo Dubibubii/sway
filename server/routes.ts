@@ -1086,6 +1086,8 @@ export async function registerRoutes(
   const HELIUS_RPC_URL = HELIUS_API_KEY 
     ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
     : 'https://api.mainnet-beta.solana.com';
+  
+  console.log(`[Solana RPC] Using ${HELIUS_API_KEY ? 'Helius' : 'public Solana'} RPC`);
 
   // Solana balance endpoint using Helius RPC
   app.get('/api/solana/balance/:address', async (req: Request, res: Response) => {
@@ -1094,6 +1096,11 @@ export async function registerRoutes(
       
       if (!address) {
         return res.status(400).json({ error: 'Missing wallet address' });
+      }
+
+      // Check if we have Helius key - if not, return a clear error
+      if (!HELIUS_API_KEY) {
+        console.error('[Solana RPC] HELIUS_API_KEY not configured - public RPC may be rate limited');
       }
 
       // Fetch SOL balance
@@ -1107,6 +1114,16 @@ export async function registerRoutes(
           params: [address]
         })
       });
+      
+      if (!solResponse.ok) {
+        console.error(`[Solana RPC] SOL balance request failed: ${solResponse.status} ${solResponse.statusText}`);
+        return res.status(503).json({ 
+          error: 'RPC endpoint unavailable', 
+          details: `Status ${solResponse.status}`,
+          rpc: HELIUS_API_KEY ? 'helius' : 'public'
+        });
+      }
+      
       const solData = await solResponse.json() as any;
       const solBalance = (solData.result?.value || 0) / 1e9;
 
@@ -1126,6 +1143,14 @@ export async function registerRoutes(
           ]
         })
       });
+      
+      if (!usdcResponse.ok) {
+        console.error(`[Solana RPC] USDC balance request failed: ${usdcResponse.status}`);
+        // Return SOL balance even if USDC fails
+        console.log(`[Helius] Partial balance for ${address}: ${solBalance} SOL, USDC failed`);
+        return res.json({ solBalance, usdcBalance: 0 });
+      }
+      
       const usdcData = await usdcResponse.json() as any;
       
       let usdcBalance = 0;
@@ -1141,8 +1166,12 @@ export async function registerRoutes(
       console.log(`[Helius] Balance for ${address}: ${solBalance} SOL, ${usdcBalance} USDC`);
       res.json({ solBalance, usdcBalance });
     } catch (error: any) {
-      console.error('[Helius] Balance fetch error:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch balance' });
+      console.error('[Helius] Balance fetch error:', error.message);
+      res.status(500).json({ 
+        error: 'Failed to fetch balance', 
+        details: error.message,
+        rpc: HELIUS_API_KEY ? 'helius' : 'public'
+      });
     }
   });
 
