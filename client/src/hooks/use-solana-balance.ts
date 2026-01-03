@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const SOL_PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
+// Use server-side proxy to avoid CORS issues with CoinGecko
+const SOL_PRICE_API = '/api/price/sol';
 
 interface SolanaBalance {
   solBalance: number;

@@ -1201,6 +1201,26 @@ export async function registerRoutes(
     }
   });
 
+  // CoinGecko price proxy (to avoid CORS issues)
+  app.get('/api/price/sol', async (_req: Request, res: Response) => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch SOL price' });
+      }
+      
+      const data = await response.json() as any;
+      const solPrice = data.solana?.usd || 0;
+      res.json({ solana: { usd: solPrice } });
+    } catch (error: any) {
+      console.error('[CoinGecko] Price fetch error:', error.message);
+      res.status(500).json({ error: 'Failed to fetch SOL price' });
+    }
+  });
+
   // Jupiter swap proxy endpoints (to avoid CORS issues)
   // Using public.jupiterapi.com as alternative (jup.ag has DNS issues on some servers)
   const JUPITER_QUOTE_API = 'https://public.jupiterapi.com';
