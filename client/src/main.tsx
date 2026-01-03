@@ -362,9 +362,7 @@ function PrivyWrapperComponent({ children }: { children: ReactNode }) {
           theme: 'dark',
           accentColor: '#10b981',
           showWalletLoginFirst: true,
-          walletChainType: 'solana-only',
-          // Include detected wallets + popular Solana wallets
-          // Solflare is key for Seeker's Seed Vault Wallet which is Solflare-based
+          walletChainType: 'ethereum-and-solana',
           walletList: ['detected_solana_wallets', 'solflare', 'phantom', 'backpack'],
         },
         loginMethods: ['wallet', 'email', 'google'],

@@ -102,15 +102,39 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error('No Solana wallet connected');
       }
 
-      const solanaWallet = wallets.find((w: any) => 
-        w.walletClientType === 'privy' && w.chainType === 'solana'
-      ) || wallets.find((w: any) => 
-        w.address === fromAddress
-      ) || privyWallet;
+      // Multi-strategy wallet finding (matches auto-swap approach for reliability)
+      // Strategy 1: Find wallet by matching address
+      let solanaWallet = wallets.find((w: any) => w.address === fromAddress);
+      
+      // Strategy 2: Find any privy/embedded wallet using multiple detection methods
+      if (!solanaWallet) {
+        solanaWallet = wallets.find((w: any) => 
+          w.walletClientType === 'privy' || 
+          w.standardWallet?.name === 'Privy' ||
+          w.connectorType === 'embedded'
+        );
+      }
+      
+      // Strategy 3: Use privyWallet from useMemo
+      if (!solanaWallet) {
+        solanaWallet = privyWallet;
+      }
+      
+      // Strategy 4: Use first available wallet as fallback
+      if (!solanaWallet && wallets.length > 0) {
+        console.log('[Withdraw] Using first available wallet as fallback');
+        solanaWallet = wallets[0];
+      }
 
       if (!solanaWallet) {
         throw new Error('Wallet not ready. Please reconnect your wallet.');
       }
+      
+      console.log('[Withdraw] Using wallet:', { 
+        address: solanaWallet.address,
+        walletClientType: (solanaWallet as any).walletClientType,
+        standardWallet: (solanaWallet as any).standardWallet?.name
+      });
 
       const result = await buildWithdrawalTransaction(
         token,
