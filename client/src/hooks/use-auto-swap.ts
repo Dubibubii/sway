@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@/hooks/use-solana-safe';
 import { 
   prepareAutoSwap, 
   calculateSwapAmount, 

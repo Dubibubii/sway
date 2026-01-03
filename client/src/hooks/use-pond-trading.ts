@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@/hooks/use-solana-safe';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 

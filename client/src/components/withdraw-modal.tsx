@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2, CheckCircle2 } from 'lucide-react';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@/hooks/use-solana-safe';
 import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE, confirmTransaction } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
 
