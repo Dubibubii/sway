@@ -4,15 +4,21 @@ export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // Reserve SOL for gas + rent (token account creation costs ~0.002-0.003 SOL each)
-// Minimum 0.015 SOL to ensure enough for multiple transactions
-export const GAS_RESERVE_MICRO = 0.015;    // For deposits < 0.1 SOL
-export const GAS_RESERVE_STANDARD = 0.03;  // For deposits 0.1-0.5 SOL
-export const GAS_RESERVE_LARGE = 0.05;     // For deposits > 0.5 SOL
+// Tiered reserves based on deposit size to maximize USDC conversion
+export const GAS_RESERVE_TINY = 0.002;     // For deposits < 0.02 SOL - minimal gas for 1-2 transactions
+export const GAS_RESERVE_MICRO = 0.005;    // For deposits 0.02-0.1 SOL
+export const GAS_RESERVE_STANDARD = 0.015; // For deposits 0.1-0.5 SOL
+export const GAS_RESERVE_LARGE = 0.03;     // For deposits > 0.5 SOL
+export const TINY_DEPOSIT_THRESHOLD = 0.02;
 export const MICRO_DEPOSIT_THRESHOLD = 0.1;
 export const LARGE_DEPOSIT_THRESHOLD = 0.5;
 
 export function getDynamicGasReserve(solBalance: number): number {
-  // Always reserve at least 0.015 SOL for gas fees
+  // For tiny deposits (< 0.02 SOL), keep minimal gas to maximize swap
+  if (solBalance < TINY_DEPOSIT_THRESHOLD) {
+    return GAS_RESERVE_TINY;
+  }
+  // For small deposits (0.02-0.1 SOL), keep small reserve
   if (solBalance < MICRO_DEPOSIT_THRESHOLD) {
     return GAS_RESERVE_MICRO;
   }

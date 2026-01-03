@@ -4,8 +4,10 @@ import {
   prepareAutoSwap, 
   calculateSwapAmount, 
   getDynamicGasReserve,
+  GAS_RESERVE_TINY,
   GAS_RESERVE_MICRO,
   GAS_RESERVE_STANDARD,
+  TINY_DEPOSIT_THRESHOLD,
   MICRO_DEPOSIT_THRESHOLD,
   base64ToUint8Array 
 } from '@/utils/jupiterSwap';
@@ -17,7 +19,7 @@ export interface AutoSwapResult {
   error?: string;
 }
 
-const MIN_SWAP_THRESHOLD = 0.005;
+const MIN_SWAP_THRESHOLD = 0.003; // Lower threshold for tiny deposits
 const SWAP_COOLDOWN_MS = 30000;
 const DEPOSIT_DETECTION_THRESHOLD = 0.001;
 
@@ -261,11 +263,14 @@ export function useAutoSwap() {
   const getSwapPreview = useCallback((currentSolBalance: number) => {
     const gasReserve = getDynamicGasReserve(currentSolBalance);
     const swapAmount = calculateSwapAmount(currentSolBalance);
+    let tier = 'standard';
+    if (currentSolBalance < TINY_DEPOSIT_THRESHOLD) tier = 'tiny';
+    else if (currentSolBalance < MICRO_DEPOSIT_THRESHOLD) tier = 'micro';
     return {
       swapAmount,
       gasReserve,
       canSwap: swapAmount > MIN_SWAP_THRESHOLD,
-      tier: currentSolBalance < MICRO_DEPOSIT_THRESHOLD ? 'micro' : 'standard',
+      tier,
     };
   }, []);
 
@@ -281,8 +286,10 @@ export function useAutoSwap() {
     resetPreviousBalance,
     isSwapping,
     error,
+    GAS_RESERVE_TINY,
     GAS_RESERVE_MICRO,
     GAS_RESERVE_STANDARD,
+    TINY_DEPOSIT_THRESHOLD,
     MICRO_DEPOSIT_THRESHOLD,
   };
 }
