@@ -1201,21 +1201,43 @@ export async function registerRoutes(
     }
   });
 
-  // CoinGecko price proxy (to avoid CORS issues)
+  // CoinGecko price proxy with caching (to avoid CORS and rate limits)
+  let cachedSolPrice = { usd: 130, timestamp: 0 };
+  const PRICE_CACHE_TTL = 60000; // 1 minute cache
+  
   app.get('/api/price/sol', async (_req: Request, res: Response) => {
     try {
+      const now = Date.now();
+      
+      // Return cached price if still valid
+      if (now - cachedSolPrice.timestamp < PRICE_CACHE_TTL) {
+        return res.json({ solana: { usd: cachedSolPrice.usd } });
+      }
+      
       const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
         headers: { 'Accept': 'application/json' }
       });
       
       if (!response.ok) {
+        // On rate limit, return cached price (even if stale)
+        if (cachedSolPrice.usd > 0) {
+          return res.json({ solana: { usd: cachedSolPrice.usd } });
+        }
         return res.status(response.status).json({ error: 'Failed to fetch SOL price' });
       }
       
       const data = await response.json() as any;
-      const solPrice = data.solana?.usd || 0;
+      const solPrice = data.solana?.usd || cachedSolPrice.usd;
+      
+      // Update cache
+      cachedSolPrice = { usd: solPrice, timestamp: now };
+      
       res.json({ solana: { usd: solPrice } });
     } catch (error: any) {
+      // On error, return cached price
+      if (cachedSolPrice.usd > 0) {
+        return res.json({ solana: { usd: cachedSolPrice.usd } });
+      }
       console.error('[CoinGecko] Price fetch error:', error.message);
       res.status(500).json({ error: 'Failed to fetch SOL price' });
     }
