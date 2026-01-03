@@ -8,7 +8,7 @@ import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, t
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, SOLANA_TOKENS } from "./pond-trading";
 import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
-import fetch from "node-fetch";
+// Note: Using native fetch (Node.js 20+) - no need for node-fetch
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
@@ -77,6 +77,17 @@ export async function registerRoutes(
         ? `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`
         : 'wss://api.mainnet-beta.solana.com',
       provider: hasHelius ? 'helius' : 'public'
+    });
+  });
+  
+  // Health check endpoint with RPC status - useful for debugging production
+  app.get('/api/health', (_req: Request, res: Response) => {
+    const heliusKey = process.env.HELIUS_API_KEY || '';
+    res.json({
+      status: 'ok',
+      rpcProvider: heliusKey ? 'helius' : 'public',
+      heliusConfigured: !!heliusKey,
+      timestamp: new Date().toISOString()
     });
   });
 
