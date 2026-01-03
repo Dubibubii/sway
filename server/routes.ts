@@ -64,6 +64,21 @@ export async function registerRoutes(
     console.log('Triggering initial market cache refresh...');
     startBackgroundCacheRefresh();
   }, 2000);
+  
+  // Provide RPC config to client at runtime (for production where build-time vars may be stale)
+  app.get('/api/config/rpc', (_req: Request, res: Response) => {
+    const heliusKey = process.env.HELIUS_API_KEY || '';
+    const hasHelius = !!heliusKey;
+    res.json({
+      rpcUrl: hasHelius 
+        ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+        : 'https://api.mainnet-beta.solana.com',
+      wssUrl: hasHelius
+        ? `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+        : 'wss://api.mainnet-beta.solana.com',
+      provider: hasHelius ? 'helius' : 'public'
+    });
+  });
 
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {

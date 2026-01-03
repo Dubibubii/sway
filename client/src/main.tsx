@@ -339,16 +339,50 @@ const solanaConnectors = toSolanaWalletConnectors({
 });
 
 function PrivyWrapperComponent({ children }: { children: ReactNode }) {
-  const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  const rpcUrl = heliusApiKey 
-    ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
-    : 'https://api.mainnet-beta.solana.com';
-  const wssUrl = heliusApiKey
-    ? `wss://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
-    : 'wss://api.mainnet-beta.solana.com';
+  const buildTimeHeliusKey = import.meta.env.VITE_HELIUS_API_KEY;
+  const [rpcConfig, setRpcConfig] = useState<{ rpcUrl: string; wssUrl: string } | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(!!buildTimeHeliusKey);
+
+  // If build-time key is missing, fetch RPC config from server at runtime
+  useEffect(() => {
+    if (!buildTimeHeliusKey) {
+      console.log('[RPC] Build-time Helius key missing, fetching from server...');
+      fetch('/api/config/rpc')
+        .then(res => res.json())
+        .then(config => {
+          console.log('[RPC] Got server config:', config.provider);
+          setRpcConfig({ rpcUrl: config.rpcUrl, wssUrl: config.wssUrl });
+          setConfigLoaded(true);
+        })
+        .catch(err => {
+          console.error('[RPC] Failed to fetch config, using public RPC:', err);
+          setRpcConfig({
+            rpcUrl: 'https://api.mainnet-beta.solana.com',
+            wssUrl: 'wss://api.mainnet-beta.solana.com'
+          });
+          setConfigLoaded(true);
+        });
+    }
+  }, [buildTimeHeliusKey]);
+
+  const rpcUrl = buildTimeHeliusKey 
+    ? `https://mainnet.helius-rpc.com/?api-key=${buildTimeHeliusKey}`
+    : (rpcConfig?.rpcUrl || 'https://api.mainnet-beta.solana.com');
+  const wssUrl = buildTimeHeliusKey
+    ? `wss://mainnet.helius-rpc.com/?api-key=${buildTimeHeliusKey}`
+    : (rpcConfig?.wssUrl || 'wss://api.mainnet-beta.solana.com');
 
   const solanaRpc = useMemo(() => createSolanaRpc(rpcUrl), [rpcUrl]);
   const solanaRpcSubscriptions = useMemo(() => createSolanaRpcSubscriptions(wssUrl), [wssUrl]);
+
+  // Wait for config to load before rendering Privy
+  if (!configLoaded) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <PrivyProvider

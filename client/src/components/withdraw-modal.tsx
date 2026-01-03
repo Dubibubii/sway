@@ -135,8 +135,11 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error('Wallet not ready. Please reconnect your wallet.');
       }
       
+      // Use the actual found wallet's address as the source
+      const actualFromAddress = solanaWallet.address;
+      
       console.log('[Withdraw] Using embedded wallet:', { 
-        address: solanaWallet.address,
+        address: actualFromAddress,
         walletClientType: (solanaWallet as any).walletClientType,
         standardWallet: (solanaWallet as any).standardWallet?.name,
         sendingTo: recipient
@@ -145,7 +148,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
       const result = await buildWithdrawalTransaction(
         token,
         numAmount,
-        fromAddress,
+        actualFromAddress,
         recipient
       );
 
@@ -153,7 +156,7 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error(result.error || 'Failed to build transaction');
       }
 
-      console.log('Sending withdrawal transaction...', { token, amount: numAmount, from: fromAddress, to: recipient });
+      console.log('Sending withdrawal transaction...', { token, amount: numAmount, from: actualFromAddress, to: recipient });
 
       const txResult = await signAndSendTransaction({
         transaction: result.transaction.serialize(),
