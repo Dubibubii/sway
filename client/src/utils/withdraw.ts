@@ -8,11 +8,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js';
 import { USDC_MINT } from './jupiterSwap';
-
-const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
-const SOLANA_RPC_URL = heliusApiKey 
-  ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
-  : 'https://api.mainnet-beta.solana.com';
+import { getRpcUrl } from '@/lib/rpc-config';
 
 export const MIN_SOL_RESERVE = 0.001;
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -100,7 +96,7 @@ export async function buildSolWithdrawal(
   amountSol: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+    const connection = new Connection(getRpcUrl(), 'confirmed');
     const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
 
     if (lamports <= 0) {
@@ -135,7 +131,7 @@ export async function buildUsdcWithdrawal(
   amountUsdc: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+    const connection = new Connection(getRpcUrl(), 'confirmed');
     const usdcMint = new PublicKey(USDC_MINT);
     
     const usdcAmount = BigInt(Math.floor(amountUsdc * 1_000_000));
@@ -208,7 +204,7 @@ export async function buildWithdrawalTransaction(
 
 export async function confirmTransaction(signature: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+    const connection = new Connection(getRpcUrl(), 'confirmed');
     
     const result = await connection.getSignatureStatus(signature, {
       searchTransactionHistory: true,

@@ -1,10 +1,7 @@
 import { useState, useCallback, createContext, useContext, ReactNode } from 'react';
 import { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getRpcUrl } from '@/lib/rpc-config';
 
-const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY || '';
-const SOLANA_RPC = HELIUS_API_KEY 
-  ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
-  : 'https://api.mainnet-beta.solana.com';
 const FEE_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 const FEE_PERCENTAGE = 0.01;
 
@@ -42,7 +39,7 @@ export async function createSOLTransferTransaction(
   toAddress: string,
   amountSOL: number
 ): Promise<{ transaction: Transaction; connection: Connection }> {
-  const connection = new Connection(SOLANA_RPC, 'confirmed');
+  const connection = new Connection(getRpcUrl(), 'confirmed');
   const fromPubkey = new PublicKey(fromAddress);
   const toPubkey = new PublicKey(toAddress);
   const lamports = Math.floor(amountSOL * LAMPORTS_PER_SOL);
@@ -66,7 +63,7 @@ export async function createSOLTransferWithFeeTransaction(
   toAddress: string,
   amountSOL: number
 ): Promise<{ transaction: Transaction; connection: Connection; feeAmount: number }> {
-  const connection = new Connection(SOLANA_RPC, 'confirmed');
+  const connection = new Connection(getRpcUrl(), 'confirmed');
   const fromPubkey = new PublicKey(fromAddress);
   const toPubkey = new PublicKey(toAddress);
   const feePubkey = new PublicKey(FEE_WALLET);
