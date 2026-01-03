@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -120,7 +120,7 @@ async function getMarketTokensFromServer(marketId: string): Promise<{ yesMint: s
 }
 
 export function usePondTrading() {
-  const { getAccessToken, user } = usePrivy();
+  const { getAccessToken, user } = usePrivySafe();
   const { wallets, ready: walletsReady } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isTrading, setIsTrading] = useState(false);

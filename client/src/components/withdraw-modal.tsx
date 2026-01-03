@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowUp, Loader2, AlertCircle, Wallet, Edit2, CheckCircle2 } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { buildWithdrawalTransaction, validateSolanaAddress, MIN_SOL_RESERVE, confirmTransaction } from '@/utils/withdraw';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ interface WithdrawModalProps {
 }
 
 export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, walletAddress, externalWalletAddress: _externalWalletAddress, onSuccess }: WithdrawModalProps) {
-  const { user } = usePrivy();
+  const { user } = usePrivySafe();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { toast } = useToast();

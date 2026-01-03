@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, type Market } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
@@ -62,8 +61,7 @@ export default function Home() {
   const trackBet = useBetPlaced();
   
   const queryClient = useQueryClient();
-  const { login, authenticated, ready } = usePrivy();
-  const { embeddedWallet } = usePrivySafe();
+  const { login, authenticated, ready, embeddedWallet } = usePrivySafe();
   const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
   const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
   
