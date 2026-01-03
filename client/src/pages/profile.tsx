@@ -12,7 +12,6 @@ import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { useAutoSwap } from '@/hooks/use-auto-swap';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
@@ -29,9 +28,6 @@ function ProfileContent() {
   const [unifiedWager, setUnifiedWager] = useState(true);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
-  const [depositAddress, setDepositAddress] = useState<string | null>(null);
-  const [depositCopied, setDepositCopied] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   
   // Prioritize external wallet when connected (e.g., Phantom) so signing works
@@ -126,23 +122,13 @@ function ProfileContent() {
     console.log('handleDeposit called with address:', address);
     try {
       await fundWallet(address);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Privy fundWallet error:', error);
-      // Fallback to manual deposit dialog if Privy fundWallet fails
-      setDepositAddress(address);
-      setDepositDialogOpen(true);
-    }
-  };
-  
-  const copyDepositAddress = async () => {
-    if (depositAddress) {
-      try {
-        await navigator.clipboard.writeText(depositAddress);
-        setDepositCopied(true);
-        setTimeout(() => setDepositCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
+      toast({
+        title: "Unable to open deposit",
+        description: error?.message || "Please try again or contact support.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -472,63 +458,6 @@ function ProfileContent() {
            )}
         </div>
       </div>
-      
-      <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <ArrowDown className="text-[#1ED78B]" size={20} />
-              Deposit SOL
-            </DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Send SOL from your Phantom or other Solana wallet to this address
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 pt-4">
-            <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
-              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Your SWAY Wallet Address</div>
-              <div className="font-mono text-sm text-white break-all mb-3">
-                {depositAddress}
-              </div>
-              <Button 
-                onClick={copyDepositAddress}
-                className="w-full bg-[#1ED78B]/20 hover:bg-[#1ED78B]/30 text-[#1ED78B] border border-[#1ED78B]/30"
-                variant="outline"
-              >
-                {depositCopied ? (
-                  <>
-                    <Check size={16} className="mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} className="mr-2" />
-                    Copy Address
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
-              <p className="text-xs text-blue-300">
-                <strong>Tip:</strong> Open Phantom, tap Send, paste this address, and send your desired amount of SOL.
-              </p>
-            </div>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setDepositDialogOpen(false);
-                refetchBalance();
-              }}
-              className="w-full"
-            >
-              Done - Refresh Balance
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
       
       <WithdrawModal
         open={withdrawModalOpen}

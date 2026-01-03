@@ -79,12 +79,8 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   const fundWalletWrapper = useCallback(async (address: string) => {
     try {
       console.log('[Privy] Calling fundWallet for address:', address);
-      await privyFundWallet({
-        address,
-        options: {
-          cluster: { name: 'mainnet-beta' }
-        }
-      });
+      // Use simple call without options - Privy handles network config from dashboard
+      await privyFundWallet({ address });
     } catch (error) {
       console.error('[Privy] Failed to fund wallet:', error);
       throw error;

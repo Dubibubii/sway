@@ -220,12 +220,9 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     console.log('Opening Privy funding modal for address:', address);
     
     try {
-      await fundWallet({
-        address,
-        options: {
-          chain: 'solana:mainnet' as const
-        }
-      });
+      // Use simple call - Privy uses network config from dashboard settings
+      // This is more compatible across desktop and mobile web browsers
+      await fundWallet({ address });
     } catch (err: any) {
       console.error('Privy fundWallet error:', err);
       throw err;
