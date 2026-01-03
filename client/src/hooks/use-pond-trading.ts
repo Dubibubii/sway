@@ -31,8 +31,9 @@ export interface PondTradeResult {
   error?: string;
   executionMode?: 'sync' | 'async';
   expectedShares?: number;
-  actualShares?: number; // Actual filled shares from order status polling
+  actualShares?: number;
   expectedUSDC?: number;
+  isAsync?: boolean;
 }
 
 interface OrderStatusFill {
@@ -352,6 +353,7 @@ export function usePondTrading() {
       
       // For async trades, poll order status in the background (non-blocking)
       // This updates the database record but doesn't delay the user notification
+      let actualFilledShares = expectedShares;
       if (executionMode === 'async') {
         console.log('[PondTrading] Async trade - starting background polling for fill confirmation...');
         const token = await getAccessToken();
@@ -359,6 +361,9 @@ export function usePondTrading() {
         pollOrderStatus(signature, token || '', 5, 1500).then(orderResult => {
           if (orderResult) {
             console.log('[PondTrading] Background poll complete - Expected:', expectedShares, 'Actual:', orderResult.actualShares);
+            if (orderResult.actualShares && orderResult.actualShares !== expectedShares) {
+              console.log('[PondTrading] PARTIAL FILL DETECTED - Expected:', expectedShares, 'Actual:', orderResult.actualShares);
+            }
           }
         }).catch(err => {
           console.warn('[PondTrading] Background order status poll failed:', err);
@@ -370,7 +375,8 @@ export function usePondTrading() {
         signature,
         executionMode,
         expectedShares,
-        actualShares: expectedShares, // Use expected shares for immediate feedback
+        actualShares: actualFilledShares,
+        isAsync: executionMode === 'async',
       };
     } catch (err: any) {
       // Enhanced error logging for debugging
