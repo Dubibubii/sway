@@ -958,6 +958,7 @@ export async function registerRoutes(
         executionMode: orderResponse.executionMode
       });
 
+      const isProduction = DFLOW_API_KEY && DFLOW_API_KEY.length > 20;
       res.json({
         expectedUSDC,
         priceImpactPct,
@@ -965,7 +966,9 @@ export async function registerRoutes(
         shares,
         executionMode: orderResponse.executionMode,
         warning: priceImpactPct > 5 ? 'High price impact detected. This market has low liquidity.' : null,
-        devApiWarning: 'The dev API has limited liquidity. Production will have better prices.',
+        devApiWarning: isProduction 
+          ? 'Prices reflect current market liquidity. Slippage tolerance: 3%.'
+          : 'The dev API has limited liquidity. Production will have better prices.',
       });
     } catch (error: any) {
       console.error('Error getting sell quote:', error);

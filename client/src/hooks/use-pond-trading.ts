@@ -4,6 +4,27 @@ import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/sola
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function encodeBase58(bytes: Uint8Array): string {
+  const digits = [0];
+  for (let i = 0; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let str = '';
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) str += '1';
+  for (let i = digits.length - 1; i >= 0; i--) str += BASE58_ALPHABET[digits[i]];
+  return str;
+}
+
 export interface PondTradeResult {
   success: boolean;
   signature?: string;
@@ -304,9 +325,20 @@ export function usePondTrading() {
         throw new Error(`Trade failed: ${errorMsg.slice(0, 150)}`);
       }
 
-      const signature = typeof result === 'string' 
-        ? result 
-        : (result as any).signature || (result as any).hash || String(result);
+      let signature: string;
+      if (typeof result === 'string') {
+        signature = result;
+      } else if (result instanceof Uint8Array) {
+        signature = encodeBase58(result);
+      } else if ((result as any).signature instanceof Uint8Array) {
+        signature = encodeBase58((result as any).signature);
+      } else if ((result as any).signature) {
+        signature = String((result as any).signature);
+      } else if ((result as any).hash) {
+        signature = String((result as any).hash);
+      } else {
+        signature = String(result);
+      }
 
       console.log('[PondTrading] Trade executed! Signature:', signature);
 
@@ -484,9 +516,20 @@ export function usePondTrading() {
         throw new Error(`Sell failed: ${errorMsg.slice(0, 150)}`);
       }
 
-      const signature = typeof result === 'string' 
-        ? result 
-        : (result as any).signature || (result as any).hash || String(result);
+      let signature: string;
+      if (typeof result === 'string') {
+        signature = result;
+      } else if (result instanceof Uint8Array) {
+        signature = encodeBase58(result);
+      } else if ((result as any).signature instanceof Uint8Array) {
+        signature = encodeBase58((result as any).signature);
+      } else if ((result as any).signature) {
+        signature = String((result as any).signature);
+      } else if ((result as any).hash) {
+        signature = String((result as any).hash);
+      } else {
+        signature = String(result);
+      }
 
       console.log('[PondTrading] Position sold! Signature:', signature);
       console.log('[PondTrading] USDC received:', expectedUSDC);
@@ -613,9 +656,20 @@ export function usePondTrading() {
         throw new Error(`Redemption failed: ${errorMsg.slice(0, 150)}`);
       }
 
-      const signature = typeof result === 'string' 
-        ? result 
-        : (result as any).signature || (result as any).hash || String(result);
+      let signature: string;
+      if (typeof result === 'string') {
+        signature = result;
+      } else if (result instanceof Uint8Array) {
+        signature = encodeBase58(result);
+      } else if ((result as any).signature instanceof Uint8Array) {
+        signature = encodeBase58((result as any).signature);
+      } else if ((result as any).signature) {
+        signature = String((result as any).signature);
+      } else if ((result as any).hash) {
+        signature = String((result as any).hash);
+      } else {
+        signature = String(result);
+      }
 
       console.log('[PondTrading] Position redeemed! Signature:', signature);
       console.log('[PondTrading] USDC received:', expectedUSDC);
