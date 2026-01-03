@@ -1,7 +1,14 @@
-// DFlow DEV API endpoints (working without auth - prod requires valid API key)
-// Note: Switched back to dev endpoints since they work without auth
-const DFLOW_API_BASE = process.env.DFLOW_QUOTE_API_BASE || 'https://dev-quote-api.dflow.net';
-const POND_METADATA_API = process.env.DFLOW_PREDICTION_API_BASE || 'https://dev-prediction-markets-api.dflow.net';
+// DFlow Production API endpoints (requires DFLOW_API_KEY)
+// Production endpoints: b.quote-api.dflow.net and b.prediction-markets-api.dflow.net
+const DFLOW_API_KEY = process.env.DFLOW_API_KEY;
+const DFLOW_API_BASE = DFLOW_API_KEY 
+  ? 'https://b.quote-api.dflow.net' 
+  : 'https://dev-quote-api.dflow.net';
+const POND_METADATA_API = DFLOW_API_KEY 
+  ? 'https://b.prediction-markets-api.dflow.net' 
+  : 'https://dev-prediction-markets-api.dflow.net';
+
+console.log('[DFlow] Using API base:', DFLOW_API_BASE, DFLOW_API_KEY ? '(production with API key)' : '(dev - no API key)');
 
 // Cache for available DFlow market tickers
 let dflowMarketCache: Set<string> | null = null;
@@ -90,8 +97,10 @@ export async function getPondQuote(
     'Content-Type': 'application/json',
   };
   
-  if (apiKey) {
-    headers['x-api-key'] = apiKey;
+  // Use provided apiKey or fall back to environment variable
+  const effectiveApiKey = apiKey || DFLOW_API_KEY;
+  if (effectiveApiKey) {
+    headers['x-api-key'] = effectiveApiKey;
   }
 
   console.log('[Pond] Order request with fee params:', {
@@ -347,8 +356,9 @@ export async function isMarketAvailableOnDflow(marketId: string): Promise<boolea
 
 export async function getOrderStatus(signature: string, apiKey?: string): Promise<any> {
   const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers['x-api-key'] = apiKey;
+  const effectiveApiKey = apiKey || DFLOW_API_KEY;
+  if (effectiveApiKey) {
+    headers['x-api-key'] = effectiveApiKey;
   }
 
   const response = await fetch(
@@ -384,9 +394,12 @@ export async function checkRedemptionStatus(
     const url = `${POND_METADATA_API}/api/v1/market/by-mint/${outcomeMint}`;
     console.log('[Pond] Checking redemption status:', url);
     
-    const response = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (DFLOW_API_KEY) {
+      headers['x-api-key'] = DFLOW_API_KEY;
+    }
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error('[Pond] Failed to check redemption status:', response.status);

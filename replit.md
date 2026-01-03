@@ -65,9 +65,10 @@ Preferred communication style: Simple, everyday language.
   - No API key required for public endpoints
 
 - **DFlow Pond API**: Solana-native Kalshi trading
-  - Quote API: `https://dev-quote-api.dflow.net` (Dev) / `https://quote-api.dflow.net` (Prod)
-  - Metadata API: `https://dev-prediction-markets-api.dflow.net` (Dev) / `https://prediction-markets-api.dflow.net` (Prod)
-  - Currently using DEV endpoints for testing with real capital
+  - Quote API: `https://b.quote-api.dflow.net` (Production)
+  - Metadata API: `https://b.prediction-markets-api.dflow.net` (Production)
+  - Requires `DFLOW_API_KEY` secret with `x-api-key` header
+  - Falls back to dev endpoints if no API key is set
   - Enables trading Kalshi markets on Solana using USDC
   - Flow: Get quote → Sign Solana transaction → Submit to network
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
