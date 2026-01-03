@@ -124,6 +124,18 @@ function ProfileContent() {
 
   const handleDeposit = async (address: string) => {
     console.log('handleDeposit called with address:', address);
+    
+    // Detect mobile - Privy's fundWallet doesn't work well on mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // On mobile, go straight to manual deposit dialog
+      console.log('Mobile detected - using manual deposit flow');
+      setDepositAddress(address);
+      setDepositDialogOpen(true);
+      return;
+    }
+    
     try {
       await fundWallet(address);
     } catch (error) {

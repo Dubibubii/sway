@@ -10,7 +10,7 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     console.log('[Privy Debug] linkedAccounts:', JSON.stringify(privy.user?.linkedAccounts, null, 2));
-    console.log('[Privy Debug] solanaWallets:', JSON.stringify(solanaWallets?.map(w => ({ address: w.address, walletClientType: w.walletClientType })), null, 2));
+    console.log('[Privy Debug] solanaWallets:', JSON.stringify(solanaWallets?.map((w: any) => ({ address: w.address, walletClientType: w.walletClientType })), null, 2));
     console.log('[Privy Debug] user.wallet:', privy.user?.wallet);
   }, [privy.user?.linkedAccounts, solanaWallets, privy.user?.wallet]);
   
@@ -36,7 +36,7 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
   const externalWalletAddress = useMemo(() => {
     // First: Check useSolanaWallets for external wallets (most reliable for connected Solana wallets)
     if (solanaWallets && solanaWallets.length > 0) {
-      const externalSolana = solanaWallets.find(w => w.walletClientType !== 'privy');
+      const externalSolana = solanaWallets.find((w: any) => w.walletClientType !== 'privy');
       if (externalSolana) {
         console.log('[Privy Debug] Found external via useSolanaWallets:', externalSolana.address);
         return externalSolana.address;
