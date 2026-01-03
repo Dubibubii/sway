@@ -7,6 +7,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, SOLANA_TOKENS } from "./pond-trading";
+import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
 import fetch from "node-fetch";
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
