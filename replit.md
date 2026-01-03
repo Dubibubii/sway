@@ -61,6 +61,8 @@ Preferred communication style: Simple, everyday language.
 
 - **Kalshi API**: Prediction markets data
   - Base URL: `https://api.elections.kalshi.com/trade-api/v2`
+  - Uses `/events?with_nested_markets=true` endpoint for cleaner single-market data
+  - Filters out multi-leg parlay markets (MVE events with concatenated titles)
   - Provides market metadata, prices, and volume data
   - No API key required for public endpoints
 

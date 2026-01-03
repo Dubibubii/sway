@@ -1,5 +1,8 @@
 const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
 
+// DFlow Prediction Market Metadata API - for cleaner market discovery
+const DFLOW_METADATA_API = 'https://prediction-markets-api.dflow.net';
+
 // Cache for comprehensive market search
 let marketCache: SimplifiedMarket[] = [];
 let cacheTimestamp = 0;
@@ -149,24 +152,27 @@ export async function getEvents(maxMarkets = 500, withNestedMarkets = true): Pro
 
 // Helper function to detect multi-leg parlay markets that should be filtered out
 // These markets have titles like "yes Player A,yes Player B,yes Team X wins..."
-function isMultiLegParlay(market: { title?: string; ticker?: string; event_ticker?: string }): boolean {
-  const title = market.title || '';
-  
-  // Pattern 1: Title starts with "yes " or "no " and contains multiple commas
-  // These are parlay bets with multiple legs concatenated
-  if (/^(yes |no )/i.test(title)) {
-    const commaCount = (title.match(/,/g) || []).length;
-    if (commaCount >= 2) {
-      return true;
-    }
+function isMultiLegParlay(market: { 
+  title?: string; 
+  ticker?: string; 
+  event_ticker?: string;
+  mve_collection_ticker?: string;
+  mve_selected_legs?: any[];
+}): boolean {
+  // Pattern 1: Has MVE (multi-variable event) fields - definitive parlay indicator
+  if (market.mve_collection_ticker || (market.mve_selected_legs && market.mve_selected_legs.length > 0)) {
+    return true;
   }
   
-  // Pattern 2: Event ticker contains multi-venue/multi-event markers
+  // Pattern 2: Event ticker starts with KXMVE (multi-variable event)
   const eventTicker = market.event_ticker || '';
-  if (eventTicker.includes('KXMVENFLSINGLEGAME') || 
-      eventTicker.includes('KXMVNBA') ||
-      eventTicker.includes('KXMVMLB') ||
-      eventTicker.includes('KXMVNHL')) {
+  if (eventTicker.startsWith('KXMVE') || eventTicker.includes('-S20')) {
+    return true;
+  }
+  
+  // Pattern 3: Title is comma-separated "yes/no X" selections
+  const title = market.title || '';
+  if (/^(yes |no )/i.test(title) && title.includes(',')) {
     return true;
   }
   
@@ -189,33 +195,140 @@ const PRIORITY_SERIES = [
   'KXCHRISTMASHORNETS', // Christmas Hornets
 ];
 
-// Fetch ALL markets from Kalshi - no volume filtering
-// Updates the global cache progressively so users can start using data early
-async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
+// Transform DFlow event/market to SimplifiedMarket format
+function transformDFlowMarket(market: any, event: any): SimplifiedMarket {
+  // DFlow returns prices in different formats - handle appropriately
+  const yesAsk = market.yesAsk || market.yes_ask || 0;
+  const yesBid = market.yesBid || market.yes_bid || 0;
+  const noAsk = market.noAsk || market.no_ask || 0;
+  const noBid = market.noBid || market.no_bid || 0;
+  
+  let yesPrice: number;
+  if (yesAsk > 0 && yesBid > 0) {
+    yesPrice = (yesAsk + yesBid) / 2 / 100;
+  } else if (yesAsk > 0) {
+    yesPrice = yesAsk / 100;
+  } else if (yesBid > 0) {
+    yesPrice = yesBid / 100;
+  } else if (market.lastPrice) {
+    yesPrice = market.lastPrice / 100;
+  } else {
+    yesPrice = 0.5;
+  }
+  const noPrice = 1 - yesPrice;
+  
+  // Get category from event or detect from title
+  const category = event?.category || detectCategoryFromTitle(market.title || event?.title || '', event?.seriesTicker || '');
+  
+  // Get image URL from series ticker
+  const seriesTicker = event?.seriesTicker || '';
+  const imageUrl = seriesTicker 
+    ? `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`
+    : undefined;
+  
+  return {
+    id: market.ticker,
+    title: market.title || event?.title || '',
+    subtitle: market.subtitle || event?.subtitle || '',
+    category: category || 'General',
+    yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
+    noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesLabel: market.yesSubTitle || market.yes_sub_title || 'Yes',
+    noLabel: market.noSubTitle || market.no_sub_title || 'No',
+    volume: market.volume || 0,
+    volume24h: market.volume24h || market.volume_24h || 0,
+    endDate: market.closeTime || market.close_time || new Date().toISOString(),
+    status: market.status || 'active',
+    imageUrl,
+    eventTicker: event?.ticker,
+    accounts: market.accounts,
+  };
+}
+
+// Fetch markets from DFlow Prediction Market Metadata API (cleaner data)
+async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
   const markets: SimplifiedMarket[] = [];
   const marketIds = new Set<string>();
-  let cursor: string | undefined;
-  const pageSize = 200;
-  let pagesFetched = 0;
-  const maxPages = 100; // Fetch up to 20,000 markets
-  let retryCount = 0;
-  const maxRetries = 5;
   
   try {
-    console.log('Fetching ALL markets from Kalshi...');
+    console.log('Fetching markets from DFlow Metadata API...');
     
-    // Fetch from markets endpoint with pagination
+    // Fetch active events with nested markets from DFlow
+    const response = await fetch(
+      `${DFLOW_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=500`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    
+    if (!response.ok) {
+      console.error('DFlow Metadata API error:', response.status);
+      return [];
+    }
+    
+    const data = await response.json();
+    const events = data.events || [];
+    
+    console.log(`DFlow API returned ${events.length} events`);
+    
+    for (const event of events) {
+      if (!event.markets || !Array.isArray(event.markets)) continue;
+      
+      for (const market of event.markets) {
+        if (market.status !== 'active') continue;
+        if (marketIds.has(market.ticker)) continue;
+        
+        // Filter out multi-leg parlay markets
+        if (isMultiLegParlay({ title: market.title, event_ticker: event.ticker })) continue;
+        
+        markets.push(transformDFlowMarket(market, event));
+        marketIds.add(market.ticker);
+      }
+    }
+    
+    console.log(`DFlow: Got ${markets.length} markets from ${events.length} events`);
+    return markets;
+  } catch (error) {
+    console.error('Error fetching from DFlow API:', error);
+    return [];
+  }
+}
+
+// Fetch ALL markets - tries DFlow first, falls back to Kalshi
+async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
+  // Try DFlow Metadata API first (cleaner data, no parlays)
+  let markets = await fetchMarketsFromDFlow();
+  
+  if (markets.length > 0) {
+    console.log(`Using ${markets.length} markets from DFlow API`);
+    return markets;
+  }
+  
+  // Fallback to Kalshi Events API if DFlow fails (cleaner than /markets endpoint)
+  console.log('DFlow API returned no markets, falling back to Kalshi events...');
+  
+  const marketIds = new Set<string>();
+  let cursor: string | undefined;
+  const pageSize = 100;
+  let pagesFetched = 0;
+  const maxPages = 30;
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  try {
     while (pagesFetched < maxPages) {
       const params = new URLSearchParams({
         limit: pageSize.toString(),
         status: 'open',
+        with_nested_markets: 'true',
       });
       
       if (cursor) {
         params.append('cursor', cursor);
       }
       
-      const response = await fetch(`${KALSHI_BASE_URL}/markets?${params}`, {
+      const response = await fetch(`${KALSHI_BASE_URL}/events?${params}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -229,64 +342,59 @@ async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
             await new Promise(resolve => setTimeout(resolve, backoffTime));
             continue;
           } else {
-            console.log(`Max retries reached at page ${pagesFetched}`);
             break;
           }
         }
-        console.error('Kalshi markets API error:', response.status);
+        console.error('Kalshi events API error:', response.status);
         break;
       }
       
-      retryCount = 0; // Reset on success
-      
+      retryCount = 0;
       const data = await response.json();
-      const rawMarkets = data.markets || [];
+      const events = data.events || [];
       
-      if (rawMarkets.length === 0) {
-        console.log('No more markets to fetch');
-        break;
-      }
+      if (events.length === 0) break;
       
-      for (const market of rawMarkets) {
-        if (market.status !== 'active' && market.status !== 'open') continue;
-        if (marketIds.has(market.ticker)) continue;
-        // Filter out multi-leg parlay markets (confusing for single-market UX)
-        if (isMultiLegParlay(market)) continue;
+      for (const event of events) {
+        // Skip MVE (multi-variable event) containers
+        if (event.event_ticker?.startsWith('KXMVE')) continue;
         
-        markets.push(transformKalshiMarket(market));
-        marketIds.add(market.ticker);
+        const eventMarkets = event.markets || [];
+        for (const market of eventMarkets) {
+          if (market.status !== 'active' && market.status !== 'open') continue;
+          if (marketIds.has(market.ticker)) continue;
+          if (isMultiLegParlay(market)) continue;
+          
+          // Transform with event context for better categorization
+          const simplified = transformKalshiMarket(market);
+          simplified.category = event.category || simplified.category;
+          markets.push(simplified);
+          marketIds.add(market.ticker);
+        }
       }
       
       cursor = data.cursor;
       pagesFetched++;
       
-      // Update cache progressively so users can use partial data
-      // Update after first page, then every 5 pages
-      if (pagesFetched === 1 || pagesFetched % 5 === 0) {
+      // Update cache progressively
+      if (pagesFetched % 3 === 0) {
         marketCache = [...markets];
         cacheTimestamp = Date.now();
       }
       
-      // Log progress every 10 pages
-      if (pagesFetched % 10 === 0) {
-        console.log(`Fetched ${pagesFetched} pages, ${markets.length} markets...`);
+      if (pagesFetched % 5 === 0) {
+        console.log(`Fetched ${pagesFetched} event pages, ${markets.length} markets...`);
       }
       
-      if (!cursor) {
-        console.log('Reached end of market list');
-        break;
-      }
-      
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!cursor) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    console.log(`fetchAllMarkets: Got ${markets.length} total markets from ${pagesFetched} pages`);
-    
+    console.log(`Kalshi events: Got ${markets.length} markets from ${pagesFetched} pages`);
     return markets;
   } catch (error) {
-    console.error('Error fetching all markets:', error);
-    return markets; // Return what we got
+    console.error('Error fetching markets:', error);
+    return markets;
   }
 }
 
