@@ -216,17 +216,13 @@ function PrivyInnerAdapter({ children }: { children: ReactNode }) {
     }
   };
 
-  const fundWalletWrapper = async (address: string) => {
-    console.log('Opening Privy funding modal for address:', address);
-    
-    try {
-      // Use simple call - Privy uses network config from dashboard settings
-      // This is more compatible across desktop and mobile web browsers
-      await fundWallet({ address });
-    } catch (err: any) {
-      console.error('Privy fundWallet error:', err);
-      throw err;
-    }
+  // CRITICAL: fundWallet must be called SYNCHRONOUSLY from user interaction
+  // Mobile browsers (especially Safari/Chrome) block popups that aren't immediate
+  // DO NOT use async/await or try-catch here - it causes black screen on mobile
+  const fundWalletWrapper = (address: string) => {
+    console.log('[Privy] Opening funding modal for address:', address);
+    // Call directly without await - Privy handles the async internally
+    fundWallet({ address });
   };
 
   const exportWalletWrapper = async () => {

@@ -119,18 +119,12 @@ function ProfileContent() {
     }
   };
 
-  const handleDeposit = async (address: string) => {
-    console.log('handleDeposit called with address:', address);
-    try {
-      await fundWallet(address);
-    } catch (error: any) {
-      console.error('Privy fundWallet error:', error);
-      toast({
-        title: "Unable to open deposit",
-        description: error?.message || "Please try again or contact support.",
-        variant: "destructive"
-      });
-    }
+  // CRITICAL: Call fundWallet SYNCHRONOUSLY from user interaction
+  // Mobile browsers block popups that aren't immediately from click events
+  // DO NOT wrap in async/await or try-catch - causes black screen on mobile
+  const handleDeposit = (address: string) => {
+    console.log('[Profile] handleDeposit called with address:', address);
+    fundWallet(address);
   };
 
   useEffect(() => {
