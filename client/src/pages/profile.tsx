@@ -38,11 +38,12 @@ function ProfileContent() {
   // Legacy reference for display purposes
   const walletAddress = activeWalletAddress;
   
-  // Track the ACTIVE wallet balance for display (external or embedded)
-  const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(activeWalletAddress);
+  // Track the EMBEDDED wallet balance - this is where deposits and USDC are stored
+  // The embedded wallet is the "SWAY WALLET" that users see and deposit to
+  const { solBalance, usdcBalance, solPrice, totalPortfolioValue, isLoading: balanceLoading, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   
-  // Also track EMBEDDED wallet balance separately for auto-swap detection
-  // This is needed because deposits always go to embedded wallet, even when using external wallet
+  // Also track EMBEDDED wallet SOL balance separately for auto-swap detection
+  // (Uses the same wallet, but tracks SOL separately for detecting new deposits)
   const { solBalance: embeddedSolBalance, refetch: refetchEmbeddedBalance } = useSolanaBalance(embeddedWallet?.address || null);
   
   const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
