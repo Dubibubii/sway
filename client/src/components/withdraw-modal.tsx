@@ -76,7 +76,10 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const hasEnoughSolForFees = solBalance >= MIN_SOL_RESERVE;
 
   const isValidAddress = recipient.length > 0 ? validateSolanaAddress(recipient) : true;
-  const isSameAddress = walletAddress && recipient.toLowerCase() === walletAddress.toLowerCase();
+  // Compare against the EMBEDDED wallet address (source of funds), not the active wallet
+  // This prevents sending to yourself but allows sending to external wallets
+  const embeddedWalletAddress = privyWallet?.address || null;
+  const isSameAddress = embeddedWalletAddress && recipient.toLowerCase() === embeddedWalletAddress.toLowerCase();
   const numAmount = parseFloat(amount) || 0;
   // Add small tolerance (0.001) to handle floating point precision issues
   const isValidAmount = numAmount > 0 && numAmount <= availableBalance + 0.001;
@@ -97,14 +100,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
     setError(null);
 
     try {
-      const fromAddress = walletAddress;
+      // Always withdraw FROM the embedded wallet (where USDC is stored)
+      // The embedded wallet is the source of funds, not the active/external wallet
+      const fromAddress = embeddedWalletAddress || walletAddress;
       if (!fromAddress) {
         throw new Error('No Solana wallet connected');
       }
 
-      // Multi-strategy wallet finding (matches auto-swap approach for reliability)
-      // Strategy 1: Find wallet by matching address
-      let solanaWallet = wallets.find((w: any) => w.address === fromAddress);
+      // Find the embedded/privy wallet for signing (NOT external wallet)
+      // Strategy 1: Use privyWallet from useMemo (most reliable)
+      let solanaWallet = privyWallet;
       
       // Strategy 2: Find any privy/embedded wallet using multiple detection methods
       if (!solanaWallet) {
@@ -115,9 +120,9 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         );
       }
       
-      // Strategy 3: Use privyWallet from useMemo
-      if (!solanaWallet) {
-        solanaWallet = privyWallet;
+      // Strategy 3: Find wallet by matching embedded address
+      if (!solanaWallet && embeddedWalletAddress) {
+        solanaWallet = wallets.find((w: any) => w.address === embeddedWalletAddress);
       }
       
       // Strategy 4: Use first available wallet as fallback
@@ -130,10 +135,11 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
         throw new Error('Wallet not ready. Please reconnect your wallet.');
       }
       
-      console.log('[Withdraw] Using wallet:', { 
+      console.log('[Withdraw] Using embedded wallet:', { 
         address: solanaWallet.address,
         walletClientType: (solanaWallet as any).walletClientType,
-        standardWallet: (solanaWallet as any).standardWallet?.name
+        standardWallet: (solanaWallet as any).standardWallet?.name,
+        sendingTo: recipient
       });
 
       const result = await buildWithdrawalTransaction(
