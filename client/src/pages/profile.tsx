@@ -192,6 +192,13 @@ function ProfileContent() {
                   <span className="text-white/70">Positions</span>
                   <span className="font-medium">${positionsValue.toFixed(2)}</span>
                 </div>
+                {solBalance > 0 && (
+                  <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5">
+                    <span className="text-amber-400">⛽</span>
+                    <span className="text-white/70">Gas</span>
+                    <span className="font-medium">{solBalance.toFixed(4)} SOL</span>
+                  </div>
+                )}
               </div>
               
               {isSwapping && (
