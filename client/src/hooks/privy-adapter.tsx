@@ -76,15 +76,12 @@ export default function PrivyAdapter({ children }: { children: ReactNode }) {
     }
   };
   
-  const fundWalletWrapper = useCallback(async (address: string) => {
-    try {
-      console.log('[Privy] Calling fundWallet for address:', address);
-      // Use simple call without options - Privy handles network config from dashboard
-      await privyFundWallet({ address });
-    } catch (error) {
-      console.error('[Privy] Failed to fund wallet:', error);
-      throw error;
-    }
+  // CRITICAL: Must be SYNCHRONOUS - no async/await
+  // Mobile browsers block popups that aren't immediate from click events
+  // Using async/await causes the black/blur screen on mobile
+  const fundWalletWrapper = useCallback((address: string) => {
+    console.log('[Privy] Opening funding modal for address:', address);
+    privyFundWallet({ address });
   }, [privyFundWallet]);
   
   const exportWalletWrapper = useCallback(async () => {
