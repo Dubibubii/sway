@@ -58,7 +58,8 @@ export default function Activity() {
     priceImpactPct: number;
     pricePerShare: number;
     warning: string | null;
-    devApiWarning: string;
+    apiInfo?: string;
+    isProduction?: boolean;
     error?: string;
   } | null>(null);
   const [isLoadingSellQuote, setIsLoadingSellQuote] = useState(false);
@@ -776,9 +777,11 @@ export default function Activity() {
                         <p className="text-xs text-amber-400">{sellQuote.warning}</p>
                       </div>
                     )}
-                    <div className="bg-zinc-700/50 rounded p-2 mt-2">
-                      <p className="text-xs text-muted-foreground">{sellQuote.devApiWarning}</p>
-                    </div>
+                    {sellQuote.apiInfo && (
+                      <div className="bg-zinc-700/50 rounded p-2 mt-2">
+                        <p className="text-xs text-muted-foreground">{sellQuote.apiInfo}</p>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -788,12 +791,7 @@ export default function Activity() {
                     </div>
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
                       <p className="text-xs text-amber-400">
-                        {sellQuote?.error || 'Could not get live quote. Actual sale proceeds may differ significantly due to market liquidity.'}
-                      </p>
-                    </div>
-                    <div className="bg-zinc-700/50 rounded p-2 mt-1">
-                      <p className="text-xs text-muted-foreground">
-                        The dev API has limited liquidity. Production will have better prices.
+                        {sellQuote?.error || 'Could not get live quote. Actual sale proceeds may vary based on market liquidity.'}
                       </p>
                     </div>
                   </>

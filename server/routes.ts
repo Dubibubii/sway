@@ -1005,10 +1005,11 @@ export async function registerRoutes(
         pricePerShare,
         shares,
         executionMode: orderResponse.executionMode,
-        warning: priceImpactPct > 5 ? 'High price impact detected. This market has low liquidity.' : null,
-        devApiWarning: isProduction 
-          ? 'Prices reflect current market liquidity. Slippage tolerance: 3%.'
-          : 'The dev API has limited liquidity. Production will have better prices.',
+        warning: priceImpactPct > 5 ? 'High price impact detected. This market may have low liquidity.' : null,
+        apiInfo: isProduction 
+          ? 'Live market prices. Slippage tolerance: 3%.'
+          : 'Using development API. Prices may differ in production.',
+        isProduction,
       });
     } catch (error: any) {
       console.error('Error getting sell quote:', error);
