@@ -66,7 +66,7 @@ export default function Activity() {
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
-  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   const { placeTrade: placePondTrade, sellPosition, getSellQuote, redeemPosition, checkRedemption, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
 
@@ -411,7 +411,8 @@ export default function Activity() {
         amount, 
         usdcBalance,
         embeddedWallet?.address,
-        'positions'
+        'positions',
+        solBalance
       );
       
       console.log('[Activity] Trade result:', result);
@@ -421,7 +422,11 @@ export default function Activity() {
         console.error('[Activity] Trade error:', errorMsg);
         
         // Provide user-friendly error message for common DFlow errors
-        if (errorMsg.includes('zero_out_amount') || errorMsg.includes('Zero out amount')) {
+        if (errorMsg.startsWith('INSUFFICIENT_GAS:')) {
+          toast({ title: 'Need More SOL for Gas', description: 'You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.', variant: 'destructive' });
+        } else if (errorMsg.startsWith('BALANCE_LOADING:')) {
+          toast({ title: 'Loading...', description: 'Please wait for your wallet balance to load, then try again.', variant: 'destructive' });
+        } else if (errorMsg.includes('zero_out_amount') || errorMsg.includes('Zero out amount')) {
           toast({ title: 'Trade Failed', description: 'Trade amount too small. Please increase your bet to at least $0.50', variant: 'destructive' });
         } else {
           toast({ title: 'Trade Failed', description: errorMsg, variant: 'destructive' });

@@ -154,7 +154,8 @@ export function usePondTrading() {
     amountUSDC: number,
     usdcBalance?: number,
     embeddedWalletAddress?: string,
-    channel: 'swipe' | 'discovery' | 'positions' = 'swipe'
+    channel: 'swipe' | 'discovery' | 'positions' = 'swipe',
+    solBalance?: number
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
@@ -198,6 +199,19 @@ export function usePondTrading() {
         console.log('[PondTrading] Insufficient funds - throwing INSUFFICIENT_FUNDS error');
         const err = new Error(`INSUFFICIENT_FUNDS:${usdcBalance.toFixed(2)}:${amountUSDC.toFixed(2)}`);
         throw err;
+      }
+      
+      // Check SOL balance for gas fees - minimum 0.003 SOL needed for transaction
+      // Block trades if balance hasn't been fetched yet (undefined) to ensure gas check always runs
+      const MIN_SOL_FOR_GAS = 0.003;
+      console.log('[PondTrading] SOL balance check - solBalance:', solBalance);
+      if (solBalance === undefined || solBalance === null) {
+        console.log('[PondTrading] SOL balance not yet fetched - blocking trade');
+        throw new Error('BALANCE_LOADING:Please wait for your wallet balance to load before trading.');
+      }
+      if (solBalance < MIN_SOL_FOR_GAS) {
+        console.log('[PondTrading] Insufficient SOL for gas - throwing INSUFFICIENT_GAS error');
+        throw new Error(`INSUFFICIENT_GAS:${solBalance.toFixed(4)}:${MIN_SOL_FOR_GAS}`);
       }
       console.log('[PondTrading] Balance check passed, proceeding with trade');
       

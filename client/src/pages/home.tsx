@@ -72,7 +72,7 @@ export default function Home() {
   const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
   
   const embeddedAddress = embeddedWallet?.address || null;
-  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
+  const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
   
   const [showFundingPrompt, setShowFundingPrompt] = useState(false);
   const [requiredAmount, setRequiredAmount] = useState(0);
@@ -234,6 +234,16 @@ export default function Home() {
   const skipBorder = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0)", "rgba(59, 130, 246, 1)"]);
 
   const handleSwipe = async (id: string, direction: 'left' | 'right' | 'down') => {
+    // Block trading if gas deposit is not complete
+    if (showGasDeposit) {
+      toast({
+        title: "Complete Setup First",
+        description: "Please deposit SOL for gas fees to start trading.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const market = displayedMarkets.find(m => m.id === id);
     
     recordSwipe(id);
@@ -259,7 +269,7 @@ export default function Home() {
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use 'swipe' channel - $0.05 flat fee
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined, 'swipe');
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -314,6 +324,20 @@ export default function Home() {
           // Show funding prompt
           setRequiredAmount(settings.yesWager);
           setShowFundingPrompt(true);
+        } else if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
+          // Not enough SOL for gas fees
+          toast({
+            title: "Need More SOL for Gas",
+            description: "You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.",
+            variant: "destructive",
+          });
+        } else if (result.error?.startsWith('BALANCE_LOADING:')) {
+          // Balance not yet loaded
+          toast({
+            title: "Loading...",
+            description: "Please wait for your wallet balance to load, then try again.",
+            variant: "destructive",
+          });
         } else {
           // Check for zero out amount error - trade too small for DFlow
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
@@ -361,7 +385,7 @@ export default function Home() {
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use 'swipe' channel - $0.05 flat fee
-        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined, 'swipe');
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -416,6 +440,20 @@ export default function Home() {
           // Show funding prompt
           setRequiredAmount(settings.noWager);
           setShowFundingPrompt(true);
+        } else if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
+          // Not enough SOL for gas fees
+          toast({
+            title: "Need More SOL for Gas",
+            description: "You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.",
+            variant: "destructive",
+          });
+        } else if (result.error?.startsWith('BALANCE_LOADING:')) {
+          // Balance not yet loaded
+          toast({
+            title: "Loading...",
+            description: "Please wait for your wallet balance to load, then try again.",
+            variant: "destructive",
+          });
         } else {
           // Check for zero out amount error - trade too small for DFlow
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')

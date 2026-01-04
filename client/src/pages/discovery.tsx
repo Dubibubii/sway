@@ -25,7 +25,7 @@ export default function Discovery() {
   const { toast } = useToast();
   const { settings } = useSettings();
   const { authenticated, embeddedWallet } = usePrivySafe();
-  const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
+  const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   const { placeTrade: placePondTrade, isTrading } = usePondTrading();
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,7 +55,7 @@ export default function Discovery() {
     }
     
     // Execute trade using 'discovery' channel - 0.75% fee
-    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address, 'discovery');
+    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
     
     if (result.success) {
       // Record trade in database
@@ -95,10 +95,16 @@ export default function Discovery() {
       setSelectedMarket(null);
     } else {
       // Handle errors
-      const errorMsg = result.error?.includes('zero_out_amount') 
-        ? 'Trade amount too small. Please increase to at least $0.50'
-        : (result.error || 'Trade failed');
-      toast({ title: 'Trade Failed', description: errorMsg, variant: 'destructive' });
+      if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
+        toast({ title: 'Need More SOL for Gas', description: 'You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.', variant: 'destructive' });
+      } else if (result.error?.startsWith('BALANCE_LOADING:')) {
+        toast({ title: 'Loading...', description: 'Please wait for your wallet balance to load, then try again.', variant: 'destructive' });
+      } else {
+        const errorMsg = result.error?.includes('zero_out_amount') 
+          ? 'Trade amount too small. Please increase to at least $0.50'
+          : (result.error || 'Trade failed');
+        toast({ title: 'Trade Failed', description: errorMsg, variant: 'destructive' });
+      }
     }
   };
 

@@ -99,6 +99,14 @@ Preferred communication style: Simple, everyday language.
   - Uses `restrictIntermediateTokens: true` and `dynamicSlippage` for reliable swaps
   - No API key required
 
+### Gas Deposit Requirement
+- **Onboarding Step**: After completing the tutorial, users must deposit 0.01 SOL minimum for gas fees
+- **Component**: `GasDepositPrompt` shows wallet address, copy button, balance with progress bar, and "Fund with Card" option
+- **Settings**: `gasDepositComplete` boolean tracks whether user has completed gas deposit
+- **Trade Guard**: Before any trade, checks that SOL balance >= 0.003 SOL (minimum for transaction fees)
+- **User-Friendly**: If gas is insufficient, shows "Need More SOL for Gas" error directing to profile page
+- **Fully Withdrawable**: Users can withdraw deposited SOL at any time from the profile page
+
 ### SOL → USDC Conversion
 - **Auto-Swap**: Triggers on first deposit or top-ups (30-second cooldown)
 - **Manual Button**: "Convert SOL → USDC" button on profile page for manual conversion
