@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
@@ -93,6 +93,12 @@ export async function registerRoutes(
 
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Parse pagination parameters with defaults for backward compatibility
+      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 500);
+      const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+      const excludeIdsParam = req.query.excludeIds as string || '';
+      const excludeIds = excludeIdsParam ? new Set(excludeIdsParam.split(',').map(id => id.trim()).filter(Boolean)) : new Set<string>();
+      
       // Get up to 10,000 markets from cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
@@ -113,18 +119,33 @@ export async function registerRoutes(
         isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
       }));
       
-      // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation)
+      // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation + event spacing)
       // DO NOT re-sort after this - diversification already produces the optimal display order
       markets = diversifyMarketFeed(markets);
       
-      // Return up to 2000 diverse markets for discovery page (increased from 400 to show more per category)
-      const displayMarkets = markets.slice(0, 2000);
+      // Filter only initialized markets for total count
+      const initializedMarkets = markets.filter(m => m.isInitialized);
+      const total = initializedMarkets.length;
       
-      const initializedCount = displayMarkets.filter(m => m.isInitialized).length;
-      const uniqueCategories = Array.from(new Set(displayMarkets.map(m => m.category)));
-      console.log('Markets: Total', displayMarkets.length, `(${initializedCount} initialized)`, '- Categories:', uniqueCategories.join(', '));
+      // Apply excludeIds filter if provided (for deduplication across batches)
+      let filteredMarkets = excludeIds.size > 0 
+        ? markets.filter(m => !excludeIds.has(m.id))
+        : markets;
       
-      res.json({ markets: displayMarkets });
+      // Apply pagination
+      const paginatedMarkets = filteredMarkets.slice(offset, offset + limit);
+      const hasMore = (offset + limit) < filteredMarkets.length;
+      
+      const initializedCount = paginatedMarkets.filter(m => m.isInitialized).length;
+      const uniqueCategories = Array.from(new Set(paginatedMarkets.map(m => m.category)));
+      console.log(`Markets: Returning ${paginatedMarkets.length} (offset=${offset}, limit=${limit}, ${initializedCount} initialized, hasMore=${hasMore}) - Categories:`, uniqueCategories.join(', '));
+      
+      res.json({ 
+        markets: paginatedMarkets,
+        cacheTimestamp: getCacheTimestamp(),
+        total,
+        hasMore
+      });
     } catch (error) {
       console.error('Error fetching markets:', error);
       res.status(500).json({ error: 'Failed to fetch markets' });

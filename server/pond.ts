@@ -12,6 +12,10 @@ let marketCache: SimplifiedMarket[] = [];
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+export function getCacheTimestamp(): number {
+  return cacheTimestamp;
+}
+
 export interface KalshiMarket {
   ticker: string;
   title: string;
@@ -1390,6 +1394,55 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMark
   // Verify all categories present
   const categoriesInFirst40 = Object.keys(catCounts);
   console.log(`Categories represented in first 40: ${categoriesInFirst40.length}/8`);
+  
+  // EVENT SPACING PASS: Ensure no two markets from the same event appear within 5 positions
+  const EVENT_MIN_SPACING = 5;
+  const spacedResult = applyEventSpacing(result, EVENT_MIN_SPACING);
+  
+  return spacedResult;
+}
+
+function applyEventSpacing(markets: SimplifiedMarket[], minSpacing: number): SimplifiedMarket[] {
+  if (markets.length <= minSpacing) return markets;
+  
+  const result: SimplifiedMarket[] = [];
+  const pending: SimplifiedMarket[] = [...markets];
+  const recentEventTickers: string[] = [];
+  
+  while (pending.length > 0) {
+    let found = false;
+    
+    for (let i = 0; i < pending.length; i++) {
+      const market = pending[i];
+      const eventKey = market.eventTicker || '';
+      
+      if (!eventKey) {
+        result.push(market);
+        pending.splice(i, 1);
+        recentEventTickers.push('');
+        if (recentEventTickers.length > minSpacing) recentEventTickers.shift();
+        found = true;
+        break;
+      }
+      
+      const recentIndex = recentEventTickers.lastIndexOf(eventKey);
+      if (recentIndex === -1 || (recentEventTickers.length - 1 - recentIndex) >= minSpacing) {
+        result.push(market);
+        pending.splice(i, 1);
+        recentEventTickers.push(eventKey);
+        if (recentEventTickers.length > minSpacing) recentEventTickers.shift();
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found && pending.length > 0) {
+      result.push(pending.shift()!);
+      const eventKey = result[result.length - 1].eventTicker || '';
+      recentEventTickers.push(eventKey);
+      if (recentEventTickers.length > minSpacing) recentEventTickers.shift();
+    }
+  }
   
   return result;
 }
