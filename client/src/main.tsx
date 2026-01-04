@@ -1,6 +1,32 @@
 import { Buffer } from 'buffer';
 (window as any).Buffer = Buffer;
 
+// Session freshness check - prevents stale app state issues
+// If app has been in background for more than 4 hours, force refresh
+const SESSION_STALE_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours
+const APP_LOAD_TIME = Date.now();
+let lastVisibleTime = Date.now();
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const now = Date.now();
+      const timeSinceLoad = now - APP_LOAD_TIME;
+      const timeSinceVisible = now - lastVisibleTime;
+      
+      // Force refresh if app was loaded more than threshold ago AND was hidden for a while
+      if (timeSinceLoad > SESSION_STALE_THRESHOLD_MS && timeSinceVisible > 30 * 60 * 1000) {
+        console.log('[Session] App is stale, forcing refresh...');
+        window.location.reload();
+        return;
+      }
+      lastVisibleTime = now;
+    } else {
+      lastVisibleTime = Date.now();
+    }
+  });
+}
+
 import { createRoot } from "react-dom/client";
 import { useEffect, useState, ReactNode, useMemo, useCallback } from "react";
 import App from "./App";
