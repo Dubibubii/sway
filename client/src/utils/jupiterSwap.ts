@@ -4,28 +4,41 @@ export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // Reserve SOL for gas + rent (token account creation costs ~0.002-0.003 SOL each)
-// Tiered reserves based on deposit size to maximize USDC conversion
-export const GAS_RESERVE_TINY = 0.002;     // For deposits < 0.02 SOL - minimal gas for 1-2 transactions
-export const GAS_RESERVE_MICRO = 0.005;    // For deposits 0.02-0.1 SOL
-export const GAS_RESERVE_STANDARD = 0.015; // For deposits 0.1-0.5 SOL
-export const GAS_RESERVE_LARGE = 0.03;     // For deposits > 0.5 SOL
+// Gas should never exceed 5% of the deposit to maximize user value
+export const GAS_PERCENTAGE_CAP = 0.05;    // 5% max of deposit for gas
+export const GAS_RESERVE_MIN = 0.0025;     // Minimum gas for very small deposits (< 0.05 SOL)
+export const GAS_RESERVE_FLOOR = 0.002;    // Absolute floor - enough for 1 transaction
+export const SMALL_DEPOSIT_THRESHOLD = 0.05;
 export const TINY_DEPOSIT_THRESHOLD = 0.02;
 export const MICRO_DEPOSIT_THRESHOLD = 0.1;
 export const LARGE_DEPOSIT_THRESHOLD = 0.5;
 
+// Legacy exports for compatibility
+export const GAS_RESERVE_TINY = 0.0025;
+export const GAS_RESERVE_MICRO = 0.005;
+export const GAS_RESERVE_STANDARD = 0.015;
+export const GAS_RESERVE_LARGE = 0.03;
+
 export function getDynamicGasReserve(solBalance: number): number {
-  // For tiny deposits (< 0.02 SOL), keep minimal gas to maximize swap
-  if (solBalance < TINY_DEPOSIT_THRESHOLD) {
-    return GAS_RESERVE_TINY;
+  // Calculate 5% of the deposit
+  const fivePercent = solBalance * GAS_PERCENTAGE_CAP;
+  
+  // For very small deposits (< 0.05 SOL), use fixed minimal reserve
+  if (solBalance < SMALL_DEPOSIT_THRESHOLD) {
+    // Use 0.0025 SOL or 5% of balance, whichever is smaller
+    // But never go below the absolute floor
+    return Math.max(GAS_RESERVE_FLOOR, Math.min(GAS_RESERVE_MIN, fivePercent));
   }
-  // For small deposits (0.02-0.1 SOL), keep small reserve
+  
+  // For normal deposits, cap gas at 5% of the deposit
+  // But ensure minimum viable gas for transactions
   if (solBalance < MICRO_DEPOSIT_THRESHOLD) {
-    return GAS_RESERVE_MICRO;
+    return Math.min(GAS_RESERVE_MICRO, fivePercent);
   }
   if (solBalance < LARGE_DEPOSIT_THRESHOLD) {
-    return GAS_RESERVE_STANDARD;
+    return Math.min(GAS_RESERVE_STANDARD, fivePercent);
   }
-  // For large deposits, reserve more for multiple trades
+  // For large deposits, use standard reserve (will be well under 5%)
   return GAS_RESERVE_LARGE;
 }
 
