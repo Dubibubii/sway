@@ -16,9 +16,16 @@ const REQUIRED_SOL = 0.02;
 export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
   const { embeddedWallet, fundWallet } = usePrivySafe();
   const walletAddress = embeddedWallet?.address || '';
-  const { solBalance, isLoading, refetch } = useSolanaBalance(walletAddress);
+  const { solBalance, refetch } = useSolanaBalance(walletAddress);
   const [copied, setCopied] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [displayBalance, setDisplayBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (solBalance !== undefined) {
+      setDisplayBalance(solBalance);
+    }
+  }, [solBalance]);
 
   const hasEnoughSol = solBalance >= REQUIRED_SOL;
 
@@ -118,7 +125,7 @@ export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
               <div className="bg-zinc-900 rounded-full px-5 py-2.5 border border-zinc-800">
                 <span className="text-zinc-400 text-sm">Current Balance: </span>
                 <span className="text-white font-mono font-medium" data-testid="text-sol-balance">
-                  {isLoading ? '...' : solBalance.toFixed(2)}
+                  {displayBalance !== null ? displayBalance.toFixed(2) : '0.00'}
                 </span>
               </div>
             </div>
