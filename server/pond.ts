@@ -254,62 +254,137 @@ function transformDFlowMarket(market: any, event: any): SimplifiedMarket {
   };
 }
 
-// Fetch markets from DFlow Prediction Market Metadata API (cleaner data)
+// Fetch markets from DFlow Prediction Market Metadata API using /markets endpoint (includes prices!)
 async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
   const markets: SimplifiedMarket[] = [];
   const marketIds = new Set<string>();
   
   try {
-    // DFlow API limit is 100 max (500 causes deserialization error)
-    const url = `${DFLOW_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=100&offset=0`;
-    console.log('Fetching markets from DFlow Metadata API:', url);
-    console.log('DFlow API key present:', !!DFLOW_API_KEY);
-    
     // Build headers with API key if available
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (DFLOW_API_KEY) {
       headers['x-api-key'] = DFLOW_API_KEY;
     }
     
-    // Fetch active events with nested markets from DFlow
-    // Include offset=0 as required by production API
-    const response = await fetch(url, {
-      method: 'GET',
-      headers,
-    });
+    // Use /api/v1/markets endpoint which includes yesAsk, yesBid, noAsk, noBid prices
+    // Paginate to get all markets
+    let cursor: number | undefined = 0;
+    const pageSize = 200;
+    let pagesFetched = 0;
+    const maxPages = 20;
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('DFlow Metadata API error:', response.status, errorText.slice(0, 200));
-      return [];
-    }
+    console.log('Fetching markets from DFlow /markets endpoint (includes prices)');
+    console.log('DFlow API key present:', !!DFLOW_API_KEY);
     
-    const data = await response.json();
-    const events = data.events || [];
-    
-    console.log(`DFlow API returned ${events.length} events`);
-    
-    for (const event of events) {
-      if (!event.markets || !Array.isArray(event.markets)) continue;
+    while (pagesFetched < maxPages) {
+      const params = new URLSearchParams({
+        limit: pageSize.toString(),
+        status: 'active',
+        sort: 'volume',
+      });
+      if (cursor !== undefined && cursor > 0) {
+        params.append('cursor', cursor.toString());
+      }
       
-      for (const market of event.markets) {
+      const url = `${DFLOW_METADATA_API}/api/v1/markets?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DFlow Markets API error:', response.status, errorText.slice(0, 200));
+        break;
+      }
+      
+      const data = await response.json();
+      const apiMarkets = data.markets || [];
+      
+      if (apiMarkets.length === 0) break;
+      
+      for (const market of apiMarkets) {
         if (market.status !== 'active') continue;
         if (marketIds.has(market.ticker)) continue;
         
         // Filter out multi-leg parlay markets
-        if (isMultiLegParlay({ title: market.title, event_ticker: event.ticker })) continue;
+        if (isMultiLegParlay({ title: market.title, event_ticker: market.eventTicker })) continue;
         
-        markets.push(transformDFlowMarket(market, event));
+        // Transform market with price data from /markets endpoint
+        markets.push(transformDFlowMarketWithPrices(market));
         marketIds.add(market.ticker);
       }
+      
+      cursor = data.cursor;
+      pagesFetched++;
+      
+      if (!cursor) break;
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    console.log(`DFlow: Got ${markets.length} markets from ${events.length} events`);
+    console.log(`DFlow /markets: Got ${markets.length} markets with prices from ${pagesFetched} pages`);
     return markets;
   } catch (error) {
-    console.error('Error fetching from DFlow API:', error);
+    console.error('Error fetching from DFlow Markets API:', error);
     return [];
   }
+}
+
+// Transform DFlow /markets endpoint response (includes yesAsk, yesBid, noAsk, noBid)
+function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
+  // DFlow /markets endpoint returns prices as strings like "0.85" (already in 0-1 range)
+  const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : 0;
+  const yesBid = market.yesBid ? parseFloat(market.yesBid) : 0;
+  const noAsk = market.noAsk ? parseFloat(market.noAsk) : 0;
+  const noBid = market.noBid ? parseFloat(market.noBid) : 0;
+  
+  let yesPrice: number;
+  if (yesAsk > 0 && yesBid > 0) {
+    yesPrice = (yesAsk + yesBid) / 2;
+  } else if (yesAsk > 0) {
+    yesPrice = yesAsk;
+  } else if (yesBid > 0) {
+    yesPrice = yesBid;
+  } else {
+    yesPrice = 0.5;
+  }
+  const noPrice = 1 - yesPrice;
+  
+  // Get category from event ticker or detect from title
+  const eventTicker = market.eventTicker || '';
+  const seriesTicker = eventTicker.split('-')[0] || '';
+  const category = detectCategoryFromTitle(market.title || '', seriesTicker);
+  
+  // Get image URL from series ticker
+  const imageUrl = seriesTicker 
+    ? `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`
+    : undefined;
+  
+  // Check if market has any initialized accounts
+  const accounts = market.accounts || {};
+  const isInitialized = Object.values(accounts).some((acc: any) => acc?.isInitialized === true);
+  
+  return {
+    id: market.ticker,
+    title: market.title || '',
+    subtitle: market.subtitle || '',
+    category: category || 'General',
+    yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
+    noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesLabel: market.yesSubTitle || 'Yes',
+    noLabel: market.noSubTitle || 'No',
+    volume: market.volume || 0,
+    volume24h: market.volume24h || 0,
+    endDate: market.closeTime || new Date().toISOString(),
+    status: market.status || 'active',
+    imageUrl,
+    eventTicker,
+    accounts,
+    isInitialized,
+  };
 }
 
 // Fetch live prices from Kalshi for all markets (paginated)
@@ -387,24 +462,11 @@ async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, { yesPr
 
 // Fetch ALL markets - tries DFlow first, falls back to Kalshi
 async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
-  // Try DFlow Metadata API first (cleaner data, no parlays)
+  // Try DFlow /markets API which includes yesAsk, yesBid prices directly
   let markets = await fetchMarketsFromDFlow();
   
   if (markets.length > 0) {
-    // DFlow doesn't include live prices, so fetch from Kalshi and merge
-    const tickers = markets.map(m => m.id);
-    const priceMap = await fetchKalshiPrices(tickers);
-    
-    // Merge prices into DFlow markets
-    for (const market of markets) {
-      const prices = priceMap.get(market.id);
-      if (prices) {
-        market.yesPrice = prices.yesPrice;
-        market.noPrice = prices.noPrice;
-      }
-    }
-    
-    console.log(`Using ${markets.length} markets from DFlow API (with Kalshi prices)`);
+    console.log(`Using ${markets.length} markets from DFlow /markets API (prices included)`);
     return markets;
   }
   
