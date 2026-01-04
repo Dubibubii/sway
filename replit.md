@@ -100,7 +100,7 @@ Preferred communication style: Simple, everyday language.
   - No API key required
 
 ### Gas Deposit Requirement
-- **Onboarding Step**: After completing the tutorial, users must deposit 0.01 SOL minimum for gas fees
+- **Onboarding Step**: After completing the tutorial, users must deposit 0.02 SOL minimum for gas fees
 - **Component**: `GasDepositPrompt` shows wallet address, copy button, balance with progress bar, and "Fund with Card" option
 - **Settings**: `gasDepositComplete` boolean tracks whether user has completed gas deposit
 - **Trade Guard**: Before any trade, checks that SOL balance >= 0.003 SOL (minimum for transaction fees)
