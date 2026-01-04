@@ -100,7 +100,9 @@ export default function Home() {
   
   useEffect(() => {
     if (marketsData?.markets) {
-      const allMarkets = marketsData.markets.map(formatMarket);
+      // Filter to only initialized markets for swipe (these are ready for trading without extra fees)
+      const initializedMarkets = marketsData.markets.filter(m => m.isInitialized !== false);
+      const allMarkets = initializedMarkets.map(formatMarket);
       const visibleMarkets = getVisibleCards(allMarkets);
       setDisplayedMarkets(visibleMarkets);
     }

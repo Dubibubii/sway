@@ -276,6 +276,7 @@ export default function Discovery() {
 function MarketCard({ market, onClick }: { market: Market; onClick: () => void }) {
   const yesPercent = Math.round(market.yesPrice * 100);
   const noPercent = Math.round(market.noPrice * 100);
+  const isNotInitialized = market.isInitialized === false;
 
   return (
     <div 
@@ -293,10 +294,16 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       
       <div className="relative h-full flex flex-col justify-end p-3">
-        <div className="flex items-center gap-1 mb-1">
+        <div className="flex items-center gap-1 mb-1 flex-wrap">
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/70">
             {market.category}
           </span>
+          {isNotInitialized && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 flex items-center gap-0.5">
+              <Info size={8} />
+              New
+            </span>
+          )}
           {(market.volume24h || 0) > 100 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary flex items-center gap-0.5">
               <TrendingUp size={8} />
@@ -552,11 +559,27 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="relative pt-4">
-              <span className="inline-block text-xs px-2 py-1 rounded-full bg-white/10 text-white/70 mb-2">
-                {market.category}
-              </span>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="inline-block text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">
+                  {market.category}
+                </span>
+                {market.isInitialized === false && (
+                  <span className="inline-block text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 flex items-center gap-1">
+                    <Info size={10} />
+                    New Market
+                  </span>
+                )}
+              </div>
               
               <h2 className="text-xl font-bold mb-2">{market.title}</h2>
+              
+              {market.isInitialized === false && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-3">
+                  <p className="text-xs text-amber-200">
+                    This market is new and hasn't been traded yet. Your first trade will pay a small initialization fee (~$0.01) to set it up.
+                  </p>
+                </div>
+              )}
               
               {market.subtitle && (
                 <p className="text-sm text-muted-foreground mb-4">{market.subtitle}</p>
