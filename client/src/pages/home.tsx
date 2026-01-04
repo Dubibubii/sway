@@ -15,6 +15,7 @@ import { getMarkets, createTrade, getBalancedPercentages, type Market, type Mark
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
+import { GasDepositPrompt } from '@/components/gas-deposit-prompt';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
 
@@ -115,8 +116,9 @@ export default function Home() {
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
-  const { settings, completeOnboarding } = useSettings();
+  const { settings, completeOnboarding, completeGasDeposit } = useSettings();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showGasDeposit, setShowGasDeposit] = useState(false);
 
   useEffect(() => {
     if (authenticated && !settings.onboardingCompleted) {
@@ -127,9 +129,23 @@ export default function Home() {
     }
   }, [authenticated, settings.onboardingCompleted]);
 
+  useEffect(() => {
+    if (authenticated && settings.onboardingCompleted && !settings.gasDepositComplete) {
+      setShowGasDeposit(true);
+    }
+  }, [authenticated, settings.onboardingCompleted, settings.gasDepositComplete]);
+
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     completeOnboarding();
+    if (!settings.gasDepositComplete) {
+      setShowGasDeposit(true);
+    }
+  };
+
+  const handleGasDepositComplete = () => {
+    setShowGasDeposit(false);
+    completeGasDeposit();
   };
   
   useEffect(() => {
@@ -574,6 +590,12 @@ export default function Home() {
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingTour onComplete={handleOnboardingComplete} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showGasDeposit && !showOnboarding && (
+          <GasDepositPrompt onComplete={handleGasDepositComplete} />
         )}
       </AnimatePresence>
 

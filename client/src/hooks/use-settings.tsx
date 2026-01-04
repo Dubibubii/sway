@@ -10,6 +10,7 @@ interface Settings {
   userId: string | null;
   interests: string[];
   onboardingCompleted: boolean;
+  gasDepositComplete: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: Settings = {
   userId: null,
   interests: [],
   onboardingCompleted: false,
+  gasDepositComplete: false,
 };
 
 interface SettingsContextType {
@@ -31,6 +33,7 @@ interface SettingsContextType {
   connectWallet: (privyId: string, walletAddress: string, accessToken?: string) => Promise<void>;
   disconnectWallet: () => void;
   completeOnboarding: () => void;
+  completeGasDeposit: () => void;
   setAuthState: React.Dispatch<React.SetStateAction<{
     connected: boolean;
     walletAddress: string | null;
@@ -39,6 +42,7 @@ interface SettingsContextType {
     userId: string | null;
     interests: string[];
     onboardingCompleted: boolean;
+    gasDepositComplete: boolean;
   }>>;
 }
 
@@ -66,6 +70,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     userId: string | null;
     interests: string[];
     onboardingCompleted: boolean;
+    gasDepositComplete: boolean;
   }>(() => {
     try {
       const stored = localStorage.getItem('pulse_settings');
@@ -78,6 +83,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         userId: parsed.userId || null,
         interests: Array.isArray(parsed.interests) ? parsed.interests : [],
         onboardingCompleted: parsed.onboardingCompleted || false,
+        gasDepositComplete: parsed.gasDepositComplete || false,
       };
     } catch {
       return {
@@ -88,6 +94,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         userId: null,
         interests: [],
         onboardingCompleted: false,
+        gasDepositComplete: false,
       };
     }
   });
@@ -147,6 +154,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           userId: userData.user?.id || userData.id || null,
           interests: mergedInterests,
           onboardingCompleted: prev.onboardingCompleted,
+          gasDepositComplete: prev.gasDepositComplete,
         };
       });
     } catch (error) {
@@ -159,6 +167,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         userId: null,
         interests: prev.interests,
         onboardingCompleted: prev.onboardingCompleted,
+        gasDepositComplete: prev.gasDepositComplete,
       }));
     }
   };
@@ -198,11 +207,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       userId: null,
       interests: prev.interests,
       onboardingCompleted: prev.onboardingCompleted,
+      gasDepositComplete: prev.gasDepositComplete,
     }));
   };
 
   const completeOnboarding = () => {
     setAuthState(prev => ({ ...prev, onboardingCompleted: true }));
+  };
+
+  const completeGasDeposit = () => {
+    setAuthState(prev => ({ ...prev, gasDepositComplete: true }));
   };
 
   const settings: Settings = {
@@ -218,6 +232,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       connectWallet,
       disconnectWallet,
       completeOnboarding,
+      completeGasDeposit,
       setAuthState
     }}>
       {children}
