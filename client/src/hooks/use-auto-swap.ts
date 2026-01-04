@@ -23,6 +23,67 @@ const MIN_SWAP_THRESHOLD = 0.003; // Lower threshold for tiny deposits
 const SWAP_COOLDOWN_MS = 30000;
 const DEPOSIT_DETECTION_THRESHOLD = 0.001;
 
+// Persistent swap state - survives app close/reopen
+const PENDING_SWAP_KEY = 'sway_pending_swap';
+const SWAP_RECOVERY_KEY = 'sway_swap_recovery_checked';
+
+interface PendingSwapState {
+  walletAddress: string;
+  detectedBalance: number;
+  timestamp: number;
+}
+
+function savePendingSwap(state: PendingSwapState | null) {
+  try {
+    if (state) {
+      localStorage.setItem(PENDING_SWAP_KEY, JSON.stringify(state));
+      console.log('[AutoSwap] Saved pending swap to localStorage:', state);
+    } else {
+      localStorage.removeItem(PENDING_SWAP_KEY);
+    }
+  } catch (e) {
+    console.warn('[AutoSwap] Failed to save pending swap:', e);
+  }
+}
+
+function loadPendingSwap(): PendingSwapState | null {
+  try {
+    const stored = localStorage.getItem(PENDING_SWAP_KEY);
+    if (stored) {
+      const state = JSON.parse(stored) as PendingSwapState;
+      // Only restore if less than 1 hour old
+      if (Date.now() - state.timestamp < 60 * 60 * 1000) {
+        console.log('[AutoSwap] Loaded pending swap from localStorage:', state);
+        return state;
+      }
+      // Clear stale pending swap
+      localStorage.removeItem(PENDING_SWAP_KEY);
+    }
+  } catch (e) {
+    console.warn('[AutoSwap] Failed to load pending swap:', e);
+  }
+  return null;
+}
+
+function markRecoveryChecked(walletAddress: string) {
+  try {
+    const key = `${SWAP_RECOVERY_KEY}_${walletAddress}`;
+    localStorage.setItem(key, Date.now().toString());
+  } catch (e) {}
+}
+
+function shouldCheckRecovery(walletAddress: string): boolean {
+  try {
+    const key = `${SWAP_RECOVERY_KEY}_${walletAddress}`;
+    const lastCheck = localStorage.getItem(key);
+    if (!lastCheck) return true;
+    // Check recovery at most once every 5 minutes
+    return Date.now() - parseInt(lastCheck) > 5 * 60 * 1000;
+  } catch (e) {
+    return true;
+  }
+}
+
 function logError(context: string, err: unknown) {
   console.error(`[AutoSwap] ${context}:`, 
     err instanceof Error ? err.message : JSON.stringify(err, Object.getOwnPropertyNames(err as object))
@@ -212,6 +273,8 @@ export function useAutoSwap() {
     if (swapAmount <= MIN_SWAP_THRESHOLD) {
       previousBalanceRef.current = currentSolBalance;
       swapAttemptedForDepositRef.current = false;
+      // Clear any stale pending swap if balance is now low
+      savePendingSwap(null);
       return false;
     }
 
@@ -221,6 +284,13 @@ export function useAutoSwap() {
     if (isNewDeposit || isFirstDeposit) {
       swapAttemptedForDepositRef.current = false;
       console.log('[AutoSwap] New deposit detected! Increase:', balanceIncrease.toFixed(6), 'SOL');
+      
+      // CRITICAL: Save pending swap immediately so it survives app close
+      savePendingSwap({
+        walletAddress: embeddedWalletAddress,
+        detectedBalance: currentSolBalance,
+        timestamp: Date.now(),
+      });
     }
 
     if (swapAttemptedForDepositRef.current && !forceSwap) {
@@ -250,6 +320,8 @@ export function useAutoSwap() {
       
       if (result.success) {
         console.log('[AutoSwap] Swap completed successfully');
+        // Clear pending swap on success
+        savePendingSwap(null);
       }
       
       onComplete?.(result);
@@ -259,6 +331,47 @@ export function useAutoSwap() {
     previousBalanceRef.current = currentSolBalance;
     return false;
   }, [isSwapping, performAutoSwap, walletsReady]);
+
+  // Recovery function - called on app mount to check for missed swaps
+  const checkRecoverySwap = useCallback(async (
+    currentSolBalance: number,
+    embeddedWalletAddress: string | null,
+    onStart?: () => void,
+    onComplete?: (result: AutoSwapResult) => void
+  ): Promise<boolean> => {
+    if (!embeddedWalletAddress || isSwapping) {
+      return false;
+    }
+    
+    // Check if we should run recovery (throttled to every 5 min)
+    if (!shouldCheckRecovery(embeddedWalletAddress)) {
+      return false;
+    }
+    markRecoveryChecked(embeddedWalletAddress);
+    
+    const swapAmount = calculateSwapAmount(currentSolBalance);
+    
+    // Check 1: Is there a pending swap saved from a previous session?
+    const pendingSwap = loadPendingSwap();
+    if (pendingSwap && pendingSwap.walletAddress === embeddedWalletAddress) {
+      console.log('[AutoSwap] Found pending swap from previous session, attempting recovery...');
+      if (swapAmount > MIN_SWAP_THRESHOLD) {
+        return checkAndAutoSwap(currentSolBalance, embeddedWalletAddress, onStart, onComplete, true);
+      } else {
+        // Pending swap no longer needed (balance too low)
+        savePendingSwap(null);
+      }
+    }
+    
+    // Check 2: Balance-based recovery - if SOL > gas reserve, trigger swap
+    // This catches deposits that were never detected at all
+    if (swapAmount > MIN_SWAP_THRESHOLD) {
+      console.log('[AutoSwap] Recovery check: Found', swapAmount.toFixed(6), 'SOL available for swap');
+      return checkAndAutoSwap(currentSolBalance, embeddedWalletAddress, onStart, onComplete, true);
+    }
+    
+    return false;
+  }, [isSwapping, checkAndAutoSwap]);
 
   const getSwapPreview = useCallback((currentSolBalance: number) => {
     const gasReserve = getDynamicGasReserve(currentSolBalance);
@@ -282,6 +395,7 @@ export function useAutoSwap() {
   return {
     performAutoSwap,
     checkAndAutoSwap,
+    checkRecoverySwap,
     getSwapPreview,
     resetPreviousBalance,
     isSwapping,

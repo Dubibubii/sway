@@ -46,7 +46,7 @@ function ProfileContent() {
   // (Uses the same wallet, but tracks SOL separately for detecting new deposits)
   const { solBalance: embeddedSolBalance, refetch: refetchEmbeddedBalance } = useSolanaBalance(embeddedWallet?.address || null);
   
-  const { checkAndAutoSwap, resetPreviousBalance, isSwapping } = useAutoSwap();
+  const { checkAndAutoSwap, checkRecoverySwap, resetPreviousBalance, isSwapping } = useAutoSwap();
   
   // Fetch user's positions to calculate portfolio value
   const { data: positionsData } = useQuery({
@@ -100,6 +100,30 @@ function ProfileContent() {
       );
     }
   }, [embeddedSolBalance, embeddedWallet?.address]);
+
+  // Recovery check: On page mount, check for missed swaps from previous sessions
+  // This catches deposits that happened while the app was closed
+  const recoveryCheckedRef = useRef(false);
+  useEffect(() => {
+    if (embeddedWallet?.address && embeddedSolBalance > 0 && !recoveryCheckedRef.current) {
+      recoveryCheckedRef.current = true;
+      console.log('[Profile] Running recovery check for missed swaps...');
+      checkRecoverySwap(
+        embeddedSolBalance,
+        embeddedWallet.address,
+        undefined,
+        (result) => {
+          if (result.success) {
+            toast({ title: "Deposit Recovered!", description: `Converted ~$${result.usdcReceived?.toFixed(2) || '0'} USDC from previous deposit` });
+            setTimeout(() => {
+              refetchBalance();
+              refetchEmbeddedBalance();
+            }, 1000);
+          }
+        }
+      );
+    }
+  }, [embeddedWallet?.address, embeddedSolBalance, checkRecoverySwap, refetchBalance, refetchEmbeddedBalance, toast]);
 
   // Note: Removed resetPreviousBalance on wallet connect - it was preventing 
   // first deposit detection by setting previous = current before the check ran
