@@ -6,7 +6,7 @@ import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
-import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, SOLANA_TOKENS } from "./pond-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, SOLANA_TOKENS } from "./pond-trading";
 import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
 // Note: Using native fetch (Node.js 20+) - no need for node-fetch
 
@@ -96,13 +96,21 @@ export async function registerRoutes(
       // Get up to 10,000 markets from cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
-      // Get available DFlow markets and filter to only tradeable ones
+      // Get available DFlow markets and their initialization status
       const dflowMarkets = await getAvailableDflowMarkets();
+      const marketInfo = await getDflowMarketInfo();
+      
       if (dflowMarkets.size > 0) {
         const beforeFilter = markets.length;
         markets = markets.filter(m => dflowMarkets.has(m.id));
         console.log(`Filtered markets: ${beforeFilter} -> ${markets.length} (DFlow has ${dflowMarkets.size} markets)`);
       }
+      
+      // Add isInitialized status to each market
+      markets = markets.map(m => ({
+        ...m,
+        isInitialized: marketInfo.get(m.id) ?? false,
+      }));
       
       // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation)
       // DO NOT re-sort after this - diversification already produces the optimal display order
@@ -111,8 +119,9 @@ export async function registerRoutes(
       // Return up to 2000 diverse markets for discovery page (increased from 400 to show more per category)
       const displayMarkets = markets.slice(0, 2000);
       
+      const initializedCount = displayMarkets.filter(m => m.isInitialized).length;
       const uniqueCategories = Array.from(new Set(displayMarkets.map(m => m.category)));
-      console.log('Markets: Total', displayMarkets.length, '- Categories:', uniqueCategories.join(', '));
+      console.log('Markets: Total', displayMarkets.length, `(${initializedCount} initialized)`, '- Categories:', uniqueCategories.join(', '));
       
       res.json({ markets: displayMarkets });
     } catch (error) {
@@ -143,11 +152,19 @@ export async function registerRoutes(
       
       let matchingMarkets = await searchAllMarkets(query);
       
-      // Filter to only DFlow-available markets
+      // Filter to only DFlow-available markets and add isInitialized status
       const dflowMarkets = await getAvailableDflowMarkets();
+      const marketInfo = await getDflowMarketInfo();
+      
       if (dflowMarkets.size > 0) {
         matchingMarkets = matchingMarkets.filter(m => dflowMarkets.has(m.id));
       }
+      
+      // Add isInitialized status
+      matchingMarkets = matchingMarkets.map(m => ({
+        ...m,
+        isInitialized: marketInfo.get(m.id) ?? false,
+      }));
       
       // Return all matching markets for comprehensive search
       res.json({ markets: matchingMarkets });

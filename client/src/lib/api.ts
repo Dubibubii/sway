@@ -41,6 +41,7 @@ export interface Market {
   status: string;
   imageUrl?: string;
   eventTicker?: string;
+  isInitialized?: boolean; // Whether market is ready for trading (no initialization fee required)
 }
 
 export interface Trade {

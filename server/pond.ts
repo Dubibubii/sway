@@ -65,6 +65,7 @@ export interface SimplifiedMarket {
   imageUrl?: string;
   accounts?: Record<string, PondMarketAccount>;
   eventTicker?: string;
+  isInitialized?: boolean; // Whether the market is ready for trading on DFlow
 }
 
 export async function getMarkets(limit = 50, cursor?: string): Promise<SimplifiedMarket[]> {

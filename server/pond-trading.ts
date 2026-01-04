@@ -230,6 +230,29 @@ export async function getMarketTokens(marketId: string): Promise<{ yesMint: stri
   return null;
 }
 
+// Market info including isInitialized status
+export interface DflowMarketInfo {
+  ticker: string;
+  isInitialized: boolean;
+}
+
+// Cache for market info (ticker -> isInitialized)
+let dflowMarketInfoCache: Map<string, boolean> = new Map();
+let dflowMarketInfoCacheTime = 0;
+
+// Get market info with isInitialized status
+export async function getDflowMarketInfo(): Promise<Map<string, boolean>> {
+  const now = Date.now();
+  
+  if (dflowMarketInfoCache.size > 0 && (now - dflowMarketInfoCacheTime) < DFLOW_CACHE_TTL) {
+    return dflowMarketInfoCache;
+  }
+  
+  // Will be populated by getAvailableDflowMarkets
+  await getAvailableDflowMarkets();
+  return dflowMarketInfoCache;
+}
+
 // Fetch all available markets from DFlow and cache them
 export async function getAvailableDflowMarkets(): Promise<Set<string>> {
   const now = Date.now();
@@ -241,6 +264,7 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
   
   console.log('[Pond] Fetching all available DFlow markets with pagination...');
   const marketTickers = new Set<string>();
+  const marketInfo = new Map<string, boolean>();
   
   try {
     // Fetch events with nested markets - paginate to get ALL available markets
@@ -268,12 +292,18 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
       const data = await response.json();
       const events = data.events || [];
       
-      // Extract all market tickers
+      // Extract all market tickers and isInitialized status
       for (const event of events) {
         if (event.markets && Array.isArray(event.markets)) {
           for (const market of event.markets) {
             if (market.ticker) {
               marketTickers.add(market.ticker);
+              // Check isInitialized from accounts (USDC settlement)
+              const accounts = market.accounts || {};
+              const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+              const usdcAccount = accounts[USDC_MINT];
+              const isInitialized = usdcAccount?.isInitialized ?? false;
+              marketInfo.set(market.ticker, isInitialized);
             }
           }
         }
@@ -311,6 +341,14 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
             for (const market of markets) {
               if (market.ticker) {
                 marketTickers.add(market.ticker);
+                // Also track isInitialized from direct markets endpoint
+                if (!marketInfo.has(market.ticker)) {
+                  const accounts = market.accounts || {};
+                  const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+                  const usdcAccount = accounts[USDC_MINT];
+                  const isInitialized = usdcAccount?.isInitialized ?? false;
+                  marketInfo.set(market.ticker, isInitialized);
+                }
               }
             }
             
@@ -335,11 +373,14 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
       }
     }
     
-    console.log(`[Pond] Found ${marketTickers.size} total available markets on DFlow`);
+    const initializedCount = Array.from(marketInfo.values()).filter(v => v).length;
+    console.log(`[Pond] Found ${marketTickers.size} total markets on DFlow (${initializedCount} initialized, ${marketTickers.size - initializedCount} not initialized)`);
     
-    // Update cache
+    // Update caches
     dflowMarketCache = marketTickers;
     dflowMarketCacheTime = now;
+    dflowMarketInfoCache = marketInfo;
+    dflowMarketInfoCacheTime = now;
     
     return marketTickers;
   } catch (error) {
