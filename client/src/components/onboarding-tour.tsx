@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Check, ChevronsDown, ArrowRight, Sparkles, TrendingUp, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -65,10 +65,6 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
     } else {
       onComplete();
     }
-  };
-
-  const handleSkip = () => {
-    onComplete();
   };
 
   return (
@@ -142,17 +138,6 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
               </>
             )}
           </Button>
-          
-          {currentStep < steps.length - 1 && (
-            <Button 
-              variant="ghost" 
-              onClick={handleSkip}
-              className="text-zinc-500 hover:text-zinc-300"
-              data-testid="button-onboarding-skip"
-            >
-              Skip Tutorial
-            </Button>
-          )}
         </div>
       </motion.div>
     </motion.div>

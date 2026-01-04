@@ -14,8 +14,6 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { getMarkets, createTrade, getBalancedPercentages, type Market, type MarketsResponse } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
-import { OnboardingTour } from '@/components/onboarding-tour';
-import { GasDepositPrompt } from '@/components/gas-deposit-prompt';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
 
@@ -116,37 +114,7 @@ export default function Home() {
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
-  const { settings, completeOnboarding, completeGasDeposit } = useSettings();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showGasDeposit, setShowGasDeposit] = useState(false);
-
-  useEffect(() => {
-    if (authenticated && !settings.onboardingCompleted) {
-      const timer = setTimeout(() => {
-        setShowOnboarding(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [authenticated, settings.onboardingCompleted]);
-
-  useEffect(() => {
-    if (authenticated && settings.onboardingCompleted && !settings.gasDepositComplete) {
-      setShowGasDeposit(true);
-    }
-  }, [authenticated, settings.onboardingCompleted, settings.gasDepositComplete]);
-
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    completeOnboarding();
-    if (!settings.gasDepositComplete) {
-      setShowGasDeposit(true);
-    }
-  };
-
-  const handleGasDepositComplete = () => {
-    setShowGasDeposit(false);
-    completeGasDeposit();
-  };
+  const { settings } = useSettings();
   
   useEffect(() => {
     if (marketsData?.pages) {
@@ -234,16 +202,6 @@ export default function Home() {
   const skipBorder = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0)", "rgba(59, 130, 246, 1)"]);
 
   const handleSwipe = async (id: string, direction: 'left' | 'right' | 'down') => {
-    // Block trading if gas deposit is not complete
-    if (showGasDeposit) {
-      toast({
-        title: "Complete Setup First",
-        description: "Please deposit SOL for gas fees to start trading.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     const market = displayedMarkets.find(m => m.id === id);
     
     recordSwipe(id);
@@ -624,18 +582,6 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <AnimatePresence>
-        {showOnboarding && (
-          <OnboardingTour onComplete={handleOnboardingComplete} />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showGasDeposit && !showOnboarding && (
-          <GasDepositPrompt onComplete={handleGasDepositComplete} />
-        )}
-      </AnimatePresence>
 
       <div className="h-[100dvh] flex flex-col items-center p-0 relative bg-background overflow-hidden">
         

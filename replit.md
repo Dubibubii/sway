@@ -95,17 +95,23 @@ Preferred communication style: Simple, everyday language.
   - Quote API: `https://quote-api.jup.ag/v6/quote`
   - Swap API: `https://quote-api.jup.ag/v6/swap`
   - Used for auto-converting SOL deposits to USDC
-  - Dynamic Gas Reserves: 0.004 SOL for balances < 0.1 SOL, 0.02 SOL for larger balances
+  - Gas Reserves: Fixed 0.02 SOL always preserved for gas fees
   - Uses `restrictIntermediateTokens: true` and `dynamicSlippage` for reliable swaps
   - No API key required
 
+### Onboarding Flow
+- **Global Enforcement**: Onboarding handled in `App.tsx` via `OnboardingGate` component - shows on ALL pages until complete
+- **No Skip**: Tutorial cannot be skipped - users must complete all steps
+- **Two Phases**: 1) Tutorial slides (6 steps explaining swipe gestures), 2) Gas deposit requirement
+- **User Session Tracking**: Uses `privyId` to detect user changes and reset onboarding state for new users
+
 ### Gas Deposit Requirement
-- **Onboarding Step**: After completing the tutorial, users must deposit 0.02 SOL minimum for gas fees
-- **Component**: `GasDepositPrompt` shows wallet address, copy button, balance with progress bar, and "Fund with Card" option
+- **Minimum**: 0.02 SOL required for gas fees (fully withdrawable at any time)
+- **Component**: `GasDepositPrompt` shows mascot, wallet address, copy button, current balance, and "Deposit" button
+- **Auto-Advance**: When user deposits enough SOL (≥0.02), screen auto-advances to success view
 - **Settings**: `gasDepositComplete` boolean tracks whether user has completed gas deposit
 - **Trade Guard**: Before any trade, checks that SOL balance >= 0.003 SOL (minimum for transaction fees)
 - **User-Friendly**: If gas is insufficient, shows "Need More SOL for Gas" error directing to profile page
-- **Fully Withdrawable**: Users can withdraw deposited SOL at any time from the profile page
 
 ### SOL → USDC Conversion
 - **Auto-Swap**: Triggers on first deposit or top-ups (30-second cooldown)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, CreditCard, Wallet } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -78,12 +78,12 @@ export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
             <img 
               src={mascotSmiley} 
               alt="SWAY mascot" 
-              className="w-28 h-28 mb-6 object-contain"
+              className="w-24 h-24 mb-4 object-contain"
             />
             
-            <h1 className="text-3xl font-bold text-white mb-4">Deposit Funds</h1>
+            <h1 className="text-3xl font-bold text-white mb-3">Deposit Funds</h1>
             
-            <p className="text-zinc-400 text-center text-base leading-relaxed mb-8">
+            <p className="text-zinc-400 text-center text-base leading-relaxed mb-6">
               To place trades you'll need a small amount of SOL for gas fees. This can be <span className="font-semibold text-white">withdrawn at any time</span>
             </p>
 
@@ -114,50 +114,25 @@ export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
               </div>
             </div>
 
-            <div className="w-full bg-zinc-900 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                    <Wallet size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 text-sm block">Current Balance</span>
-                    <span className="text-white font-mono text-xl font-bold" data-testid="text-sol-balance">
-                      {isLoading ? '...' : solBalance.toFixed(4)} SOL
-                    </span>
-                  </div>
-                </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  hasEnoughSol 
-                    ? 'bg-[#1ED78B]/20 text-[#1ED78B]' 
-                    : 'bg-amber-500/20 text-amber-400'
-                }`}>
-                  {hasEnoughSol ? 'Ready!' : `Need ${(REQUIRED_SOL - solBalance).toFixed(3)} more`}
-                </div>
+            <div className="w-full flex justify-center mb-6">
+              <div className="bg-zinc-900 rounded-full px-5 py-2.5 border border-zinc-800">
+                <span className="text-zinc-400 text-sm">Current Balance: </span>
+                <span className="text-white font-mono font-medium" data-testid="text-sol-balance">
+                  {isLoading ? '...' : solBalance.toFixed(2)}
+                </span>
               </div>
             </div>
 
             <Button 
               onClick={handleFundWallet}
-              className="w-full py-7 text-lg font-bold rounded-xl bg-[#1ED78B] hover:bg-[#19B878] text-black mb-4 gap-3"
-              data-testid="button-fund-wallet"
+              className="w-full py-6 text-xl font-bold rounded-xl bg-[#1ED78B] hover:bg-[#19B878] text-black uppercase tracking-wide"
+              data-testid="button-deposit"
             >
-              <CreditCard size={24} />
-              Fund with Card
+              Deposit
             </Button>
 
-            {hasEnoughSol && (
-              <Button 
-                onClick={onComplete}
-                className="w-full py-6 text-lg font-semibold rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white"
-                data-testid="button-continue"
-              >
-                Continue to Trading
-              </Button>
-            )}
-
-            <p className="text-zinc-600 text-xs text-center mt-4">
-              Minimum deposit: {REQUIRED_SOL} SOL (~$2.70)
+            <p className="text-zinc-500 text-sm text-center mt-4">
+              Minimum initial Deposit: {REQUIRED_SOL} SOL
             </p>
           </motion.div>
         ) : (
