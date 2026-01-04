@@ -8,6 +8,15 @@ SWAY is a mobile-first prediction markets trading application that allows users 
 - **Trending First**: Top 50 markets sorted by volume (highest to lowest)
 - **Category Rotation**: After trending, cycles through categories (Politics, Sports, Economics, Tech, Weather, General) one market at a time
 - **Binary Markets Only**: Filters out non-binary markets with extreme probabilities (≥97% or ≤3%)
+- **Event Diversification**: Markets from the same event are spaced at least 5 positions apart to prevent repetitive content
+
+### Batched Market Loading
+- **Pagination**: Backend supports `limit`, `offset`, and `excludeIds` parameters on `/api/markets`
+- **Batch Size**: Frontend loads 50 markets at a time using infinite query
+- **Auto-Loading**: When card deck drops below 10 cards, next batch loads automatically with loading indicator
+- **Cache Management**: Response includes `cacheTimestamp`, `total`, and `hasMore` metadata
+- **Session Tracking**: Swiped market IDs persisted in localStorage, excluded from future batches
+- **Cache Reset**: Swipe history clears when server cache refreshes (detected via cacheTimestamp change)
 
 ## User Preferences
 
