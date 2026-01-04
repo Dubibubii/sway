@@ -128,10 +128,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const serverInterests = userData.user?.interests || [];
       
       setAuthState(prev => {
-        const localInterests = prev.interests;
-        const mergedInterests = localInterests.length > 0 ? localInterests : serverInterests;
+        // Check if this is a different user - reset onboarding state if so
+        const isDifferentUser = prev.privyId !== null && prev.privyId !== privyId;
         
-        if (localInterests.length > 0 && serverInterests.length === 0) {
+        const localInterests = prev.interests;
+        const mergedInterests = localInterests.length > 0 && !isDifferentUser ? localInterests : serverInterests;
+        
+        if (localInterests.length > 0 && serverInterests.length === 0 && !isDifferentUser) {
           const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'x-privy-user-id': privyId,
@@ -153,22 +156,29 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           accessToken: accessToken || null,
           userId: userData.user?.id || userData.id || null,
           interests: mergedInterests,
-          onboardingCompleted: prev.onboardingCompleted,
-          gasDepositComplete: prev.gasDepositComplete,
+          // Reset onboarding state for new users
+          onboardingCompleted: isDifferentUser ? false : prev.onboardingCompleted,
+          gasDepositComplete: isDifferentUser ? false : prev.gasDepositComplete,
         };
       });
     } catch (error) {
       console.error('Failed to sync user:', error);
-      setAuthState(prev => ({
-        connected: true,
-        walletAddress,
-        privyId,
-        accessToken: accessToken || null,
-        userId: null,
-        interests: prev.interests,
-        onboardingCompleted: prev.onboardingCompleted,
-        gasDepositComplete: prev.gasDepositComplete,
-      }));
+      setAuthState(prev => {
+        // Check if this is a different user - reset onboarding state if so
+        const isDifferentUser = prev.privyId !== null && prev.privyId !== privyId;
+        
+        return {
+          connected: true,
+          walletAddress,
+          privyId,
+          accessToken: accessToken || null,
+          userId: null,
+          interests: isDifferentUser ? [] : prev.interests,
+          // Reset onboarding state for new users
+          onboardingCompleted: isDifferentUser ? false : prev.onboardingCompleted,
+          gasDepositComplete: isDifferentUser ? false : prev.gasDepositComplete,
+        };
+      });
     }
   };
 
@@ -199,16 +209,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnectWallet = () => {
-    setAuthState(prev => ({
+    // Reset all user-specific state including onboarding when disconnecting
+    // This ensures new users get fresh onboarding experience
+    setAuthState({
       connected: false,
       walletAddress: null,
       privyId: null,
       accessToken: null,
       userId: null,
-      interests: prev.interests,
-      onboardingCompleted: prev.onboardingCompleted,
-      gasDepositComplete: prev.gasDepositComplete,
-    }));
+      interests: [],
+      onboardingCompleted: false,
+      gasDepositComplete: false,
+    });
   };
 
   const completeOnboarding = () => {
