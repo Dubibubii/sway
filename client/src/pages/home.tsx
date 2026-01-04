@@ -11,7 +11,7 @@ import { AnimatePresence, useMotionValue, useTransform, motion, animate } from '
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMarkets, createTrade, type Market } from '@/lib/api';
+import { getMarkets, createTrade, getBalancedPercentages, type Market } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
@@ -78,6 +78,7 @@ export default function Home() {
   const { data: marketsData, isLoading, refetch } = useQuery({
     queryKey: ['markets'],
     queryFn: () => getMarkets(),
+    refetchInterval: 30000, // Refresh every 30 seconds for live price updates
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
@@ -210,7 +211,7 @@ export default function Home() {
           // Calculate actual shares from trade result or estimate
           const actualShares = result.actualShares || result.expectedShares || shares;
           const actualPayout = actualShares.toFixed(2);
-          const pricePerShare = Math.round(market.yesPrice * 100);
+          const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent;
           const isAsync = result.executionMode === 'async';
           
           toast({
@@ -272,7 +273,7 @@ export default function Home() {
             <div className="mt-2 space-y-2">
               <div className="flex justify-between items-baseline">
                 <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-                <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{Math.round(market.yesPrice * 100)}¢</span>
+                <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent}¢</span>
               </div>
               <div className="h-px bg-white/10 w-full" />
               <div className="text-xs text-zinc-400">Connect wallet to place real trades</div>
@@ -312,7 +313,7 @@ export default function Home() {
           // Calculate actual shares from trade result or estimate
           const actualShares = result.actualShares || result.expectedShares || shares;
           const actualPayout = actualShares.toFixed(2);
-          const pricePerShare = Math.round(market.noPrice * 100);
+          const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).noPercent;
           const isAsync = result.executionMode === 'async';
           
           toast({
@@ -374,7 +375,7 @@ export default function Home() {
             <div className="mt-2 space-y-2">
               <div className="flex justify-between items-baseline">
                 <span className="text-3xl font-black tracking-tighter text-white">NO</span>
-                <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{Math.round(market.noPrice * 100)}¢</span>
+                <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{getBalancedPercentages(market.yesPrice, market.noPrice).noPercent}¢</span>
               </div>
               <div className="h-px bg-white/10 w-full" />
               <div className="text-xs text-zinc-400">Connect wallet to place real trades</div>

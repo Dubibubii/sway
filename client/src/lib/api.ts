@@ -1,5 +1,46 @@
 const API_BASE = '/api';
 
+// Calculate Yes/No percentages that always sum to exactly 100%
+// Normalizes both prices proportionally when they don't sum to 1.0
+export function getBalancedPercentages(yesPrice: number, noPrice: number): { yesPercent: number; noPercent: number } {
+  const total = yesPrice + noPrice;
+  
+  // Guard against zero/near-zero/invalid totals to avoid NaN and misleading normalization
+  // Markets with very small totals (uninitialized, error states) get 50/50 fallback
+  if (!Number.isFinite(total) || total < 0.01) {
+    return { yesPercent: 50, noPercent: 50 };
+  }
+  
+  // If total is close to 1.0 (normal case), use direct calculation
+  if (Math.abs(total - 1.0) < 0.01) {
+    // Round yesPercent, calculate noPercent as complement
+    const yesPercent = Math.round(yesPrice * 100);
+    const noPercent = 100 - yesPercent;
+    return { yesPercent, noPercent };
+  }
+  
+  // Normalize proportionally when prices don't sum to 1.0
+  const normalizedYes = yesPrice / total;
+  const normalizedNo = noPrice / total;
+  
+  // Round to nearest, then adjust to sum to 100
+  let yesPercent = Math.round(normalizedYes * 100);
+  let noPercent = Math.round(normalizedNo * 100);
+  
+  // Ensure they sum to 100
+  const diff = yesPercent + noPercent - 100;
+  if (diff !== 0) {
+    // Adjust the larger value to maintain relative accuracy
+    if (yesPercent > noPercent) {
+      yesPercent -= diff;
+    } else {
+      noPercent -= diff;
+    }
+  }
+  
+  return { yesPercent, noPercent };
+}
+
 async function fetchWithAuth(url: string, options: RequestInit = {}, privyId?: string | null, accessToken?: string | null) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

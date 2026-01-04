@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, createTrade, type Market, type PriceHistory } from "@/lib/api";
+import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, createTrade, getBalancedPercentages, type Market, type PriceHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -105,6 +105,7 @@ export default function Discovery() {
   const { data: marketsData, isLoading } = useQuery<{ markets: Market[] }>({
     queryKey: ['/api/markets'],
     queryFn: () => getMarkets(),
+    refetchInterval: 30000, // Refresh every 30 seconds for live price updates
   });
 
   const { data: searchData, isLoading: isSearching } = useQuery<{ markets: Market[] }>({
@@ -274,8 +275,7 @@ export default function Discovery() {
 }
 
 function MarketCard({ market, onClick }: { market: Market; onClick: () => void }) {
-  const yesPercent = Math.round(market.yesPrice * 100);
-  const noPercent = Math.round(market.noPrice * 100);
+  const { yesPercent, noPercent } = getBalancedPercentages(market.yesPrice, market.noPrice);
   const isNotInitialized = market.isInitialized === false;
 
   return (
@@ -456,8 +456,7 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
   const hasMoreOptions = displayMarkets.length > 5;
 
   const selectedMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
-  const yesPercent = Math.round(selectedMarket.yesPrice * 100);
-  const noPercent = Math.round(selectedMarket.noPrice * 100);
+  const { yesPercent, noPercent } = getBalancedPercentages(selectedMarket.yesPrice, selectedMarket.noPrice);
   const price = betDirection === 'YES' ? selectedMarket.yesPrice : selectedMarket.noPrice;
   
   // Fetch accurate quote from DFlow API for precise share estimates
@@ -587,8 +586,7 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
 
               <div className="bg-white/5 rounded-xl overflow-hidden mb-4">
                 {visibleMarkets.map((m, idx) => {
-                  const mYesPercent = Math.round(m.yesPrice * 100);
-                  const mNoPercent = Math.round(m.noPrice * 100);
+                  const { yesPercent: mYesPercent, noPercent: mNoPercent } = getBalancedPercentages(m.yesPrice, m.noPrice);
                   const isSelected = selectedMarketId === m.id;
                   return (
                     <div 

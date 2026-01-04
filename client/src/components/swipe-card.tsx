@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Share2, X, Check, Copy } from 'lucide-react';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
+import { getBalancedPercentages } from '@/lib/api';
 
 interface MarketData {
   id: string;
@@ -57,7 +58,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
   };
 
   const getShareText = () => {
-    const yesPercent = Math.round(market.yesPrice * 100);
+    const { yesPercent } = getBalancedPercentages(market.yesPrice, market.noPrice);
     return `${market.question} - Currently at ${yesPercent}% YES on SWAY`;
   };
 
@@ -212,7 +213,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
               <span className="text-lg font-bold text-white">No</span>
               <div className="flex items-center gap-1">
                 <TrendingDown size={16} className="text-rose-400" />
-                <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.noPrice * 100)}%</span>
+                <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).noPercent}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-400">${settings.noWager}</span>
@@ -228,7 +229,7 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
               <span className="text-lg font-bold text-white">Yes</span>
               <div className="flex items-center gap-1">
                 <TrendingUp size={16} className="text-[#1ED78B]" />
-                <span className="text-xl font-bold text-white tracking-tight">{Math.round(market.yesPrice * 100)}%</span>
+                <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-400">${settings.yesWager}</span>
