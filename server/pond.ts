@@ -312,13 +312,99 @@ async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
   }
 }
 
+// Fetch live prices from Kalshi for all markets (paginated)
+async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, { yesPrice: number; noPrice: number }>> {
+  const priceMap = new Map<string, { yesPrice: number; noPrice: number }>();
+  let cursor: string | undefined;
+  let pagesFetched = 0;
+  const maxPages = 20; // Limit to prevent too many requests
+  
+  try {
+    while (pagesFetched < maxPages) {
+      const params = new URLSearchParams({
+        limit: '200',
+        status: 'open',
+      });
+      
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
+      
+      const response = await fetch(`${KALSHI_BASE_URL}/markets?${params}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('Kalshi prices API error:', response.status);
+        break;
+      }
+      
+      const data = await response.json();
+      const markets = data.markets || [];
+      
+      if (markets.length === 0) break;
+      
+      for (const market of markets) {
+        const yesAsk = market.yes_ask || 0;
+        const yesBid = market.yes_bid || 0;
+        
+        let yesPrice: number;
+        if (yesAsk > 0 && yesBid > 0) {
+          yesPrice = (yesAsk + yesBid) / 2 / 100;
+        } else if (yesAsk > 0) {
+          yesPrice = yesAsk / 100;
+        } else if (yesBid > 0) {
+          yesPrice = yesBid / 100;
+        } else if (market.last_price > 0) {
+          yesPrice = market.last_price / 100;
+        } else {
+          continue; // Skip if no price data
+        }
+        
+        priceMap.set(market.ticker, {
+          yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
+          noPrice: isNaN(yesPrice) ? 0.5 : 1 - yesPrice,
+        });
+      }
+      
+      cursor = data.cursor;
+      pagesFetched++;
+      
+      if (!cursor) break;
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 30));
+    }
+    
+    console.log(`Fetched prices for ${priceMap.size} markets from Kalshi (${pagesFetched} pages)`);
+  } catch (error) {
+    console.error('Error fetching Kalshi prices:', error);
+  }
+  
+  return priceMap;
+}
+
 // Fetch ALL markets - tries DFlow first, falls back to Kalshi
 async function fetchAllMarkets(): Promise<SimplifiedMarket[]> {
   // Try DFlow Metadata API first (cleaner data, no parlays)
   let markets = await fetchMarketsFromDFlow();
   
   if (markets.length > 0) {
-    console.log(`Using ${markets.length} markets from DFlow API`);
+    // DFlow doesn't include live prices, so fetch from Kalshi and merge
+    const tickers = markets.map(m => m.id);
+    const priceMap = await fetchKalshiPrices(tickers);
+    
+    // Merge prices into DFlow markets
+    for (const market of markets) {
+      const prices = priceMap.get(market.id);
+      if (prices) {
+        market.yesPrice = prices.yesPrice;
+        market.noPrice = prices.noPrice;
+      }
+    }
+    
+    console.log(`Using ${markets.length} markets from DFlow API (with Kalshi prices)`);
     return markets;
   }
   

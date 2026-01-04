@@ -45,6 +45,18 @@ function formatVolume(volume: number): string {
 }
 
 function formatMarket(m: Market): DisplayMarket {
+  let endDateFormatted: string;
+  const endDateValue = m.endDate;
+  
+  if (typeof endDateValue === 'number') {
+    const timestamp = endDateValue < 10000000000 ? endDateValue * 1000 : endDateValue;
+    endDateFormatted = new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } else if (typeof endDateValue === 'string') {
+    endDateFormatted = new Date(endDateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } else {
+    endDateFormatted = 'TBD';
+  }
+  
   return {
     id: m.id,
     question: m.title,
@@ -54,7 +66,7 @@ function formatMarket(m: Market): DisplayMarket {
     noPrice: m.noPrice,
     yesLabel: m.yesLabel || 'Yes',
     noLabel: m.noLabel || 'No',
-    endDate: new Date(m.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    endDate: endDateFormatted,
     imageUrl: m.imageUrl,
   };
 }

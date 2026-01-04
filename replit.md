@@ -82,6 +82,8 @@ Preferred communication style: Simple, everyday language.
   - Falls back to dev endpoints if no API key is set
   - Enables trading Kalshi markets on Solana using USDC
   - Flow: Get quote → Sign Solana transaction → Submit to network
+  - **Metadata Only**: DFlow Metadata API provides market metadata and on-chain accounts but NOT live prices
+  - **Price Merging**: Live prices (yes_ask, yes_bid, last_price) are fetched separately from Kalshi API and merged with DFlow markets
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
   - Required env var: `DFLOW_API_KEY` (for production access)
