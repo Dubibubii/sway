@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SwipeCard } from '@/components/swipe-card';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
@@ -10,13 +10,16 @@ import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMarkets, createTrade, getBalancedPercentages, type Market } from '@/lib/api';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getMarkets, createTrade, getBalancedPercentages, type Market, type MarketsResponse } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
 import { OnboardingTour } from '@/components/onboarding-tour';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
+
+const BATCH_SIZE = 50;
+const LOW_CARDS_THRESHOLD = 10;
 
 interface DisplayMarket {
   id: string;
@@ -64,21 +67,51 @@ export default function Home() {
   const queryClient = useQueryClient();
   const { login, authenticated, ready } = usePrivy();
   const { embeddedWallet } = usePrivySafe();
-  const { recordSwipe, getVisibleCards, resetHistory } = useSwipeHistory();
+  const { recordSwipe, getVisibleCards, resetHistory, updateCacheTimestamp, getSwipedIds } = useSwipeHistory();
   const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
   
-  // Only use embedded wallet for trading (auto-confirm enabled)
   const embeddedAddress = embeddedWallet?.address || null;
   const { usdcBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
   
-  // State for showing funding prompt
   const [showFundingPrompt, setShowFundingPrompt] = useState(false);
   const [requiredAmount, setRequiredAmount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  const { data: marketsData, isLoading, refetch } = useQuery({
+  const fetchedMarketIdsRef = useRef<Set<string>>(new Set());
+  
+  const {
+    data: marketsData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
     queryKey: ['markets'],
-    queryFn: () => getMarkets(),
-    refetchInterval: 30000, // Refresh every 30 seconds for live price updates
+    queryFn: async ({ pageParam = 0 }) => {
+      const excludeIds = getSwipedIds();
+      const response = await getMarkets({
+        limit: BATCH_SIZE,
+        offset: pageParam,
+        excludeIds: excludeIds.length > 0 ? excludeIds : undefined,
+      });
+      
+      if (response.cacheTimestamp) {
+        const wasReset = updateCacheTimestamp(response.cacheTimestamp);
+        if (wasReset) {
+          fetchedMarketIdsRef.current.clear();
+        }
+      }
+      
+      return response;
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined;
+      const totalFetched = allPages.reduce((sum, page) => sum + page.markets.length, 0);
+      return totalFetched;
+    },
+    initialPageParam: 0,
+    refetchInterval: 30000,
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
@@ -100,14 +133,31 @@ export default function Home() {
   };
   
   useEffect(() => {
-    if (marketsData?.markets) {
-      // Filter to only initialized markets for swipe (these are ready for trading without extra fees)
-      const initializedMarkets = marketsData.markets.filter(m => m.isInitialized !== false);
-      const allMarkets = initializedMarkets.map(formatMarket);
+    if (marketsData?.pages) {
+      const allMarkets: DisplayMarket[] = [];
+      const seenIds = new Set<string>();
+      
+      for (const page of marketsData.pages) {
+        for (const market of page.markets) {
+          if (market.isInitialized !== false && !seenIds.has(market.id)) {
+            seenIds.add(market.id);
+            fetchedMarketIdsRef.current.add(market.id);
+            allMarkets.push(formatMarket(market));
+          }
+        }
+      }
+      
       const visibleMarkets = getVisibleCards(allMarkets);
       setDisplayedMarkets(visibleMarkets);
     }
   }, [marketsData, getVisibleCards]);
+  
+  useEffect(() => {
+    if (displayedMarkets.length < LOW_CARDS_THRESHOLD && hasNextPage && !isFetchingNextPage && !isLoadingMore) {
+      setIsLoadingMore(true);
+      fetchNextPage().finally(() => setIsLoadingMore(false));
+    }
+  }, [displayedMarkets.length, hasNextPage, isFetchingNextPage, isLoadingMore, fetchNextPage]);
   
   const tradeMutation = useMutation({
     mutationFn: async (trade: { 
@@ -404,7 +454,8 @@ export default function Home() {
 
   const resetDeck = () => {
     resetHistory();
-    refetch();
+    fetchedMarketIdsRef.current.clear();
+    queryClient.resetQueries({ queryKey: ['markets'] });
   };
 
   const handleConnectWallet = () => {
@@ -550,13 +601,20 @@ export default function Home() {
                 ))}
               </AnimatePresence>
 
-              {displayedMarkets.length === 0 && (
+              {displayedMarkets.length === 0 && !isFetchingNextPage && (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                   <div className="text-muted-foreground text-lg">No more markets for now.</div>
                   <Button onClick={resetDeck} variant="outline" className="gap-2">
                     <RefreshCw size={16} />
                     Refresh Deck
                   </Button>
+                </div>
+              )}
+
+              {isFetchingNextPage && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-3 bg-background/80 backdrop-blur-sm z-20" data-testid="loading-more-indicator">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <div className="text-muted-foreground text-sm">Loading more markets...</div>
                 </div>
               )}
             </>

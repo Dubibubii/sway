@@ -85,6 +85,20 @@ export interface Market {
   isInitialized?: boolean; // Whether market is ready for trading (no initialization fee required)
 }
 
+export interface MarketsResponse {
+  markets: Market[];
+  cacheTimestamp: number;
+  total: number;
+  hasMore: boolean;
+}
+
+export interface MarketsParams {
+  limit?: number;
+  offset?: number;
+  excludeIds?: string[];
+  category?: string;
+}
+
 export interface Trade {
   id: string;
   userId: string;
@@ -112,9 +126,22 @@ export interface User {
   createdAt: string;
 }
 
-export async function getMarkets(category?: string): Promise<{ markets: Market[] }> {
-  const params = category && category !== 'all' ? `?category=${category}` : '';
-  return fetchWithAuth(`/markets${params}`);
+export async function getMarkets(params?: MarketsParams): Promise<MarketsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.category && params.category !== 'all') {
+    searchParams.set('category', params.category);
+  }
+  if (params?.limit !== undefined) {
+    searchParams.set('limit', params.limit.toString());
+  }
+  if (params?.offset !== undefined) {
+    searchParams.set('offset', params.offset.toString());
+  }
+  if (params?.excludeIds && params.excludeIds.length > 0) {
+    searchParams.set('excludeIds', params.excludeIds.join(','));
+  }
+  const queryString = searchParams.toString();
+  return fetchWithAuth(`/markets${queryString ? `?${queryString}` : ''}`);
 }
 
 export async function getEventMarkets(eventTicker: string): Promise<{ markets: Market[] }> {

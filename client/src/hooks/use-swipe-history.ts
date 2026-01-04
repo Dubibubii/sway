@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const STORAGE_KEY = 'sway_swipe_history';
 const SWIPES_BEFORE_RETURN = 100;
@@ -6,18 +6,24 @@ const SWIPES_BEFORE_RETURN = 100;
 interface SwipeHistory {
   swipeCounter: number;
   swipedCards: Record<string, number>;
+  cacheTimestamp: number | null;
 }
 
 function loadHistory(): SwipeHistory {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      return {
+        swipeCounter: parsed.swipeCounter || 0,
+        swipedCards: parsed.swipedCards || {},
+        cacheTimestamp: parsed.cacheTimestamp || null,
+      };
     }
   } catch (e) {
     console.error('Failed to load swipe history:', e);
   }
-  return { swipeCounter: 0, swipedCards: {} };
+  return { swipeCounter: 0, swipedCards: {}, cacheTimestamp: null };
 }
 
 function saveHistory(history: SwipeHistory): void {
@@ -30,6 +36,11 @@ function saveHistory(history: SwipeHistory): void {
 
 export function useSwipeHistory() {
   const [history, setHistory] = useState<SwipeHistory>(loadHistory);
+  const historyRef = useRef(history);
+  
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   useEffect(() => {
     saveHistory(history);
@@ -47,6 +58,7 @@ export function useSwipeHistory() {
       }
       
       return {
+        ...prev,
         swipeCounter: newCounter,
         swipedCards: newSwipedCards,
       };
@@ -66,7 +78,23 @@ export function useSwipeHistory() {
   }, [shouldShowCard]);
 
   const resetHistory = useCallback(() => {
-    setHistory({ swipeCounter: 0, swipedCards: {} });
+    setHistory({ swipeCounter: 0, swipedCards: {}, cacheTimestamp: null });
+  }, []);
+  
+  const updateCacheTimestamp = useCallback((newTimestamp: number): boolean => {
+    const current = historyRef.current;
+    if (current.cacheTimestamp !== null && current.cacheTimestamp !== newTimestamp) {
+      setHistory({ swipeCounter: 0, swipedCards: {}, cacheTimestamp: newTimestamp });
+      return true;
+    }
+    if (current.cacheTimestamp === null) {
+      setHistory(prev => ({ ...prev, cacheTimestamp: newTimestamp }));
+    }
+    return false;
+  }, []);
+  
+  const getSwipedIds = useCallback((): string[] => {
+    return Object.keys(historyRef.current.swipedCards);
   }, []);
 
   return {
@@ -75,5 +103,8 @@ export function useSwipeHistory() {
     getVisibleCards,
     resetHistory,
     swipeCount: history.swipeCounter,
+    updateCacheTimestamp,
+    getSwipedIds,
+    cacheTimestamp: history.cacheTimestamp,
   };
 }
