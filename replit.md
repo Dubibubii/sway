@@ -111,7 +111,8 @@ Preferred communication style: Simple, everyday language.
 - **Auto-Swap**: Triggers on first deposit or top-ups (30-second cooldown)
 - **Manual Button**: "Convert SOL → USDC" button on profile page for manual conversion
 - **Privy SDK Limitation**: Embedded wallet may not appear in `useWallets()` when user logs in with external wallet - manual button serves as fallback
-- **Gas Reserves**: 0.004 SOL kept for small balances, 0.02 SOL for larger balances
+- **Gas Reserves**: Always keeps 0.02 SOL for gas fees (matches minimum deposit requirement)
+- **Protection**: Initial 0.02 SOL deposit is never converted to USDC - only amounts above 0.02 SOL are swapped
 
 ### Mobile Wallet Adapter (MWA) Integration
 - **Purpose**: Enables Solana Seeker device users to connect Seed Vault hardware wallet via Chrome browser
