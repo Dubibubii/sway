@@ -88,10 +88,10 @@ export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
               className="w-24 h-24 mb-4 object-contain"
             />
             
-            <h1 className="text-3xl font-bold text-white mb-3">Deposit Funds</h1>
+            <h1 className="text-3xl font-bold text-white mb-3">Fuel Your Trades</h1>
             
             <p className="text-zinc-400 text-center text-base leading-relaxed mb-6">
-              To place trades you'll need a small amount of SOL for gas fees. This can be <span className="font-semibold text-white">withdrawn at any time</span>
+              Deposit SOL to start swiping. A tiny portion (0.02 SOL) is reserved for your gas fees and remains yours to withdraw anytime
             </p>
 
             <div className="w-full bg-zinc-900 rounded-xl p-4 mb-6">
@@ -139,7 +139,7 @@ export function GasDepositPrompt({ onComplete }: GasDepositPromptProps) {
             </Button>
 
             <p className="text-zinc-500 text-sm text-center mt-4">
-              Minimum initial Deposit: {REQUIRED_SOL} SOL
+              Hint: 0.02 SOL from your total deposit will be used for gas fees
             </p>
           </motion.div>
         ) : (
