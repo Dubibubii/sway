@@ -268,8 +268,9 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
   
   try {
     // Fetch events with nested markets - paginate to get ALL available markets
+    // DFlow API max limit is 100 (500 causes deserialization error)
     let offset = 0;
-    const pageSize = 500;
+    const pageSize = 100;
     let hasMore = true;
     
     const metadataHeaders: Record<string, string> = { 'Content-Type': 'application/json' };

@@ -1,7 +1,11 @@
 const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
 
 // DFlow Prediction Market Metadata API - for cleaner market discovery
-const DFLOW_METADATA_API = 'https://prediction-markets-api.dflow.net';
+// Use production API (b.* prefix) when API key is available
+const DFLOW_API_KEY = process.env.DFLOW_API_KEY;
+const DFLOW_METADATA_API = DFLOW_API_KEY 
+  ? 'https://b.prediction-markets-api.dflow.net'
+  : 'https://dev-prediction-markets-api.dflow.net';
 
 // Cache for comprehensive market search
 let marketCache: SimplifiedMarket[] = [];
@@ -252,19 +256,27 @@ async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
   const marketIds = new Set<string>();
   
   try {
-    console.log('Fetching markets from DFlow Metadata API...');
+    // DFlow API limit is 100 max (500 causes deserialization error)
+    const url = `${DFLOW_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=100&offset=0`;
+    console.log('Fetching markets from DFlow Metadata API:', url);
+    console.log('DFlow API key present:', !!DFLOW_API_KEY);
+    
+    // Build headers with API key if available
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (DFLOW_API_KEY) {
+      headers['x-api-key'] = DFLOW_API_KEY;
+    }
     
     // Fetch active events with nested markets from DFlow
-    const response = await fetch(
-      `${DFLOW_METADATA_API}/api/v1/events?withNestedMarkets=true&status=active&limit=500`,
-      {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    // Include offset=0 as required by production API
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
     
     if (!response.ok) {
-      console.error('DFlow Metadata API error:', response.status);
+      const errorText = await response.text();
+      console.error('DFlow Metadata API error:', response.status, errorText.slice(0, 200));
       return [];
     }
     

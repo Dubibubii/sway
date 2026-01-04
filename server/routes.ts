@@ -107,10 +107,10 @@ export async function registerRoutes(
       }
       
       // Add isInitialized status to each market
-      // Default to true (assume initialized) if metadata is unavailable to avoid false negatives
+      // Default to false (NOT initialized) if metadata is unavailable - prevents showing uninitialized markets
       markets = markets.map(m => ({
         ...m,
-        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : true,
+        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
       }));
       
       // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation)
@@ -162,10 +162,10 @@ export async function registerRoutes(
       }
       
       // Add isInitialized status
-      // Default to true (assume initialized) if metadata is unavailable to avoid false negatives
+      // Default to false (NOT initialized) if metadata is unavailable - prevents showing uninitialized markets
       matchingMarkets = matchingMarkets.map(m => ({
         ...m,
-        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : true,
+        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
       }));
       
       // Return all matching markets for comprehensive search
