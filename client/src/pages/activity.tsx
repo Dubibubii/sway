@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { FEE_CONFIG } from '@shared/schema';
+import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
 
 type BulkSellMode = 'all' | 'losing' | 'winning' | null;
 
@@ -391,16 +392,25 @@ export default function Activity() {
       return;
     }
 
-    // Minimum trade amount for DFlow
-    const MIN_TRADE_AMOUNT = 0.50;
-    if (amount < MIN_TRADE_AMOUNT) {
-      toast({ title: 'Amount Too Small', description: `Minimum trade amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`, variant: 'destructive' });
+    // Calculate whole shares and actual spend using positions channel
+    const currentPrice = parseFloat(selectedPosition.price);
+    const feeBreakdown = calculateTradeFeesForBuy(amount, currentPrice, 'positions');
+    const shares = feeBreakdown.netShares;
+    const actualSpend = feeBreakdown.actualSpend;
+    
+    // Check if wager is too small for even 1 whole share
+    if (shares < 1) {
+      toast({ 
+        title: 'Bet Too Small', 
+        description: `At ${(currentPrice * 100).toFixed(0)}¢ per share, you need more to buy 1 share. Increase your bet amount.`,
+        variant: 'destructive'
+      });
       return;
     }
 
-    // Check USDC balance
-    if (usdcBalance !== undefined && usdcBalance < amount) {
-      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`, variant: 'destructive' });
+    // Check USDC balance (use actualSpend, not raw amount)
+    if (usdcBalance !== undefined && usdcBalance < actualSpend) {
+      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${actualSpend.toFixed(2)}`, variant: 'destructive' });
       return;
     }
 
@@ -408,13 +418,14 @@ export default function Activity() {
     try {
       // Execute on-chain trade via Pond/DFlow
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
-      console.log('[Activity] Starting add to position trade:', selectedPosition.marketId, side, amount);
+      console.log('[Activity] Starting add to position trade:', selectedPosition.marketId, side, actualSpend);
       
       // Use 'positions' channel for adding to position - 0.25% fee
+      // Use actualSpend (adjusted for whole shares) instead of raw amount
       const result = await placePondTrade(
         selectedPosition.marketId, 
         side, 
-        amount, 
+        actualSpend, 
         usdcBalance,
         embeddedWallet?.address,
         'positions',
@@ -444,9 +455,8 @@ export default function Activity() {
       
       // Record the trade in the database with actual shares from async trade polling
       const token = await getAccessToken();
-      const currentPrice = parseFloat(selectedPosition.price);
       
-      console.log('[Activity] Recording trade with actualShares:', result.actualShares, 'executionMode:', result.executionMode);
+      console.log('[Activity] Recording trade with actualShares:', result.actualShares || shares, 'executionMode:', result.executionMode);
       
       const recordRes = await fetch('/api/trades', {
         method: 'POST',
@@ -459,9 +469,9 @@ export default function Activity() {
           marketTitle: selectedPosition.marketTitle,
           marketCategory: selectedPosition.marketCategory,
           direction: selectedPosition.direction,
-          wagerAmount: amount,
+          wagerAmount: actualSpend, // Use adjusted spend
           price: currentPrice,
-          actualShares: result.actualShares, // Pass actual filled shares for async trades
+          actualShares: result.actualShares || shares, // Use whole shares
           signature: result.signature,
           executionMode: result.executionMode,
         }),
@@ -475,15 +485,15 @@ export default function Activity() {
       setAddModalOpen(false);
       setIsProcessing(false);
       
-      // Calculate shares bought
-      const actualShares = result.actualShares || result.expectedShares || (amount / currentPrice);
+      // Use whole shares from fee breakdown
+      const confirmedShares = result.actualShares || shares;
       const direction = selectedPosition.direction;
       const isAsync = result.executionMode === 'async';
       
       // Show prominent success toast with actual shares info
       toast({ 
-        title: `Trade Executed: ${actualShares.toFixed(2)} ${direction} shares @ ${Math.round(currentPrice * 100)}¢`,
-        description: `Spent: $${amount.toFixed(2)}${isAsync ? ' (processing...)' : ''}`,
+        title: `Trade Executed: ${confirmedShares} ${direction} shares @ ${Math.round(currentPrice * 100)}¢`,
+        description: `Spent: $${actualSpend.toFixed(2)}${isAsync ? ' (processing...)' : ''}`,
         className: direction === 'YES' ? 'bg-zinc-950/90 border-[#1ED78B]/20 text-white' : 'bg-zinc-950/90 border-rose-500/20 text-white'
       });
       

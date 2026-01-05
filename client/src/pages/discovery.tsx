@@ -14,6 +14,7 @@ import { useSolanaBalance } from "@/hooks/use-solana-balance";
 import { usePrivySafe } from "@/hooks/use-privy-safe";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { calculateTradeFeesForBuy } from "@/utils/dflowFees";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -48,17 +49,33 @@ export default function Discovery() {
       return;
     }
     
-    // Check balance
-    if (usdcBalance !== undefined && usdcBalance < amount) {
-      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`, variant: 'destructive' });
+    // Calculate whole shares and actual spend using discovery channel
+    const feeBreakdown = calculateTradeFeesForBuy(amount, price, 'discovery');
+    const shares = feeBreakdown.netShares;
+    const actualSpend = feeBreakdown.actualSpend;
+    
+    // Check if wager is too small for even 1 whole share
+    if (shares < 1) {
+      toast({ 
+        title: 'Bet Too Small', 
+        description: `At ${(price * 100).toFixed(0)}¢ per share, you need more to buy 1 share. Increase your bet amount.`,
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    // Check balance (use actualSpend, not raw amount)
+    if (usdcBalance !== undefined && usdcBalance < actualSpend) {
+      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${actualSpend.toFixed(2)}`, variant: 'destructive' });
       return;
     }
     
     // Execute trade using 'discovery' channel - 0.75% fee
-    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
+    // Use actualSpend (adjusted for whole shares) instead of raw amount
+    const result = await placePondTrade(marketId, side, actualSpend, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
     
     if (result.success) {
-      // Record trade in database
+      // Record trade in database with adjusted spend
       if (settings.privyId) {
         try {
           await createTrade(settings.privyId, {
@@ -66,9 +83,9 @@ export default function Discovery() {
             marketTitle,
             marketCategory: marketCategory || null,
             direction: side.toUpperCase() as 'YES' | 'NO',
-            wagerAmount: amount,
+            wagerAmount: actualSpend,
             price,
-            actualShares: result.actualShares,
+            actualShares: result.actualShares || shares,
             signature: result.signature,
             executionMode: result.executionMode,
           });
@@ -77,8 +94,8 @@ export default function Discovery() {
         }
       }
       
-      // Track analytics
-      trackBet(marketId, marketTitle, amount);
+      // Track analytics with actual spend
+      trackBet(marketId, marketTitle, actualSpend);
       
       // Refresh data
       setTimeout(() => {
@@ -88,9 +105,10 @@ export default function Discovery() {
       }, 2000);
       
       // Show success and close modal
+      const confirmedShares = result.actualShares || shares;
       toast({
         title: 'Trade Executed!',
-        description: `Bet $${amount} on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢`,
+        description: `Bought ${confirmedShares} shares on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢ for $${actualSpend.toFixed(2)}`,
       });
       setSelectedMarket(null);
     } else {

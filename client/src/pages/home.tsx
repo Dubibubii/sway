@@ -268,17 +268,28 @@ export default function Home() {
 
     if (direction === 'right') {
       // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
-      // DFlow deducts fees from the wager, reducing effective shares received
       // IMPORTANT: Use yesAsk (actual buy price) if available, not mid-price
+      // Shares are floored to whole contracts to avoid fractional share issues
       const executionPrice = market.yesAsk ?? market.yesPrice;
       const feeBreakdown = calculateTradeFeesForBuy(settings.yesWager, executionPrice, 'swipe');
-      const shares = feeBreakdown.netShares;
-      const payout = shares.toFixed(2);
+      const shares = feeBreakdown.netShares; // Already floored to whole contracts
+      const actualSpend = feeBreakdown.actualSpend; // Adjusted for whole shares
+      const payout = shares.toFixed(0); // Whole shares = whole payout
+      
+      // Check if wager is too small for even 1 whole share
+      if (shares < 1) {
+        toast({
+          title: "Bet Too Small",
+          description: `At ${(executionPrice * 100).toFixed(0)}¢ per share, you need at least $${(executionPrice + 0.05).toFixed(2)} to buy 1 share. Increase your bet amount in settings.`,
+          variant: "destructive",
+        });
+        return;
+      }
       
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        // Use 'swipe' channel - $0.05 flat fee
-        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        // Use actualSpend (adjusted for whole shares) instead of raw wager
+        const result = await placePondTrade(market.id, 'yes', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -286,16 +297,15 @@ export default function Home() {
           tradeMutation.mutate({ 
             market, 
             direction: 'YES', 
-            wagerAmount: settings.yesWager,
-            actualShares: result.actualShares,
+            wagerAmount: actualSpend, // Use adjusted spend for whole shares
+            actualShares: result.actualShares || shares,
             signature: result.signature,
             executionMode: result.executionMode,
           });
-          trackBet(market.id, market.question, settings.yesWager);
+          trackBet(market.id, market.question, actualSpend);
           
-          // Calculate actual shares from trade result or estimate
-          const actualShares = result.actualShares || result.expectedShares || shares;
-          const actualPayout = actualShares.toFixed(2);
+          // Use the pre-calculated whole shares (from fee breakdown)
+          const confirmedShares = result.actualShares || shares;
           const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent;
           const isAsync = result.executionMode === 'async';
           
@@ -317,11 +327,11 @@ export default function Home() {
                 <div className="h-px bg-white/10 w-full" />
                 <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
                   <div className="flex justify-between">
-                    <span>Bought: <span className="text-zinc-200">{actualShares.toFixed(2)} shares</span></span>
-                    <span>Spent: <span className="text-zinc-200">${settings.yesWager.toFixed(2)}</span></span>
+                    <span>Bought: <span className="text-zinc-200">{confirmedShares} shares</span></span>
+                    <span>Spent: <span className="text-zinc-200">${actualSpend.toFixed(2)}</span></span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${actualPayout}</span></span>
+                    <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${confirmedShares}</span></span>
                     {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
                   </div>
                 </div>
@@ -383,17 +393,28 @@ export default function Home() {
       }
     } else if (direction === 'left') {
       // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
-      // DFlow deducts fees from the wager, reducing effective shares received
       // IMPORTANT: Use noAsk (actual buy price) if available, not mid-price
+      // Shares are floored to whole contracts to avoid fractional share issues
       const executionPrice = market.noAsk ?? market.noPrice;
       const feeBreakdown = calculateTradeFeesForBuy(settings.noWager, executionPrice, 'swipe');
-      const shares = feeBreakdown.netShares;
-      const payout = shares.toFixed(2);
+      const shares = feeBreakdown.netShares; // Already floored to whole contracts
+      const actualSpend = feeBreakdown.actualSpend; // Adjusted for whole shares
+      const payout = shares.toFixed(0); // Whole shares = whole payout
+      
+      // Check if wager is too small for even 1 whole share
+      if (shares < 1) {
+        toast({
+          title: "Bet Too Small",
+          description: `At ${(executionPrice * 100).toFixed(0)}¢ per share, you need at least $${(executionPrice + 0.05).toFixed(2)} to buy 1 share. Increase your bet amount in settings.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        // Use 'swipe' channel - $0.05 flat fee
-        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        // Use actualSpend (adjusted for whole shares) instead of raw wager
+        const result = await placePondTrade(market.id, 'no', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -401,16 +422,15 @@ export default function Home() {
           tradeMutation.mutate({ 
             market, 
             direction: 'NO', 
-            wagerAmount: settings.noWager,
-            actualShares: result.actualShares,
+            wagerAmount: actualSpend, // Use adjusted spend for whole shares
+            actualShares: result.actualShares || shares,
             signature: result.signature,
             executionMode: result.executionMode,
           });
-          trackBet(market.id, market.question, settings.noWager);
+          trackBet(market.id, market.question, actualSpend);
           
-          // Calculate actual shares from trade result or estimate
-          const actualShares = result.actualShares || result.expectedShares || shares;
-          const actualPayout = actualShares.toFixed(2);
+          // Use the pre-calculated whole shares (from fee breakdown)
+          const confirmedShares = result.actualShares || shares;
           const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).noPercent;
           const isAsync = result.executionMode === 'async';
           
@@ -432,11 +452,11 @@ export default function Home() {
                 <div className="h-px bg-white/10 w-full" />
                 <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
                   <div className="flex justify-between">
-                    <span>Bought: <span className="text-zinc-200">{actualShares.toFixed(2)} shares</span></span>
-                    <span>Spent: <span className="text-zinc-200">${settings.noWager.toFixed(2)}</span></span>
+                    <span>Bought: <span className="text-zinc-200">{confirmedShares} shares</span></span>
+                    <span>Spent: <span className="text-zinc-200">${actualSpend.toFixed(2)}</span></span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Payout if No: <span className="text-rose-400 font-mono">${actualPayout}</span></span>
+                    <span>Payout if No: <span className="text-rose-400 font-mono">${confirmedShares}</span></span>
                     {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
                   </div>
                 </div>

@@ -115,16 +115,19 @@ function getPlatformFee(usdcAmount: number, channel: 'swipe' | 'discovery' | 'po
  * wager - platformFee = contracts * (price + scale * p * (1-p))
  * contracts = (wager - platformFee) / (price + scale * p * (1-p))
  * 
- * @param usdcAmount - Amount to spend in USDC
+ * IMPORTANT: Kalshi only accepts whole contracts, so we floor the result
+ * and recalculate the actual spend to avoid fractional shares.
+ * 
+ * @param usdcAmount - Amount user wants to spend in USDC
  * @param price - Current price (probability 0-1)
  * @param channel - Trading channel for platform fee calculation
- * @returns Fee breakdown
+ * @returns Fee breakdown with whole shares and adjusted actual spend
  */
 export function calculateTradeFeesForBuy(
   usdcAmount: number,
   price: number,
   channel: 'swipe' | 'discovery' | 'positions' = 'swipe'
-): FeeBreakdown {
+): FeeBreakdown & { actualSpend: number; unspentAmount: number } {
   // Guard against invalid prices
   if (price <= 0 || price >= 1) {
     return {
@@ -134,6 +137,8 @@ export function calculateTradeFeesForBuy(
       netShares: 0,
       effectivePricePerShare: price,
       tier: 'Frost',
+      actualSpend: 0,
+      unspentAmount: usdcAmount,
     };
   }
   
@@ -151,18 +156,38 @@ export function calculateTradeFeesForBuy(
   const feeMultiplier = scale * price * (1 - price);
   const effectiveCostPerContract = price + feeMultiplier;
   
-  // Net shares (contracts) after all fees
-  const netShares = effectiveCostPerContract > 0 
+  // Calculate raw shares, then FLOOR to whole contracts
+  const rawShares = effectiveCostPerContract > 0 
     ? wagerAfterPlatformFee / effectiveCostPerContract 
     : 0;
+  const netShares = Math.floor(rawShares);
   
-  // DFlow fee based on actual contracts purchased
+  // If we can't buy at least 1 whole share, return zero
+  if (netShares < 1) {
+    return {
+      dflowFee: 0,
+      platformFee: 0,
+      totalFee: 0,
+      netShares: 0,
+      effectivePricePerShare: price,
+      tier: tier.tier,
+      actualSpend: 0,
+      unspentAmount: usdcAmount,
+    };
+  }
+  
+  // Recalculate fees based on whole contracts
   const dflowFee = feeMultiplier * netShares;
+  const contractCost = netShares * price;
+  
+  // Actual spend = platformFee + contractCost + dflowFee
+  const actualSpend = platformFee + contractCost + dflowFee;
+  const unspentAmount = Math.max(0, usdcAmount - actualSpend);
   
   const totalFee = dflowFee + platformFee;
   
   // Effective price per share including all fees
-  const effectivePricePerShare = netShares > 0 ? usdcAmount / netShares : price;
+  const effectivePricePerShare = netShares > 0 ? actualSpend / netShares : price;
   
   return {
     dflowFee,
@@ -171,6 +196,8 @@ export function calculateTradeFeesForBuy(
     netShares,
     effectivePricePerShare,
     tier: tier.tier,
+    actualSpend,
+    unspentAmount,
   };
 }
 

@@ -119,6 +119,13 @@ Preferred communication style: Simple, everyday language.
     - Fee tiers based on 30-day volume: Frost (<$50M), Glacier ($50-150M), Steel ($150-300M), Obsidian (>$300M)
     - Fee utility: `client/src/utils/dflowFees.ts` calculates accurate fees and net shares
     - Note: DFlow deducts fees from wager, reducing effective shares received
+  - **Whole Shares Constraint**:
+    - Kalshi only accepts whole contracts (integers), no fractional shares
+    - `calculateTradeFeesForBuy` floors shares to whole numbers before returning
+    - Actual spend is recalculated: `actualSpend = platformFee + (wholeShares * price) + dflowFee`
+    - Users keep unspent USDC (not charged for fractional portion)
+    - If wager too small for 1 whole share, trade is blocked with helpful error message
+    - Example: $1 wager at 40¢ → floor(2.5) = 2 shares, actual spend = ~$0.87
   - **Bid-Ask Spread Impact**: 
     - Markets have bid/ask prices: yesAsk (price to BUY), yesBid (price to SELL)
     - UI displays mid-price: `(yesAsk + yesBid) / 2`
