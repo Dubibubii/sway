@@ -1,0 +1,126 @@
+# Replit AI Prompt — Implement DFlow “Prediction Market Metadata” WebSocket in Swipe-to-Predict App
+
+You already have full repo context in this Replit workspace. I want you to integrate DFlow’s WebSocket stream so the swipe feed shows **live** pricing (and optionally trades/orderbook later), without hammering REST polling.
+
+## Goal
+1. Connect to DFlow WebSocket endpoint and keep the connection healthy (reconnect + backoff).
+2. Subscribe to **prices** updates for the markets currently visible / relevant in the swipe feed.
+3. Maintain a fast in-memory store: `ticker -> latest price snapshot`.
+4. Update the UI so each market card renders the latest bid/ask/derived probability in near real time.
+5. Avoid bandwidth waste: do **not** subscribe to `"all": true` in production unless explicitly enabled behind a feature flag.
+
+## WebSocket Spec (from docs)
+- Endpoint: `wss://prediction-markets-api.dflow.net/api/v1/ws`
+- Subscribe message examples:
+  - All markets: `{ "type":"subscribe", "channel":"prices", "all": true }`
+  - Specific tickers: `{ "type":"subscribe", "channel":"prices", "tickers": ["TICKER1","TICKER2"] }`
+- Unsubscribe examples mirror the above.
+
+Important behavior:
+- Subscribing with `"all": true` clears specific tickers for that channel.
+- Subscribing to specific tickers disables “all” mode for that channel.
+- Each channel has independent subscription state (`prices`, `trades`, `orderbook`).
+
+## Implementation Requirements
+### 1) Add a WebSocket client module
+Create a small module (location appropriate for this repo, e.g. `src/lib/dflow/wsClient.ts` or similar) that:
+- Exposes:
+  - `connect()`
+  - `disconnect()`
+  - `subscribePrices(tickers: string[])`
+  - `unsubscribePrices(tickers: string[])`
+  - `setPricesAllMode(enabled: boolean)` (feature-flagged; default false)
+- Handles:
+  - Single shared connection (singleton) across the app
+  - Automatic reconnect with exponential backoff + jitter
+  - Heartbeat / keepalive if needed (if browser WS stays stable, skip heartbeat initially)
+  - Safe JSON parse with try/catch
+  - `onmessage` routing by `message.channel`
+
+### 2) Create a lightweight state store for live data
+Implement one of the following, matching the patterns already used in the repo:
+- If you already use Zustand/Redux/Context: extend it.
+- If not, create a minimal store using React Context + `useSyncExternalStore`, or a simple Zustand store.
+
+Data shape suggestion:
+- `livePricesByTicker: Record<string, PriceMessage>`
+- `lastUpdatedAtByTicker: Record<string, number>`
+- `connectionStatus: "connecting" | "open" | "closed" | "error" | "reconnecting"`
+
+Ensure updates are efficient (do not re-render the entire feed for every tick if we can avoid it):
+- Prefer selector-based subscriptions (Zustand selectors) or memoized derived props.
+- If using React Context, split contexts or use `useSyncExternalStore` to reduce renders.
+
+### 3) Wire subscriptions to the swipe feed
+In the swipe feed screen/component:
+- Identify the list of tickers currently being shown:
+  - If your feed data includes `ticker`, use it.
+  - If not, locate where you fetch/construct markets and extract the DFlow ticker from the market metadata.
+- Subscribe to the tickers that matter:
+  - Current card
+  - Next N cards in the deck (e.g., 10–30), depending on your UX
+- Debounce subscription updates:
+  - When tickers list changes quickly (scroll/swipe), debounce updates by ~250–500ms.
+- Subscription diffing:
+  - Track currently subscribed tickers.
+  - On change: compute `toSubscribe` and `toUnsubscribe` so we don’t spam the socket.
+
+Pseudo:
+- `desiredTickers = tickersInDeckSlice`
+- `toSub = desired - current`
+- `toUnsub = current - desired`
+- send appropriate WS messages
+
+### 4) Update UI to render live prices
+For each market card:
+- Use `livePricesByTicker[ticker]` if present; fall back to REST-fetched snapshot if not.
+- Decide how to present:
+  - If message includes bid/ask directly: render them.
+  - If message contains a “price” field: map it to probability/odds per your app’s current logic.
+- Add a subtle “Live” indicator when live data is active for that ticker (optional).
+
+### 5) Env + configuration
+Add env config (aligned with this repo’s conventions):
+- `DFLOW_WS_URL` defaulting to the endpoint above
+- `DFLOW_WS_ENABLE_ALL=false` (feature flag; keep false)
+- `DFLOW_WS_CHANNELS=prices` (optional, future-proof)
+
+### 6) Error handling + resiliency
+- If the socket closes:
+  - Mark status as reconnecting
+  - Reconnect
+  - Re-subscribe to the last desired tickers after reconnect
+- If parsing fails:
+  - Log once per minute max (rate limit console spam)
+
+### 7) Testing checklist (do this in the Replit workspace)
+- Run the app and confirm:
+  - Connection opens
+  - Subscriptions are sent for visible tickers
+  - Incoming `prices` messages update store
+  - UI updates without major lag or re-render storms
+- Add a simple dev-only debug panel (optional) showing:
+  - WS status
+  - # subscribed tickers
+  - last message timestamp
+
+## Deliverables (what you must output)
+1. Exact file changes (new files + edits) with paths.
+2. Any new env vars and where to set them in this repo.
+3. A short note on:
+   - what you assumed about the incoming `prices` message schema
+   - where to adjust mapping if the schema differs (e.g., field names for bid/ask/probability)
+
+## Constraints
+- Keep the solution idiomatic for this codebase (match existing patterns).
+- Do not add heavy dependencies unless necessary. Prefer native `WebSocket` in the browser.
+- Avoid subscribing to `"all": true` except behind a dev-only flag.
+- Make it production-safe: reconnect, diff subscriptions, avoid memory leaks, clean up on unmount.
+
+## Start Here
+1. Search the repo for:
+   - where markets are fetched
+   - how a market’s `ticker` is represented
+   - any existing real-time infra (SSE/ws) or state stores
+2. Implement the WS client + store
+3. Wire it into the swipe feed and verify live updates end-to-end

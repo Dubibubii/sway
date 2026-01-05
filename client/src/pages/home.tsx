@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SwipeCard } from '@/components/swipe-card';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
@@ -8,7 +8,7 @@ import { usePondTrading } from '@/hooks/use-pond-trading';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMarkets, createTrade, getBalancedPercentages, type Market, type MarketsResponse } from '@/lib/api';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { usePrivy } from '@privy-io/react-auth';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
+import { useWebSocketSubscription, useLivePrices, useConnectionStatus } from '@/lib/dflow';
 
 const BATCH_SIZE = 50;
 const LOW_CARDS_THRESHOLD = 10;
@@ -31,6 +32,7 @@ interface DisplayMarket {
   noLabel: string;
   endDate: string;
   imageUrl?: string;
+  isLive?: boolean;
 }
 
 function formatVolume(volume: number): string {
@@ -154,6 +156,30 @@ export default function Home() {
       fetchNextPage().finally(() => setIsLoadingMore(false));
     }
   }, [displayedMarkets.length, hasNextPage, isFetchingNextPage, isLoadingMore, fetchNextPage]);
+
+  const tickersToSubscribe = useMemo(() => {
+    return displayedMarkets.slice(0, 30).map(m => m.id);
+  }, [displayedMarkets]);
+
+  useWebSocketSubscription(tickersToSubscribe, displayedMarkets.length > 0);
+
+  const wsStatus = useConnectionStatus();
+  const livePrices = useLivePrices(tickersToSubscribe);
+
+  const marketsWithLivePrices = useMemo(() => {
+    return displayedMarkets.map(market => {
+      const livePrice = livePrices[market.id];
+      if (livePrice) {
+        return {
+          ...market,
+          yesPrice: livePrice.yesPrice || market.yesPrice,
+          noPrice: livePrice.noPrice || market.noPrice,
+          isLive: true,
+        };
+      }
+      return { ...market, isLive: false };
+    });
+  }, [displayedMarkets, livePrices]);
   
   const tradeMutation = useMutation({
     mutationFn: async (trade: { 
@@ -607,7 +633,7 @@ export default function Home() {
           ) : (
             <>
               <AnimatePresence>
-                {displayedMarkets.slice(0, 2).reverse().map((market, index, arr) => (
+                {marketsWithLivePrices.slice(0, 2).reverse().map((market, index, arr) => (
                     <SwipeCard 
                       key={market.id} 
                       market={market} 
@@ -619,7 +645,7 @@ export default function Home() {
                 ))}
               </AnimatePresence>
 
-              {displayedMarkets.length === 0 && !isFetchingNextPage && (
+              {marketsWithLivePrices.length === 0 && !isFetchingNextPage && (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                   <div className="text-muted-foreground text-lg">No more markets for now.</div>
                   <Button onClick={resetDeck} variant="outline" className="gap-2">

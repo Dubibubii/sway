@@ -106,6 +106,12 @@ Preferred communication style: Simple, everyday language.
     - Discovery tab: 0.75% (75 bps)
     - Positions tab: 0.25% (25 bps)
     - Fee account: 9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY
+  - **WebSocket API**: Infrastructure created in `client/src/lib/dflow/` but **disabled**
+    - Endpoint: `wss://prediction-markets-api.dflow.net/api/v1/ws`
+    - Status: Connection fails from browser (likely requires server-side auth headers)
+    - Fallback: REST API prices from initial load are used instead
+    - Files: `wsClient.ts` (connection logic), `livePriceStore.ts` (stub hooks), `index.ts` (exports)
+    - Future: Enable when DFlow supports browser-accessible WebSocket or implement server-side proxy
 
 - **Jupiter Aggregator**: SOL to USDC swaps
   - Quote API: `https://quote-api.jup.ag/v6/quote`

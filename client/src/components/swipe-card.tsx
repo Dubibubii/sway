@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Share2, X, Check, Copy } from 'lucide-react';
+import { TrendingUp, TrendingDown, Share2, X, Check, Copy, Wifi } from 'lucide-react';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { getBalancedPercentages } from '@/lib/api';
@@ -18,6 +18,7 @@ interface MarketData {
   noLabel: string;
   endDate: string;
   imageUrl?: string;
+  isLive?: boolean;
 }
 
 interface SwipeCardProps {
