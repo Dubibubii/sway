@@ -629,32 +629,20 @@ export default function Activity() {
         return;
       }
       
-      // Calculate USDC received - for async orders, API often returns 0
-      // Use the same estimate as the sell modal: shares * entry price
-      const entryPrice = parseFloat(selectedPosition.price) || 0;
-      const estimatedValue = shares * entryPrice;
+      // Calculate shares and proportional cost basis
       const recordedShares = parseFloat(selectedPosition.shares);
       const remainingShares = recordedShares - shares;
       const hasRemainingFractional = remainingShares > 0.01;
       
-      let usdcReceived = result.expectedUSDC || 0;
-      let isEstimate = false;
+      // For async orders, expectedUSDC is 0 - we don't know actual proceeds
+      const usdcReceived = result.expectedUSDC || 0;
+      const isAsync = result.executionMode === 'async' || usdcReceived === 0;
       
-      // If expectedUSDC is 0 or significantly different from modal estimate, use modal estimate for consistency
-      if (usdcReceived === 0 || Math.abs(usdcReceived - estimatedValue) > estimatedValue * 0.5) {
-        // Use the same calculation as the sell modal for consistency
-        usdcReceived = estimatedValue;
-        isEstimate = true;
-        console.log('[Activity] Using modal estimate for consistency:', usdcReceived.toFixed(2), '(shares:', shares, '× price:', entryPrice, ')');
-      }
-      
-      // Calculate P&L only on the shares actually sold (proportional to cost basis)
+      // Calculate P&L using proportional cost basis (for partial sells)
       const proportionSold = shares / recordedShares;
       const proportionalCostBasis = costBasis * proportionSold;
-      const pnl = usdcReceived - proportionalCostBasis;
-      const pnlPercent = proportionalCostBasis > 0 ? ((pnl / proportionalCostBasis) * 100) : 0;
       
-      console.log('[Activity] Position sold! Shares:', shares, 'of', recordedShares, 'USDC:', usdcReceived, 'PnL:', pnl, 'Remaining:', remainingShares);
+      console.log('[Activity] Position sold! Shares:', shares, 'of', recordedShares, 'executionMode:', result.executionMode, 'expectedUSDC:', usdcReceived, 'Remaining:', remainingShares);
       
       // Update the database
       const token = await getAccessToken();
@@ -678,6 +666,8 @@ export default function Activity() {
         }
       } else {
         // Full close - no remaining shares
+        // For async orders, we don't know actual pnl/payout yet
+        const pnl = isAsync ? 0 : (usdcReceived - proportionalCostBasis);
         const res = await fetch(`/api/trades/${selectedPosition.id}/close`, {
           method: 'POST',
           headers: { 
@@ -702,17 +692,32 @@ export default function Activity() {
       // Format message based on whether it was a redemption or sale
       const action = isRedemption ? 'Redeemed' : 'Sold';
       const direction = selectedPosition.direction;
-      const pnlSign = pnl >= 0 ? '+' : '';
       
-      // Build description with all relevant info
-      let description = `${shares} shares for $${usdcReceived.toFixed(2)}${isEstimate ? ' (est.)' : ''}`;
-      if (hasRemainingFractional) {
-        description += ` | ${remainingShares.toFixed(2)} fractional shares remain (redeem at settlement)`;
+      // For async trades, we can't show accurate amounts - just confirm the trade went through
+      let title: string;
+      let description: string;
+      
+      if (isAsync) {
+        // Async trade - don't show dollar amounts we can't confirm
+        title = `${shares} ${direction} Shares Sold`;
+        description = 'Processing... Check your balance in a few seconds.';
+        if (hasRemainingFractional) {
+          description += ` | ${remainingShares.toFixed(2)} fractional shares remain`;
+        }
+      } else {
+        // Sync trade - we have actual amounts
+        const pnl = usdcReceived - proportionalCostBasis;
+        const pnlSign = pnl >= 0 ? '+' : '';
+        const pnlPercent = proportionalCostBasis > 0 ? ((pnl / proportionalCostBasis) * 100) : 0;
+        title = `Position ${action}: $${usdcReceived.toFixed(2)}`;
+        description = `${shares} shares | P&L: ${pnlSign}$${pnl.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`;
+        if (hasRemainingFractional) {
+          description += ` | ${remainingShares.toFixed(2)} fractional shares remain`;
+        }
       }
-      description += ` | P&L: ${pnlSign}$${pnl.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`;
       
       toast({ 
-        title: `Position ${action}: $${usdcReceived.toFixed(2)}`,
+        title,
         description,
         className: direction === 'YES' ? 'bg-zinc-950/90 border-[#1ED78B]/20 text-white' : 'bg-zinc-950/90 border-rose-500/20 text-white'
       });

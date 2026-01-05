@@ -100,6 +100,7 @@ Preferred communication style: Simple, everyday language.
   - **Performance Optimization**: All markets from DFlow /markets API are assumed tradeable to avoid slow events pagination (30+ second blocking call removed). Occasional untradeable markets fail gracefully at trade time.
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
+  - **Async Sell Handling**: For async sells, expectedUSDC returns 0 from API. Success toast shows "X Shares Sold - Processing..." instead of showing incorrect estimates. User should check their balance after a few seconds.
   - Required env var: `DFLOW_API_KEY` (for production access)
   - **Platform Fees**: Channel-based fees collected via DFlow's platformFeeBps parameter
     - Swipe tab: $0.05 flat fee (effective 1000 bps on $0.50 min, 200 bps on $2.50 avg)
