@@ -32,7 +32,7 @@ interface SettingsContextType {
   updateInterests: (interests: string[]) => void;
   connectWallet: (privyId: string, walletAddress: string, accessToken?: string) => Promise<void>;
   disconnectWallet: () => void;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<void>;
   completeGasDeposit: () => void;
   setAuthState: React.Dispatch<React.SetStateAction<{
     connected: boolean;
@@ -126,9 +126,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
       const userData = await response.json();
       const serverInterests = userData.user?.interests || [];
+      const serverOnboardingCompleted = userData.user?.onboardingCompleted || false;
       
       setAuthState(prev => {
-        // Check if this is a different user - reset onboarding state if so
+        // Check if this is a different user
         const isDifferentUser = prev.privyId !== null && prev.privyId !== privyId;
         
         const localInterests = prev.interests;
@@ -156,15 +157,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           accessToken: accessToken || null,
           userId: userData.user?.id || userData.id || null,
           interests: mergedInterests,
-          // Reset onboarding state for new users
-          onboardingCompleted: isDifferentUser ? false : prev.onboardingCompleted,
+          // Use server's onboarding status - persisted per wallet in database
+          onboardingCompleted: serverOnboardingCompleted,
+          // Gas deposit is checked live from balance, not stored in DB
           gasDepositComplete: isDifferentUser ? false : prev.gasDepositComplete,
         };
       });
     } catch (error) {
       console.error('Failed to sync user:', error);
       setAuthState(prev => {
-        // Check if this is a different user - reset onboarding state if so
+        // Check if this is a different user
         const isDifferentUser = prev.privyId !== null && prev.privyId !== privyId;
         
         return {
@@ -174,7 +176,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           accessToken: accessToken || null,
           userId: null,
           interests: isDifferentUser ? [] : prev.interests,
-          // Reset onboarding state for new users
+          // Keep local onboarding state if server fails
           onboardingCompleted: isDifferentUser ? false : prev.onboardingCompleted,
           gasDepositComplete: isDifferentUser ? false : prev.gasDepositComplete,
         };
@@ -209,8 +211,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnectWallet = () => {
-    // Reset all user-specific state including onboarding when disconnecting
-    // This ensures new users get fresh onboarding experience
+    // Reset local session state but NOT onboarding - that's persisted server-side
+    // When user reconnects, their onboarding status will be fetched from the database
     setAuthState({
       connected: false,
       walletAddress: null,
@@ -218,13 +220,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       accessToken: null,
       userId: null,
       interests: [],
-      onboardingCompleted: false,
+      onboardingCompleted: false, // Will be restored from server on reconnect
       gasDepositComplete: false,
     });
   };
 
-  const completeOnboarding = () => {
+  const completeOnboarding = async () => {
+    // Update local state immediately for responsive UI
     setAuthState(prev => ({ ...prev, onboardingCompleted: true }));
+    
+    // Persist to server so it's remembered across sessions
+    if (authState.privyId) {
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'x-privy-user-id': authState.privyId,
+        };
+        if (authState.accessToken) {
+          headers['Authorization'] = `Bearer ${authState.accessToken}`;
+        }
+        await fetch('/api/users/onboarding/complete', {
+          method: 'POST',
+          headers,
+        });
+      } catch (error) {
+        console.error('Failed to persist onboarding completion:', error);
+      }
+    }
   };
 
   const completeGasDeposit = () => {

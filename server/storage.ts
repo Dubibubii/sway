@@ -18,6 +18,7 @@ export interface IStorage {
   getUserByPrivyId(privyId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserSettings(userId: string, settings: { yesWager?: number; noWager?: number; interests?: string[] }): Promise<User>;
+  completeOnboarding(userId: string): Promise<User>;
   
   createTrade(trade: InsertTrade): Promise<Trade>;
   getUserTrades(userId: string): Promise<Trade[]>;
@@ -45,6 +46,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserSettings(userId: string, settings: { yesWager?: number; noWager?: number; interests?: string[] }): Promise<User> {
     const result = await db.update(users)
       .set(settings)
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async completeOnboarding(userId: string): Promise<User> {
+    const result = await db.update(users)
+      .set({ onboardingCompleted: true })
       .where(eq(users.id, userId))
       .returning();
     return result[0];

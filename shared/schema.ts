@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   yesWager: integer("yes_wager").notNull().default(5),
   noWager: integer("no_wager").notNull().default(5),
   interests: text("interests").array().notNull().default(sql`ARRAY[]::text[]`),
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

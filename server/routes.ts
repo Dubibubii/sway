@@ -326,6 +326,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post('/api/users/onboarding/complete', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.userId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const user = await storage.completeOnboarding(req.userId);
+      res.json({ user, success: true });
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      res.status(500).json({ error: 'Failed to complete onboarding' });
+    }
+  });
+
   app.post('/api/trades', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.userId) {
