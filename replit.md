@@ -97,6 +97,7 @@ Preferred communication style: Simple, everyday language.
   - Flow: Get quote → Sign Solana transaction → Submit to network
   - **Markets Endpoint**: `/api/v1/markets` includes live prices (yesAsk, yesBid, noAsk, noBid) - use this for price data
   - **Events Endpoint**: `/api/v1/events?withNestedMarkets=true` provides metadata but NO prices - don't use for price display
+  - **Performance Optimization**: All markets from DFlow /markets API are assumed tradeable to avoid slow events pagination (30+ second blocking call removed). Occasional untradeable markets fail gracefully at trade time.
   - **Redemption Flow**: For settled markets, uses `/api/v1/market/by-mint/{mint}` to check if market is "determined"/"finalized" and redemption is "open", then redeems winning tokens for $1 each
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
   - Required env var: `DFLOW_API_KEY` (for production access)

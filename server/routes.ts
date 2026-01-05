@@ -99,24 +99,16 @@ export async function registerRoutes(
       const excludeIdsParam = req.query.excludeIds as string || '';
       const excludeIds = excludeIdsParam ? new Set(excludeIdsParam.split(',').map(id => id.trim()).filter(Boolean)) : new Set<string>();
       
-      // Get up to 10,000 markets from cache
+      // Get markets from our cached DFlow /markets data (already has prices)
+      // This is fast because it uses background-refreshed cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
-      // Get available DFlow markets and their initialization status
-      const dflowMarkets = await getAvailableDflowMarkets();
-      const marketInfo = await getDflowMarketInfo();
-      
-      if (dflowMarkets.size > 0) {
-        const beforeFilter = markets.length;
-        markets = markets.filter(m => dflowMarkets.has(m.id));
-        console.log(`Filtered markets: ${beforeFilter} -> ${markets.length} (DFlow has ${dflowMarkets.size} markets)`);
-      }
-      
-      // Add isInitialized status to each market
-      // Default to false (NOT initialized) if metadata is unavailable - prevents showing uninitialized markets
+      // All markets from DFlow /markets API are tradeable (they have live prices)
+      // We assume they're initialized to avoid blocking on slow pagination
+      // The occasional untradeable market will fail gracefully at trade time
       markets = markets.map(m => ({
         ...m,
-        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
+        isInitialized: true, // Assume all DFlow /markets are tradeable
       }));
       
       // Apply strict diversification for swipe tab (removes extreme probabilities, uninitialized markets, low volume)

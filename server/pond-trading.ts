@@ -13,7 +13,7 @@ console.log('[DFlow] Using API base:', DFLOW_API_BASE, DFLOW_API_KEY ? '(product
 // Cache for available DFlow market tickers
 let dflowMarketCache: Set<string> | null = null;
 let dflowMarketCacheTime: number = 0;
-const DFLOW_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const DFLOW_CACHE_TTL = 15 * 60 * 1000; // 15 minutes - longer TTL to avoid rate limiting
 
 // Persistent cache for market tokens (survives API outages)
 // This allows trades to proceed even when DFlow metadata API returns 503
@@ -241,14 +241,25 @@ let dflowMarketInfoCache: Map<string, boolean> = new Map();
 let dflowMarketInfoCacheTime = 0;
 
 // Get market info with isInitialized status
+// Returns cached data immediately to avoid blocking - background refresh updates it
 export async function getDflowMarketInfo(): Promise<Map<string, boolean>> {
   const now = Date.now();
   
+  // Return cache if valid
   if (dflowMarketInfoCache.size > 0 && (now - dflowMarketInfoCacheTime) < DFLOW_CACHE_TTL) {
     return dflowMarketInfoCache;
   }
   
-  // Will be populated by getAvailableDflowMarkets
+  // If cache is stale but has data, return it immediately and trigger background refresh
+  // This prevents blocking the request with slow pagination
+  if (dflowMarketInfoCache.size > 0) {
+    console.log('[Pond] Market info cache stale, returning cached data and refreshing in background');
+    // Trigger non-blocking background refresh
+    getAvailableDflowMarkets().catch(err => console.error('[Pond] Background market info refresh failed:', err));
+    return dflowMarketInfoCache;
+  }
+  
+  // No cache at all - must wait for initial fetch
   await getAvailableDflowMarkets();
   return dflowMarketInfoCache;
 }
@@ -287,6 +298,11 @@ export async function getAvailableDflowMarkets(): Promise<Set<string>> {
       
       if (!response.ok) {
         console.error('[Pond] Failed to fetch DFlow events:', response.status);
+        // On rate limit (429), return stale cache instead of empty data
+        if (response.status === 429 && dflowMarketCache && dflowMarketCache.size > 0) {
+          console.log('[Pond] Rate limited, using stale cache with', dflowMarketCache.size, 'markets');
+          return dflowMarketCache;
+        }
         break;
       }
       
