@@ -1411,15 +1411,29 @@ function reclassifyMarket(market: SimplifiedMarket): SimplifiedMarket {
   return market;
 }
 
-export function diversifyMarketFeed(markets: SimplifiedMarket[]): SimplifiedMarket[] {
-  // Relaxed filter: only exclude markets with >= 99% or <= 1% probability
+// Strict filtering for swipe tab - only tradeable markets with good liquidity
+export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boolean = true): SimplifiedMarket[] {
+  // Strict mode for swipe tab: filter to markets with balanced odds (10-90%) for better liquidity
+  // Relaxed mode for discovery: only filter extreme (99%+ or 1%-)
+  const probabilityFilter = strictMode 
+    ? (yesPercent: number) => yesPercent >= 10 && yesPercent <= 90
+    : (yesPercent: number) => yesPercent > 1 && yesPercent < 99;
+  
   const activeMarkets = markets.filter(m => {
+    // Only include initialized markets in strict mode (swipe tab)
+    if (strictMode && m.isInitialized === false) return false;
+    
     const yesPercent = m.yesPrice * 100;
-    if (yesPercent >= 99 || yesPercent <= 1) return false;
+    if (!probabilityFilter(yesPercent)) return false;
+    
+    // In strict mode, require minimum volume for liquidity
+    if (strictMode && (m.volume || 0) < 10000) return false;
+    
     return true;
   });
   
-  console.log(`Filtered out ${markets.length - activeMarkets.length} extreme probability markets (99%+ or 1%-)`);
+  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume)' : 'discovery (1-99%)';
+  console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
   
   // Re-classify markets before filtering
   const reclassifiedMarkets = activeMarkets.map(reclassifyMarket);

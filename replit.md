@@ -7,8 +7,21 @@ SWAY is a mobile-first prediction markets trading application that allows users 
 ### Market Organization
 - **Trending First**: Top 50 markets sorted by volume (highest to lowest)
 - **Category Rotation**: After trending, cycles through categories (Politics, Sports, Economics, Tech, Weather, General) one market at a time
-- **Binary Markets Only**: Filters out non-binary markets with extreme probabilities (≥97% or ≤3%)
+- **Binary Markets Only**: Filters out non-binary markets
 - **Event Diversification**: Markets from the same event are spaced at least 5 positions apart to prevent repetitive content
+
+### Swipe Tab Filtering (Strict Mode)
+To ensure users can trade without errors, the swipe tab applies strict filtering:
+- **Probability Range**: Only markets with 10-90% probability (balanced odds = thicker orderbooks)
+- **Initialized Only**: Must be initialized on DFlow (tokens exist on-chain)
+- **Minimum Volume**: Requires $10,000+ total volume for liquidity
+- **Result**: Users only see markets that can actually be traded without "route not found" errors
+
+### Discovery Tab Filtering (Relaxed Mode)
+The discovery tab allows more freedom:
+- **Probability Range**: 1-99% probability (includes extreme odds)
+- **All Markets**: Shows both initialized and uninitialized markets (with warnings)
+- **No Volume Filter**: All markets visible regardless of volume
 
 ### Batched Market Loading
 - **Pagination**: Backend supports `limit`, `offset`, and `excludeIds` parameters on `/api/markets`

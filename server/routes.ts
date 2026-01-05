@@ -119,13 +119,13 @@ export async function registerRoutes(
         isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
       }));
       
-      // Apply diversification (removes extreme probabilities, deduplicates, applies round-robin category rotation + event spacing)
+      // Apply strict diversification for swipe tab (removes extreme probabilities, uninitialized markets, low volume)
+      // This ensures users only see markets that can actually be traded without errors
       // DO NOT re-sort after this - diversification already produces the optimal display order
-      markets = diversifyMarketFeed(markets);
+      markets = diversifyMarketFeed(markets, true); // strictMode = true for swipe tab
       
-      // Filter only initialized markets for total count
-      const initializedMarkets = markets.filter(m => m.isInitialized);
-      const total = initializedMarkets.length;
+      // All markets returned are already initialized and tradeable after strict filtering
+      const total = markets.length;
       
       // Apply excludeIds filter if provided (for deduplication across batches)
       let filteredMarkets = excludeIds.size > 0 
