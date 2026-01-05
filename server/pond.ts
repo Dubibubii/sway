@@ -64,6 +64,10 @@ export interface SimplifiedMarket {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesAsk?: number; // Price to BUY YES tokens (user pays this)
+  yesBid?: number; // Price to SELL YES tokens (user receives this)
+  noAsk?: number;  // Price to BUY NO tokens
+  noBid?: number;  // Price to SELL NO tokens
   yesLabel: string;
   noLabel: string;
   volume: number;
@@ -336,18 +340,25 @@ async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
 // Transform DFlow /markets endpoint response (includes yesAsk, yesBid, noAsk, noBid)
 function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
   // DFlow /markets endpoint returns prices as strings like "0.85" (already in 0-1 range)
-  const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : 0;
-  const yesBid = market.yesBid ? parseFloat(market.yesBid) : 0;
-  const noAsk = market.noAsk ? parseFloat(market.noAsk) : 0;
-  const noBid = market.noBid ? parseFloat(market.noBid) : 0;
+  const yesAskRaw = market.yesAsk ? parseFloat(market.yesAsk) : 0;
+  const yesBidRaw = market.yesBid ? parseFloat(market.yesBid) : 0;
+  const noAskRaw = market.noAsk ? parseFloat(market.noAsk) : 0;
+  const noBidRaw = market.noBid ? parseFloat(market.noBid) : 0;
   
+  // Store actual bid/ask values for frontend (only if valid)
+  const yesAsk = yesAskRaw > 0 ? yesAskRaw : undefined;
+  const yesBid = yesBidRaw > 0 ? yesBidRaw : undefined;
+  const noAsk = noAskRaw > 0 ? noAskRaw : undefined;
+  const noBid = noBidRaw > 0 ? noBidRaw : undefined;
+  
+  // Calculate mid-price for display (but UI should use ask/bid for trades)
   let yesPrice: number;
-  if (yesAsk > 0 && yesBid > 0) {
-    yesPrice = (yesAsk + yesBid) / 2;
-  } else if (yesAsk > 0) {
-    yesPrice = yesAsk;
-  } else if (yesBid > 0) {
-    yesPrice = yesBid;
+  if (yesAskRaw > 0 && yesBidRaw > 0) {
+    yesPrice = (yesAskRaw + yesBidRaw) / 2;
+  } else if (yesAskRaw > 0) {
+    yesPrice = yesAskRaw;
+  } else if (yesBidRaw > 0) {
+    yesPrice = yesBidRaw;
   } else {
     yesPrice = 0.5;
   }
@@ -374,6 +385,10 @@ function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
     category: category || 'General',
     yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
     noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesAsk, // Actual price to BUY YES
+    yesBid, // Actual price to SELL YES
+    noAsk,  // Actual price to BUY NO
+    noBid,  // Actual price to SELL NO
     yesLabel: market.yesSubTitle || 'Yes',
     noLabel: market.noSubTitle || 'No',
     volume: market.volume || 0,

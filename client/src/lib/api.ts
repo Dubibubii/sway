@@ -74,6 +74,10 @@ export interface Market {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesAsk?: number; // Price to BUY YES tokens (user pays this)
+  yesBid?: number; // Price to SELL YES tokens (user receives this)
+  noAsk?: number;  // Price to BUY NO tokens
+  noBid?: number;  // Price to SELL NO tokens
   yesLabel: string;
   noLabel: string;
   volume: number;

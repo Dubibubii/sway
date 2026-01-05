@@ -119,6 +119,14 @@ Preferred communication style: Simple, everyday language.
     - Fee tiers based on 30-day volume: Frost (<$50M), Glacier ($50-150M), Steel ($150-300M), Obsidian (>$300M)
     - Fee utility: `client/src/utils/dflowFees.ts` calculates accurate fees and net shares
     - Note: DFlow deducts fees from wager, reducing effective shares received
+  - **Bid-Ask Spread Impact**: 
+    - Markets have bid/ask prices: yesAsk (price to BUY), yesBid (price to SELL)
+    - UI displays mid-price: `(yesAsk + yesBid) / 2`
+    - Trading executes at: ASK price for buys, BID price for sells
+    - Wide spreads cause round-trip losses: `(ask - bid) / ask`
+    - Example: ask=70¢, bid=30¢ → 57% loss just from spread, before fees
+    - Market interface now includes yesAsk, yesBid, noAsk, noBid fields
+    - Fee calculations now use execution price (ask) not mid-price
 
 - **Jupiter Aggregator**: SOL to USDC swaps
   - Quote API: `https://quote-api.jup.ag/v6/quote`

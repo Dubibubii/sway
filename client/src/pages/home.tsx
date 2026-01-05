@@ -29,6 +29,10 @@ interface DisplayMarket {
   volume: string;
   yesPrice: number;
   noPrice: number;
+  yesAsk?: number; // Actual price to BUY YES (higher)
+  yesBid?: number; // Actual price to SELL YES (lower)
+  noAsk?: number;  // Actual price to BUY NO
+  noBid?: number;  // Actual price to SELL NO
   yesLabel: string;
   noLabel: string;
   endDate: string;
@@ -67,6 +71,10 @@ function formatMarket(m: Market): DisplayMarket {
     volume: formatVolume(m.volume),
     yesPrice: m.yesPrice,
     noPrice: m.noPrice,
+    yesAsk: m.yesAsk,
+    yesBid: m.yesBid,
+    noAsk: m.noAsk,
+    noBid: m.noBid,
     yesLabel: m.yesLabel || 'Yes',
     noLabel: m.noLabel || 'No',
     endDate: endDateFormatted,
@@ -256,7 +264,9 @@ export default function Home() {
     if (direction === 'right') {
       // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
       // DFlow deducts fees from the wager, reducing effective shares received
-      const feeBreakdown = calculateTradeFeesForBuy(settings.yesWager, market.yesPrice, 'swipe');
+      // IMPORTANT: Use yesAsk (actual buy price) if available, not mid-price
+      const executionPrice = market.yesAsk ?? market.yesPrice;
+      const feeBreakdown = calculateTradeFeesForBuy(settings.yesWager, executionPrice, 'swipe');
       const shares = feeBreakdown.netShares;
       const payout = shares.toFixed(2);
       
@@ -369,7 +379,9 @@ export default function Home() {
     } else if (direction === 'left') {
       // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
       // DFlow deducts fees from the wager, reducing effective shares received
-      const feeBreakdown = calculateTradeFeesForBuy(settings.noWager, market.noPrice, 'swipe');
+      // IMPORTANT: Use noAsk (actual buy price) if available, not mid-price
+      const executionPrice = market.noAsk ?? market.noPrice;
+      const feeBreakdown = calculateTradeFeesForBuy(settings.noWager, executionPrice, 'swipe');
       const shares = feeBreakdown.netShares;
       const payout = shares.toFixed(2);
 
