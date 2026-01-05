@@ -211,20 +211,27 @@ const PRIORITY_SERIES = [
 // Transform DFlow event/market to SimplifiedMarket format
 function transformDFlowMarket(market: any, event: any): SimplifiedMarket {
   // DFlow returns prices in different formats - handle appropriately
-  const yesAsk = market.yesAsk || market.yes_ask || 0;
-  const yesBid = market.yesBid || market.yes_bid || 0;
-  const noAsk = market.noAsk || market.no_ask || 0;
-  const noBid = market.noBid || market.no_bid || 0;
+  const yesAskRaw = market.yesAsk || market.yes_ask || 0;
+  const yesBidRaw = market.yesBid || market.yes_bid || 0;
+  const noAskRaw = market.noAsk || market.no_ask || 0;
+  const noBidRaw = market.noBid || market.no_bid || 0;
+  
+  // Convert to decimal (0-1 range) - DFlow legacy format may use cents (1-100)
+  const needsConversion = yesAskRaw > 1 || yesBidRaw > 1;
+  const yesAsk = yesAskRaw > 0 ? (needsConversion ? yesAskRaw / 100 : yesAskRaw) : undefined;
+  const yesBid = yesBidRaw > 0 ? (needsConversion ? yesBidRaw / 100 : yesBidRaw) : undefined;
+  const noAsk = noAskRaw > 0 ? (needsConversion ? noAskRaw / 100 : noAskRaw) : undefined;
+  const noBid = noBidRaw > 0 ? (needsConversion ? noBidRaw / 100 : noBidRaw) : undefined;
   
   let yesPrice: number;
-  if (yesAsk > 0 && yesBid > 0) {
-    yesPrice = (yesAsk + yesBid) / 2 / 100;
-  } else if (yesAsk > 0) {
-    yesPrice = yesAsk / 100;
-  } else if (yesBid > 0) {
-    yesPrice = yesBid / 100;
+  if (yesAskRaw > 0 && yesBidRaw > 0) {
+    yesPrice = needsConversion ? (yesAskRaw + yesBidRaw) / 2 / 100 : (yesAskRaw + yesBidRaw) / 2;
+  } else if (yesAskRaw > 0) {
+    yesPrice = needsConversion ? yesAskRaw / 100 : yesAskRaw;
+  } else if (yesBidRaw > 0) {
+    yesPrice = needsConversion ? yesBidRaw / 100 : yesBidRaw;
   } else if (market.lastPrice) {
-    yesPrice = market.lastPrice / 100;
+    yesPrice = market.lastPrice > 1 ? market.lastPrice / 100 : market.lastPrice;
   } else {
     yesPrice = 0.5;
   }
@@ -246,6 +253,10 @@ function transformDFlowMarket(market: any, event: any): SimplifiedMarket {
     category: category || 'General',
     yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
     noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesAsk, // Actual price to BUY YES
+    yesBid, // Actual price to SELL YES
+    noAsk,  // Actual price to BUY NO
+    noBid,  // Actual price to SELL NO
     yesLabel: market.yesSubTitle || market.yes_sub_title || 'Yes',
     noLabel: market.noSubTitle || market.no_sub_title || 'No',
     volume: market.volume || 0,
@@ -402,9 +413,19 @@ function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
   };
 }
 
+// Price data including bid/ask for accurate execution pricing
+interface KalshiPriceData {
+  yesPrice: number;
+  noPrice: number;
+  yesAsk?: number;
+  yesBid?: number;
+  noAsk?: number;
+  noBid?: number;
+}
+
 // Fetch live prices from Kalshi for all markets (paginated)
-async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, { yesPrice: number; noPrice: number }>> {
-  const priceMap = new Map<string, { yesPrice: number; noPrice: number }>();
+async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, KalshiPriceData>> {
+  const priceMap = new Map<string, KalshiPriceData>();
   let cursor: string | undefined;
   let pagesFetched = 0;
   const maxPages = 20; // Limit to prevent too many requests
@@ -436,16 +457,22 @@ async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, { yesPr
       if (markets.length === 0) break;
       
       for (const market of markets) {
-        const yesAsk = market.yes_ask || 0;
-        const yesBid = market.yes_bid || 0;
+        const yesAskRaw = market.yes_ask || 0;
+        const yesBidRaw = market.yes_bid || 0;
+        
+        // Convert to decimal and store actual bid/ask values
+        const yesAsk = yesAskRaw > 0 ? yesAskRaw / 100 : undefined;
+        const yesBid = yesBidRaw > 0 ? yesBidRaw / 100 : undefined;
+        const noAsk = yesBidRaw > 0 ? (100 - yesBidRaw) / 100 : undefined;
+        const noBid = yesAskRaw > 0 ? (100 - yesAskRaw) / 100 : undefined;
         
         let yesPrice: number;
-        if (yesAsk > 0 && yesBid > 0) {
-          yesPrice = (yesAsk + yesBid) / 2 / 100;
-        } else if (yesAsk > 0) {
-          yesPrice = yesAsk / 100;
-        } else if (yesBid > 0) {
-          yesPrice = yesBid / 100;
+        if (yesAskRaw > 0 && yesBidRaw > 0) {
+          yesPrice = (yesAskRaw + yesBidRaw) / 2 / 100;
+        } else if (yesAskRaw > 0) {
+          yesPrice = yesAskRaw / 100;
+        } else if (yesBidRaw > 0) {
+          yesPrice = yesBidRaw / 100;
         } else if (market.last_price > 0) {
           yesPrice = market.last_price / 100;
         } else {
@@ -455,6 +482,10 @@ async function fetchKalshiPrices(tickers: string[]): Promise<Map<string, { yesPr
         priceMap.set(market.ticker, {
           yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
           noPrice: isNaN(yesPrice) ? 0.5 : 1 - yesPrice,
+          yesAsk,
+          yesBid,
+          noAsk,
+          noBid,
         });
       }
       
@@ -889,16 +920,23 @@ function detectCategoryFromTitle(title: string, eventTicker?: string): string {
 }
 
 function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): SimplifiedMarket {
-  const yesAsk = market.yes_ask || 0;
-  const yesBid = market.yes_bid || 0;
+  const yesAskRaw = market.yes_ask || 0;
+  const yesBidRaw = market.yes_bid || 0;
+  
+  // Convert Kalshi cents to decimal (0-1 range)
+  // Also derive NO prices (no_ask = 1 - yes_bid, no_bid = 1 - yes_ask)
+  const yesAskDecimal = yesAskRaw > 0 ? yesAskRaw / 100 : undefined;
+  const yesBidDecimal = yesBidRaw > 0 ? yesBidRaw / 100 : undefined;
+  const noAskDecimal = yesBidRaw > 0 ? (100 - yesBidRaw) / 100 : undefined;
+  const noBidDecimal = yesAskRaw > 0 ? (100 - yesAskRaw) / 100 : undefined;
   
   let yesPrice: number;
-  if (yesAsk > 0 && yesBid > 0) {
-    yesPrice = (yesAsk + yesBid) / 2 / 100;
-  } else if (yesAsk > 0) {
-    yesPrice = yesAsk / 100;
-  } else if (yesBid > 0) {
-    yesPrice = yesBid / 100;
+  if (yesAskRaw > 0 && yesBidRaw > 0) {
+    yesPrice = (yesAskRaw + yesBidRaw) / 2 / 100;
+  } else if (yesAskRaw > 0) {
+    yesPrice = yesAskRaw / 100;
+  } else if (yesBidRaw > 0) {
+    yesPrice = yesBidRaw / 100;
   } else if (market.last_price > 0) {
     yesPrice = market.last_price / 100;
   } else {
@@ -936,6 +974,10 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
     category: category || 'General',
     yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
     noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesAsk: yesAskDecimal, // Actual price to BUY YES
+    yesBid: yesBidDecimal, // Actual price to SELL YES
+    noAsk: noAskDecimal,   // Actual price to BUY NO
+    noBid: noBidDecimal,   // Actual price to SELL NO
     yesLabel: market.yes_sub_title || 'Yes',
     noLabel: market.no_sub_title || 'No',
     volume: market.volume || 0,
@@ -948,18 +990,25 @@ function transformKalshiMarket(market: KalshiMarket, event?: KalshiEvent): Simpl
 }
 
 function transformMarket(market: any, event?: any): SimplifiedMarket {
-  const yesAsk = market.yesAsk ? parseFloat(market.yesAsk) : null;
-  const yesBid = market.yesBid ? parseFloat(market.yesBid) : null;
+  const yesAskVal = market.yesAsk ? parseFloat(market.yesAsk) : null;
+  const yesBidVal = market.yesBid ? parseFloat(market.yesBid) : null;
+  const noAskVal = market.noAsk ? parseFloat(market.noAsk) : null;
+  const noBidVal = market.noBid ? parseFloat(market.noBid) : null;
   
+  // Store valid bid/ask values for execution price calculations
+  const yesAsk = yesAskVal !== null && yesAskVal > 0 ? yesAskVal : undefined;
+  const yesBid = yesBidVal !== null && yesBidVal > 0 ? yesBidVal : undefined;
+  const noAsk = noAskVal !== null && noAskVal > 0 ? noAskVal : undefined;
+  const noBid = noBidVal !== null && noBidVal > 0 ? noBidVal : undefined;
   
   // API returns prices as decimals (0-1 range) - just use them directly
   let yesPrice: number;
-  if (yesAsk !== null && yesBid !== null) {
-    yesPrice = (yesAsk + yesBid) / 2;
-  } else if (yesAsk !== null) {
-    yesPrice = yesAsk;
-  } else if (yesBid !== null) {
-    yesPrice = yesBid;
+  if (yesAskVal !== null && yesBidVal !== null) {
+    yesPrice = (yesAskVal + yesBidVal) / 2;
+  } else if (yesAskVal !== null) {
+    yesPrice = yesAskVal;
+  } else if (yesBidVal !== null) {
+    yesPrice = yesBidVal;
   } else {
     yesPrice = 0.5;
   }
@@ -1016,6 +1065,10 @@ function transformMarket(market: any, event?: any): SimplifiedMarket {
     category: formatCategory(category),
     yesPrice: isNaN(yesPrice) ? 0.5 : yesPrice,
     noPrice: isNaN(noPrice) ? 0.5 : noPrice,
+    yesAsk, // Actual price to BUY YES
+    yesBid, // Actual price to SELL YES
+    noAsk,  // Actual price to BUY NO
+    noBid,  // Actual price to SELL NO
     yesLabel: market.yesSubTitle || 'Yes',
     noLabel: market.noSubTitle || 'No',
     volume: market.volume || event?.volume || 0,

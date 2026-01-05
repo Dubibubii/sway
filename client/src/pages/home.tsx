@@ -183,6 +183,11 @@ export default function Home() {
           ...market,
           yesPrice: livePrice.yesPrice || market.yesPrice,
           noPrice: livePrice.noPrice || market.noPrice,
+          // Preserve bid/ask from live data if available, otherwise keep initial values
+          yesAsk: livePrice.yesAsk ?? market.yesAsk,
+          yesBid: livePrice.yesBid ?? market.yesBid,
+          noAsk: livePrice.noAsk ?? market.noAsk,
+          noBid: livePrice.noBid ?? market.noBid,
           isLive: true,
         };
       }
