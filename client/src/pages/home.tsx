@@ -17,6 +17,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { MWA_ENV } from '@/lib/mwa-env';
 import { useWebSocketSubscription, useLivePrices, useConnectionStatus } from '@/lib/dflow';
+import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
 
 const BATCH_SIZE = 50;
 const LOW_CARDS_THRESHOLD = 10;
@@ -253,13 +254,10 @@ export default function Home() {
     if (!market) return;
 
     if (direction === 'right') {
-      // Apply accurate cost adjustments using swipe channel fee ($0.05 flat)
-      const platformFee = 0.05; // $0.05 flat fee for swipe channel
-      // Conservative price impact estimate (smaller for swipe's typically smaller trades)
-      const priceImpactRate = settings.yesWager < 5 ? 0.015 : 0.01;
-      const priceImpact = settings.yesWager * priceImpactRate;
-      const effectiveBetAmount = Math.max(0.01, settings.yesWager - platformFee - priceImpact);
-      const shares = effectiveBetAmount / market.yesPrice;
+      // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
+      // DFlow deducts fees from the wager, reducing effective shares received
+      const feeBreakdown = calculateTradeFeesForBuy(settings.yesWager, market.yesPrice, 'swipe');
+      const shares = feeBreakdown.netShares;
       const payout = shares.toFixed(2);
       
       if (settings.connected) {
@@ -369,13 +367,10 @@ export default function Home() {
         });
       }
     } else if (direction === 'left') {
-      // Apply accurate cost adjustments using swipe channel fee ($0.05 flat)
-      const platformFee = 0.05; // $0.05 flat fee for swipe channel
-      // Conservative price impact estimate (smaller for swipe's typically smaller trades)
-      const priceImpactRate = settings.noWager < 5 ? 0.015 : 0.01;
-      const priceImpact = settings.noWager * priceImpactRate;
-      const effectiveBetAmount = Math.max(0.01, settings.noWager - platformFee - priceImpact);
-      const shares = effectiveBetAmount / market.noPrice;
+      // Calculate fees using DFlow's fee formula: scale * p * (1-p) * contracts
+      // DFlow deducts fees from the wager, reducing effective shares received
+      const feeBreakdown = calculateTradeFeesForBuy(settings.noWager, market.noPrice, 'swipe');
+      const shares = feeBreakdown.netShares;
       const payout = shares.toFixed(2);
 
       if (settings.connected) {
