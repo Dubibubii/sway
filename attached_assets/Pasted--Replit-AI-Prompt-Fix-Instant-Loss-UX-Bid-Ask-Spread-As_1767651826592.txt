@@ -1,0 +1,168 @@
+# Replit AI Prompt — Fix “Instant Loss” UX (Bid/Ask Spread + Async Sell Proceeds) in SWAY
+
+You already have full repo context in this Replit workspace. Please implement a **simple, friendly, and accurate UX** that explains why users can be “down instantly” after buying and then selling, and prevent the app from showing misleading proceeds when we don’t have a live quote.
+
+## Context / What’s happening
+Users buy shares at the **ASK** (e.g., 19¢) but the portfolio “Value” often displays using **MID** (or an estimated price), and sells execute at the **BID** (e.g., ~13¢). If the user buys and immediately sells, they can realize a loss due to the **bid/ask spread**, especially in thin markets.
+
+We also have an async sell flow where the API returns `expectedUSDC: 0`, and prior code fell back to `entryPrice * shares`, which caused misleading “You received $X” messages. That’s been adjusted to “Processing…”, but we still need better **messaging and transparency**.
+
+Also note: small trades may include **SOL account rent/creation** (one-time) which can feel like a “fee”, so we should label it separately as “network setup cost” when detected.
+
+## Goals
+1. Make the spread understandable to non-crypto users in **1 sentence**.
+2. Stop showing “proceeds” numbers that are not real (especially on async sells).
+3. Show **bid/ask** (or best available proxy) at buy/sell time so users can see what’s happening.
+4. Clarify why:
+   - Position “Value” ≠ what you’ll get if you sell right now
+   - Immediate sells can realize a loss even if the market hasn’t “moved”
+5. Keep UI minimal and friendly.
+
+---
+
+# Product UX Requirements
+
+## A) Add a “Spread” explainer (tooltips + small inline text)
+Where:
+- Trade confirmation (after buy)
+- Position details card (where you show Value)
+- Sell modal (before confirming)
+
+### Copy (choose one consistent set across app)
+**Option 1 (simplest):**
+- “Prices have a buy price and a sell price. If you sell right after buying, the difference (spread) can cause a small loss.”
+
+**Option 2 (slightly more explicit):**
+- “You buy at the best available *buy price* and sell at the best available *sell price*. That gap is the spread.”
+
+**Option 3 (super friendly):**
+- “Think of it like currency exchange: there’s a ‘buy rate’ and a ‘sell rate’. Selling immediately can be lower.”
+
+Add a small “Learn why” link that opens a tiny bottom sheet with:
+- Title: “Why did my value drop?”
+- Bullets (max 3):
+  1) “Your position value uses an estimate (often mid-price).”
+  2) “Selling uses the current sell price (bid).”
+  3) “In less liquid markets, the gap can be larger.”
+
+## B) Display bid/ask (or best available quote) in the right places
+### Buy confirmation / Trade executed modal
+Show:
+- “Buy price: 19¢ (ask)” (use actual fill if known; otherwise use best ask at time of click)
+- “Current sell price: 13¢ (bid)” (if available)
+- “Spread: 6¢ (~31%)” (optional, but very useful)
+
+### Portfolio / Position card
+If you currently show:
+- Cost
+- Value
+Add a subtle label:
+- “Value (estimate)” + tooltip “Estimated using mid-price. Selling uses the bid.”
+
+### Sell modal
+If live quote is available:
+- Show “Estimated proceeds at current bid: $X”
+If quote is NOT available (async / quote failure):
+- Do NOT show a dollar value
+- Show: “We couldn’t fetch a live sell quote. Your proceeds depend on the current sell price and liquidity.”
+- Keep the existing “Processing… check balance in a few seconds” behavior after sell.
+
+## C) Fix the source of truth for “Value”
+Right now, a major confusion is:
+- Card shows Value at mid
+- Sell executes at bid
+Users think we “took” money.
+
+Implement:
+- `markPrice` for display (mid if bid/ask available, else last trade, else entry)
+- `liquidationEstimate` for sell (bid * shares minus fees)
+Make sure the UI labels them clearly:
+- “Value (estimate)” vs “If sold now (estimate)”
+
+## D) Fees vs Spread vs Network costs (separate the concepts)
+Add a lightweight breakdown line in the sell modal (or details sheet):
+
+- “Spread (market): varies”
+- “SWAY fee: $0.05” (or your % fee where relevant)
+- “Network cost (Solana): varies” (only show if you detect account creation/rent or tx fee estimate)
+
+The key is: spread is not a “fee” you charge. It’s market structure.
+
+---
+
+# Engineering Requirements
+
+## 1) Quote fetching strategy (no heavy deps)
+We need a reliable way to fetch bid/ask for a ticker:
+
+Preferred:
+- Use the DFlow WebSocket prices channel to maintain a `quotesByTicker` store in real time.
+Fallback:
+- If WS is not ready, call the existing REST you already use for market metadata/prices.
+
+Store shape:
+- `quotesByTicker[ticker] = { bid, ask, mid, last, ts }`
+
+Expose helpers:
+- `getBid(ticker)`
+- `getAsk(ticker)`
+- `getMid(ticker)` = (bid+ask)/2 when both exist
+
+## 2) Sell flow correctness
+Rules:
+- If API returns actual proceeds -> show them.
+- If API returns `expectedUSDC: 0` / async -> UI must:
+  - not claim proceeds
+  - show “Processing…”
+  - refresh balance automatically after a short delay (e.g., 2s / 5s) and/or poll until the activity shows settled.
+
+## 3) Portfolio value correctness
+- If “Value” uses mid:
+  - label it as estimate
+- Add “If sold now” using bid if we have it.
+- If we don’t have bid:
+  - show “—” and the tooltip “Quote unavailable”.
+
+## 4) Detect and message SOL rent/account creation costs (when applicable)
+If your activity parser can detect:
+- `CREATE_ACCOUNT` with SOL outflow
+Tag it in UI as:
+- “One-time network setup: 0.0033 SOL”
+And add tooltip:
+- “This creates the token account needed to hold shares. It may happen on your first trade in a new market.”
+
+---
+
+# Deliverables
+1) Identify and list the exact components/files for:
+   - Buy confirmation modal
+   - Position card / portfolio list item
+   - Sell modal
+   - Success toast / activity list
+2) Implement quote store (WS or existing feed) and wire it into the above.
+3) Replace any remaining “entry price estimate” usage in sell proceeds with:
+   - bid-based estimate when quote exists
+   - or no value shown when quote doesn’t exist
+4) Add the UX copy + tooltips + bottom sheet explainer.
+5) Add a small QA checklist at end.
+
+---
+
+# Acceptance Criteria (must pass)
+- If user buys and immediately sells:
+  - UI clearly indicates loss can be due to spread
+  - “Value” is labeled as estimate
+  - Sell modal shows bid-based estimate when possible
+  - No screen claims “You received $0.95” when chain shows ~$0.65
+- When quotes are unavailable:
+  - UI says “Could not get live quote” and does not show fake proceeds
+- Spread messaging is short, friendly, and consistent across app.
+
+---
+
+# Notes from observed behavior (use this to guide fixes)
+Example:
+- Bought 5 shares, spent ~$0.96 at ~19¢ (ask)
+- Position value shown ~$0.85 (mid estimate)
+- Sold, chain proceeds ~$0.64–$0.65 (bid execution)
+This is a spread problem + inaccurate fallback estimates. Fix the estimates and educate the user.
