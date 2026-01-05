@@ -273,6 +273,16 @@ export function usePondTrading() {
         } catch {
           throw new Error(`Server error: ${quoteResponse.status} - ${errorText}`);
         }
+        
+        // Provide user-friendly error messages for common DFlow errors
+        const errorMsg = errorData.error || '';
+        if (errorMsg.includes('route_not_found') || errorMsg.includes('Route not found')) {
+          throw new Error('No liquidity available for this trade. This market may have low trading volume or extreme prices. Try a different market.');
+        }
+        if (errorMsg.includes('insufficient_liquidity') || errorMsg.includes('Insufficient liquidity')) {
+          throw new Error('Not enough liquidity to complete this trade at the current price. Try a smaller amount or different market.');
+        }
+        
         throw new Error(errorData.error || 'Failed to get order from DFlow API');
       }
 
