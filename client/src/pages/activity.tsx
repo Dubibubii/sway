@@ -366,7 +366,12 @@ export default function Activity() {
       setIsLoadingSellQuote(true);
       try {
         const side = position.direction.toLowerCase() as 'yes' | 'no';
-        const shares = parseFloat(position.shares);
+        // Use floored shares for quote - Kalshi only accepts whole contracts
+        const shares = Math.floor(parseFloat(position.shares));
+        if (shares < 1) {
+          setSellQuote({ expectedUSDC: 0, priceImpactPct: 0, pricePerShare: 0, warning: null, error: 'Less than 1 whole share - cannot sell fractional shares' });
+          return;
+        }
         const quote = await getSellQuote(position.marketId, side, shares, embeddedWallet.address);
         setSellQuote(quote);
       } catch (err) {
@@ -501,11 +506,11 @@ export default function Activity() {
     
     setIsProcessing(true);
     try {
-      const shares = overrideShares || parseFloat(selectedPosition.shares);
+      const rawShares = overrideShares || parseFloat(selectedPosition.shares);
       const costBasis = selectedPosition.wagerAmount / 100; // Convert cents to dollars
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       
-      console.log('[Activity] Starting close position:', selectedPosition.marketId, side, shares);
+      console.log('[Activity] Starting close position:', selectedPosition.marketId, side, 'rawShares:', rawShares);
       
       // First, get the outcome mint for this position to check redemption
       let positionOutcomeMint = outcomeMint;
@@ -529,6 +534,30 @@ export default function Activity() {
         if (redemptionStatus.isRedeemable) {
           isRedemption = true;
           console.log('[Activity] Market is settled - using redemption flow');
+        }
+      }
+      
+      // Determine shares to use
+      // Redemption at settlement: try full amount (tokens redeem for $1 each, may accept fractional)
+      // Pre-settlement selling: Kalshi requires whole contracts only
+      let shares: number;
+      
+      if (isRedemption) {
+        // Redemption: try full amount first, will fail gracefully if fractional not supported
+        shares = rawShares;
+      } else {
+        // Selling: must floor to whole contracts
+        shares = Math.floor(rawShares);
+        
+        if (shares < 1) {
+          toast({ 
+            title: 'Cannot Sell Fractional Shares', 
+            description: `You have ${rawShares.toFixed(2)} shares but only whole contracts can be sold. Wait for market settlement to redeem.`,
+            variant: 'destructive'
+          });
+          setCloseModalOpen(false);
+          setIsProcessing(false);
+          return;
         }
       }
       
@@ -594,6 +623,9 @@ export default function Activity() {
       // Use the same estimate as the sell modal: shares * entry price
       const entryPrice = parseFloat(selectedPosition.price) || 0;
       const estimatedValue = shares * entryPrice;
+      const recordedShares = parseFloat(selectedPosition.shares);
+      const remainingShares = recordedShares - shares;
+      const hasRemainingFractional = remainingShares > 0.01;
       
       let usdcReceived = result.expectedUSDC || 0;
       let isEstimate = false;
@@ -606,27 +638,51 @@ export default function Activity() {
         console.log('[Activity] Using modal estimate for consistency:', usdcReceived.toFixed(2), '(shares:', shares, '× price:', entryPrice, ')');
       }
       
-      const pnl = usdcReceived - costBasis;
-      const pnlPercent = costBasis > 0 ? ((pnl / costBasis) * 100) : 0;
+      // Calculate P&L only on the shares actually sold (proportional to cost basis)
+      const proportionSold = shares / recordedShares;
+      const proportionalCostBasis = costBasis * proportionSold;
+      const pnl = usdcReceived - proportionalCostBasis;
+      const pnlPercent = proportionalCostBasis > 0 ? ((pnl / proportionalCostBasis) * 100) : 0;
       
-      console.log('[Activity] Position closed! USDC received:', usdcReceived, 'PnL:', pnl, 'PnL%:', pnlPercent, isEstimate ? '(estimate)' : '');
+      console.log('[Activity] Position sold! Shares:', shares, 'of', recordedShares, 'USDC:', usdcReceived, 'PnL:', pnl, 'Remaining:', remainingShares);
       
       // Update the database
       const token = await getAccessToken();
-      const res = await fetch(`/api/trades/${selectedPosition.id}/close`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          pnl: pnl.toFixed(2),
-          payout: usdcReceived,
-        }),
-      });
+      
+      if (hasRemainingFractional) {
+        // Partial sell - update position with remaining shares instead of closing
+        // Backend recalculates wagerAmount proportionally based on actualShares
+        const res = await fetch(`/api/trades/${selectedPosition.id}/shares`, {
+          method: 'PATCH',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({ actualShares: remainingShares }),
+        });
+        
+        if (!res.ok) {
+          console.error('[Activity] Failed to update position with remaining shares');
+        } else {
+          console.log('[Activity] Position updated with remaining fractional shares:', remainingShares);
+        }
+      } else {
+        // Full close - no remaining shares
+        const res = await fetch(`/api/trades/${selectedPosition.id}/close`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({
+            pnl: pnl.toFixed(2),
+            payout: usdcReceived,
+          }),
+        });
 
-      if (!res.ok) {
-        console.error('[Activity] Failed to update database after close');
+        if (!res.ok) {
+          console.error('[Activity] Failed to update database after close');
+        }
       }
 
       // SUCCESS - Close modal and show success
@@ -635,15 +691,13 @@ export default function Activity() {
       
       // Format message based on whether it was a redemption or sale
       const action = isRedemption ? 'Redeemed' : 'Sold';
-      const recordedShares = parseFloat(selectedPosition.shares);
-      const isPartialFill = shares < recordedShares;
       const direction = selectedPosition.direction;
       const pnlSign = pnl >= 0 ? '+' : '';
       
       // Build description with all relevant info
-      let description = `${shares.toFixed(2)} shares for $${usdcReceived.toFixed(2)}${isEstimate ? ' (est.)' : ''}`;
-      if (isPartialFill) {
-        description += ` | Partial: ${shares.toFixed(0)}/${recordedShares.toFixed(0)} shares`;
+      let description = `${shares} shares for $${usdcReceived.toFixed(2)}${isEstimate ? ' (est.)' : ''}`;
+      if (hasRemainingFractional) {
+        description += ` | ${remainingShares.toFixed(2)} fractional shares remain (redeem at settlement)`;
       }
       description += ` | P&L: ${pnlSign}$${pnl.toFixed(2)} (${pnlSign}${pnlPercent.toFixed(0)}%)`;
       
@@ -737,12 +791,24 @@ export default function Activity() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            {selectedPosition && (
+            {selectedPosition && (() => {
+              const totalShares = parseFloat(selectedPosition.shares);
+              const wholeShares = Math.floor(totalShares);
+              const fractionalShares = totalShares - wholeShares;
+              const hasFractional = fractionalShares > 0.01;
+              
+              return (
               <div className="bg-zinc-800 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shares to Sell</span>
-                  <span>{parseFloat(selectedPosition.shares).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Whole Shares to Sell</span>
+                  <span>{wholeShares}</span>
                 </div>
+                {hasFractional && (
+                  <div className="flex justify-between text-sm text-amber-400">
+                    <span>Fractional (can't sell)</span>
+                    <span>{fractionalShares.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Entry Price</span>
                   <span>{(parseFloat(selectedPosition.price) * 100).toFixed(0)}¢</span>
@@ -751,6 +817,13 @@ export default function Activity() {
                   <span className="text-muted-foreground">Cost Basis</span>
                   <span>${(selectedPosition.wagerAmount / 100).toFixed(2)}</span>
                 </div>
+                {hasFractional && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2">
+                    <p className="text-xs text-amber-400">
+                      Only whole contracts can be sold. {fractionalShares.toFixed(2)} fractional shares will remain in your wallet.
+                    </p>
+                  </div>
+                )}
                 
                 {/* Sell Quote Section */}
                 {isLoadingSellQuote ? (
@@ -787,7 +860,7 @@ export default function Activity() {
                   <>
                     <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
                       <span>Est. Value (at entry price)</span>
-                      <span>${(parseFloat(selectedPosition.shares) * parseFloat(selectedPosition.price)).toFixed(2)}</span>
+                      <span>${(wholeShares * parseFloat(selectedPosition.price)).toFixed(2)}</span>
                     </div>
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
                       <p className="text-xs text-amber-400">
@@ -797,7 +870,7 @@ export default function Activity() {
                   </>
                 )}
               </div>
-            )}
+            );})()}
             <div className="flex gap-2">
               <Button
                 variant="outline"
