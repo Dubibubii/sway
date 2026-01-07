@@ -108,6 +108,17 @@ export async function getMarkets(limit = 50, cursor?: string): Promise<Simplifie
 // Start background cache refresh
 let cacheRefreshInProgress = false;
 
+// Callback to notify when market cache is populated (for initialization status extraction)
+let onMarketCacheReady: ((markets: SimplifiedMarket[]) => void) | null = null;
+
+export function setMarketCacheReadyCallback(callback: (markets: SimplifiedMarket[]) => void): void {
+  onMarketCacheReady = callback;
+  // If cache already exists, call immediately
+  if (marketCache.length > 0) {
+    callback(marketCache);
+  }
+}
+
 export function startBackgroundCacheRefresh(): void {
   if (cacheRefreshInProgress) return;
   
@@ -119,6 +130,11 @@ export function startBackgroundCacheRefresh(): void {
       marketCache = markets;
       cacheTimestamp = Date.now();
       console.log(`Background cache refresh complete: ${marketCache.length} markets`);
+      
+      // Notify callback that cache is ready (for initialization status extraction)
+      if (onMarketCacheReady) {
+        onMarketCacheReady(markets);
+      }
     }
     cacheRefreshInProgress = false;
   }).catch(err => {

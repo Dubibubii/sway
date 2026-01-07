@@ -1,12 +1,12 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, setMarketCacheReadyCallback, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
-import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, startMarketInfoPrewarm, SOLANA_TOKENS } from "./pond-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, populateMarketInfoFromCache, SOLANA_TOKENS } from "./pond-trading";
 import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
 // Note: Using native fetch (Node.js 20+) - no need for node-fetch
 
@@ -59,15 +59,17 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // Register callback to populate market info cache from price cache
+  // This is MUCH faster than separate /events pagination (~2s vs ~30s)
+  setMarketCacheReadyCallback((markets) => {
+    populateMarketInfoFromCache(markets);
+  });
+  
   // Start background cache refresh on server startup
   setTimeout(() => {
     console.log('Triggering initial market cache refresh...');
     startBackgroundCacheRefresh();
   }, 2000);
-  
-  // Pre-warm market info cache immediately (for isInitialized checking)
-  // This runs in background and doesn't block - the sooner we start, the better
-  startMarketInfoPrewarm();
   
   // Provide RPC config to client at runtime (for production where build-time vars may be stale)
   app.get('/api/config/rpc', (_req: Request, res: Response) => {

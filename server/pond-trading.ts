@@ -240,51 +240,40 @@ export interface DflowMarketInfo {
 let dflowMarketInfoCache: Map<string, boolean> = new Map();
 let dflowMarketInfoCacheTime = 0;
 
-// Promise to track ongoing market info fetch (prevents duplicate fetches)
-let dflowMarketInfoFetchPromise: Promise<Set<string>> | null = null;
-
 // Get market info with isInitialized status
-// ALWAYS returns immediately (non-blocking) - returns empty map if cache not ready
+// ALWAYS returns immediately (non-blocking) - returns cached map
 export async function getDflowMarketInfo(): Promise<Map<string, boolean>> {
   const now = Date.now();
   
-  // Return cache if valid
+  // Return cache if valid (cache is populated from market price cache, not separate API call)
   if (dflowMarketInfoCache.size > 0 && (now - dflowMarketInfoCacheTime) < DFLOW_CACHE_TTL) {
     return dflowMarketInfoCache;
   }
   
-  // If cache is stale but has data, return it immediately and trigger background refresh
+  // If cache is stale but has data, return it immediately
+  // The market cache refresh will update this automatically via callback
   if (dflowMarketInfoCache.size > 0) {
-    console.log('[Pond] Market info cache stale, returning cached data and refreshing in background');
-    // Trigger non-blocking background refresh (reuse existing promise if available)
-    if (!dflowMarketInfoFetchPromise) {
-      dflowMarketInfoFetchPromise = getAvailableDflowMarkets().finally(() => {
-        dflowMarketInfoFetchPromise = null;
-      });
-    }
     return dflowMarketInfoCache;
   }
   
-  // No cache at all - trigger background fetch but return empty immediately
-  // This prevents blocking requests during startup
-  console.log('[Pond] Market info cache empty, returning empty map and fetching in background');
-  if (!dflowMarketInfoFetchPromise) {
-    dflowMarketInfoFetchPromise = getAvailableDflowMarkets().finally(() => {
-      dflowMarketInfoFetchPromise = null;
-    });
-  }
+  // No cache at all - return empty (will be populated when market cache loads)
   return new Map();
 }
 
-// Start market info pre-warming at import time (immediate, non-blocking)
-export function startMarketInfoPrewarm(): void {
-  console.log('[Pond] Starting market info pre-warm...');
-  if (!dflowMarketInfoFetchPromise) {
-    dflowMarketInfoFetchPromise = getAvailableDflowMarkets().finally(() => {
-      dflowMarketInfoFetchPromise = null;
-      console.log('[Pond] Market info pre-warm complete');
-    });
+// Populate market info cache from SimplifiedMarket array (called when market cache is ready)
+export function populateMarketInfoFromCache(markets: { id: string; isInitialized?: boolean }[]): void {
+  const newCache = new Map<string, boolean>();
+  for (const market of markets) {
+    newCache.set(market.id, market.isInitialized ?? false);
   }
+  dflowMarketInfoCache = newCache;
+  dflowMarketInfoCacheTime = Date.now();
+  console.log(`[Pond] Market info cache populated from price cache: ${newCache.size} markets`);
+}
+
+// Check if market info cache is ready
+export function isMarketInfoCacheReady(): boolean {
+  return dflowMarketInfoCache.size > 0;
 }
 
 // Fetch all available markets from DFlow and cache them
