@@ -304,7 +304,6 @@ export default function Home() {
           
           // Use the pre-calculated whole shares (from fee breakdown)
           const confirmedShares = result.actualShares || shares;
-          const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent;
           const isAsync = result.executionMode === 'async';
           
           // Calculate leftover from original wager
@@ -473,7 +472,6 @@ export default function Home() {
           
           // Use the pre-calculated whole shares (from fee breakdown)
           const confirmedShares = result.actualShares || shares;
-          const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).noPercent;
           const isAsync = result.executionMode === 'async';
           
           // Calculate leftover from original wager
