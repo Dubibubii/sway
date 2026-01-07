@@ -32,10 +32,45 @@ interface Trade {
   price: string;
   shares: string;
   estimatedPayout: string;
+  entryFee: string | null; // Platform fee at entry
   isClosed: boolean;
   closedAt: string | null;
   pnl: string | null;
   createdAt: string;
+}
+
+// Back-calculate raw market price from cost basis and fees
+// Using quadratic formula since DFlow fee = scale * p * (1-p) * contracts
+function calculateRawMarketPrice(costBasis: number, platformFee: number, shares: number): number {
+  if (shares < 0.001) return 0; // Epsilon check for near-zero shares
+  
+  const DFLOW_SCALE = 0.09; // Frost tier taker fee
+  const netCost = costBasis - platformFee;
+  
+  // Solve: netCost = shares * p + DFLOW_SCALE * p * (1-p) * shares
+  // => netCost = shares * p * (1 + DFLOW_SCALE - DFLOW_SCALE * p)
+  // => DFLOW_SCALE * shares * p^2 - shares * (1 + DFLOW_SCALE) * p + netCost = 0
+  // Using quadratic formula: p = (b ± sqrt(b² - 4ac)) / 2a
+  const a = DFLOW_SCALE * shares;
+  const b = -shares * (1 + DFLOW_SCALE);
+  const c = netCost;
+  
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) {
+    // Fallback to simple approximation
+    return netCost / shares;
+  }
+  
+  const sqrtD = Math.sqrt(discriminant);
+  const p1 = (-b + sqrtD) / (2 * a);
+  const p2 = (-b - sqrtD) / (2 * a);
+  
+  // Choose the valid price (0 < p < 1)
+  if (p2 > 0 && p2 < 1) return p2;
+  if (p1 > 0 && p1 < 1) return p1;
+  
+  // Fallback
+  return netCost / shares;
 }
 
 export default function Activity() {
@@ -863,8 +898,14 @@ export default function Activity() {
               const fractionalShares = totalShares - wholeShares;
               const hasFractional = fractionalShares > 0.01;
               const isYes = selectedPosition.direction.toUpperCase() === 'YES';
-              const entryPrice = parseFloat(selectedPosition.price);
               const costBasis = selectedPosition.wagerAmount / 100;
+              const storedEntryFee = parseFloat(selectedPosition.entryFee || '0');
+              // Use swipe flat fee ($0.05) if no entry fee stored, or stored fee is suspiciously small
+              const platformFee = storedEntryFee >= 0.01 ? storedEntryFee : 0.05;
+              // Calculate raw market price using TOTAL shares (not floored) to match stored cost basis
+              const rawMarketPrice = calculateRawMarketPrice(costBasis, platformFee, totalShares);
+              // Keep entryPrice for compatibility (cost per share including fees)
+              const entryPrice = parseFloat(selectedPosition.price);
               
               // Get current prices - prefer quote pricePerShare, then orderbook, then live data
               const ob = sellQuote?.orderbook;
@@ -937,7 +978,7 @@ export default function Activity() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">You bought at</span>
-                    <span>{(entryPrice * 100).toFixed(0)}¢</span>
+                    <span>{(rawMarketPrice * 100).toFixed(0)}¢</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Cost basis</span>
