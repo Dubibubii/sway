@@ -101,7 +101,7 @@ export default function Discovery() {
       setTimeout(() => {
         refetchBalance();
         queryClient.invalidateQueries({ queryKey: ['positions'] });
-        queryClient.invalidateQueries({ queryKey: ['trades'] });
+        queryClient.invalidateQueries({ queryKey: ['tradeHistory'] });
       }, 2000);
       
       // Show success and close modal

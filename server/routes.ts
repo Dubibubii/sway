@@ -453,6 +453,32 @@ export async function registerRoutes(
     }
   });
 
+  // Paginated closed trades (history) endpoint
+  app.get('/api/trades/history', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.userId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const result = await storage.getClosedTrades(req.userId, limit, offset);
+      const nextOffset = offset + result.trades.length;
+      const hasMore = nextOffset < result.total;
+      
+      res.json({ 
+        trades: result.trades, 
+        total: result.total,
+        hasMore,
+        nextOffset: hasMore ? nextOffset : null
+      });
+    } catch (error) {
+      console.error('Error fetching trade history:', error);
+      res.status(500).json({ error: 'Failed to fetch trade history' });
+    }
+  });
+
   app.get('/api/positions', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.userId) {

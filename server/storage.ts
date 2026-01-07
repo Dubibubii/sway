@@ -22,6 +22,7 @@ export interface IStorage {
   
   createTrade(trade: InsertTrade): Promise<Trade>;
   getUserTrades(userId: string): Promise<Trade[]>;
+  getClosedTrades(userId: string, limit?: number, offset?: number): Promise<{ trades: Trade[]; total: number }>;
   getOpenPositions(userId: string): Promise<Trade[]>;
   getOpenTradeForUserMarketDirection(userId: string, marketId: string, direction: string): Promise<Trade | undefined>;
   updateTradePosition(tradeId: string, updates: { wagerAmount: number; shares: string; entryFee: string; estimatedPayout: string; price: string }): Promise<Trade>;
@@ -68,6 +69,24 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(trades)
       .where(eq(trades.userId, userId))
       .orderBy(desc(trades.createdAt));
+  }
+
+  async getClosedTrades(userId: string, limit: number = 50, offset: number = 0): Promise<{ trades: Trade[]; total: number }> {
+    const [tradesResult, countResult] = await Promise.all([
+      db.select().from(trades)
+        .where(and(eq(trades.userId, userId), eq(trades.isClosed, true)))
+        .orderBy(desc(trades.closedAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(trades)
+        .where(and(eq(trades.userId, userId), eq(trades.isClosed, true)))
+    ]);
+    
+    return {
+      trades: tradesResult,
+      total: Number(countResult[0]?.count || 0)
+    };
   }
 
   async getOpenPositions(userId: string): Promise<Trade[]> {

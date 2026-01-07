@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { useSolanaTransaction } from '@/hooks/use-solana-transaction';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
@@ -85,21 +85,48 @@ export default function Activity() {
     enabled: authenticated,
   });
 
-  const { data: tradesData, isLoading: tradesLoading } = useQuery({
-    queryKey: ['trades'],
-    queryFn: async () => {
+  // Paginated history with infinite scroll
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['tradeHistory'],
+    queryFn: async ({ pageParam = 0 }) => {
       const token = await getAccessToken();
-      const res = await fetch('/api/trades', {
+      const res = await fetch(`/api/trades/history?limit=20&offset=${pageParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to fetch trades');
-      return res.json() as Promise<{ trades: Trade[] }>;
+      if (!res.ok) throw new Error('Failed to fetch trade history');
+      return res.json() as Promise<{ trades: Trade[]; total: number; hasMore: boolean; nextOffset: number | null }>;
     },
+    getNextPageParam: (lastPage) => {
+      // Use explicit nextOffset from server to avoid infinite loop
+      return lastPage.nextOffset ?? undefined;
+    },
+    initialPageParam: 0,
     enabled: authenticated,
   });
 
   const activePositions = positionsData?.positions || [];
-  const closedTrades = tradesData?.trades.filter(t => t.isClosed) || [];
+  const closedTrades = historyData?.pages.flatMap(page => page.trades) || [];
+  const totalClosedTrades = historyData?.pages[0]?.total || 0;
+  
+  // History scroll container ref for infinite scroll
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Handle scroll to load more history
+  const handleHistoryScroll = useCallback(() => {
+    if (!historyScrollRef.current || isFetchingNextPage || !hasNextPage) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = historyScrollRef.current;
+    // Load more when user scrolls within 100px of bottom
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   const handleCardClick = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -323,7 +350,7 @@ export default function Activity() {
     setTimeout(() => {
       refetchBalance();
       queryClient.invalidateQueries({ queryKey: ['positions'] });
-      queryClient.invalidateQueries({ queryKey: ['trades'] });
+      queryClient.invalidateQueries({ queryKey: ['tradeHistory'] });
     }, 2000);
   };
 
@@ -501,7 +528,7 @@ export default function Activity() {
       setTimeout(() => {
         refetchBalance();
         queryClient.invalidateQueries({ queryKey: ['positions'] });
-        queryClient.invalidateQueries({ queryKey: ['trades'] });
+        queryClient.invalidateQueries({ queryKey: ['tradeHistory'] });
       }, 2000);
       
     } catch (error: any) {
@@ -726,7 +753,7 @@ export default function Activity() {
       setTimeout(() => {
         refetchBalance();
         queryClient.invalidateQueries({ queryKey: ['positions'] });
-        queryClient.invalidateQueries({ queryKey: ['trades'] });
+        queryClient.invalidateQueries({ queryKey: ['tradeHistory'] });
       }, 2000);
       
     } catch (error: any) {
@@ -748,7 +775,7 @@ export default function Activity() {
     );
   }
 
-  const isLoading = positionsLoading || tradesLoading;
+  const isLoading = positionsLoading;
 
   return (
     <Layout>
@@ -1160,15 +1187,35 @@ export default function Activity() {
              </div>
 
              {/* History */}
-             <div>
-               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">History</h2>
+             <div className="flex flex-col">
+               <div className="flex items-center justify-between mb-4">
+                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">History</h2>
+                 {totalClosedTrades > 0 && (
+                   <span className="text-xs text-muted-foreground">{closedTrades.length} of {totalClosedTrades}</span>
+                 )}
+               </div>
                
-               {closedTrades.length === 0 ? (
+               {historyLoading ? (
+                 <div className="flex items-center justify-center py-8">
+                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                 </div>
+               ) : closedTrades.length === 0 ? (
                  <div className="text-center py-8 text-muted-foreground text-sm">
                    No trade history yet
                  </div>
                ) : (
-                 <div className="max-h-[50vh] overflow-y-auto pr-2 space-y-4">
+                 <div 
+                   ref={historyScrollRef}
+                   onScroll={handleHistoryScroll}
+                   className="overflow-y-auto overscroll-contain touch-pan-y pr-2 space-y-4 pb-24"
+                   style={{ 
+                     height: 'calc(100vh - 450px)', 
+                     minHeight: '250px',
+                     maxHeight: '500px',
+                     WebkitOverflowScrolling: 'touch' 
+                   }}
+                   data-testid="history-scroll-container"
+                 >
                     {closedTrades.map((trade) => {
                       const pnl = parseFloat(trade.pnl || '0');
                       return (
@@ -1190,6 +1237,27 @@ export default function Activity() {
                         </div>
                       );
                     })}
+                    
+                    {/* Load more indicator */}
+                    {isFetchingNextPage && (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
+                        <span className="text-xs text-muted-foreground">Loading more...</span>
+                      </div>
+                    )}
+                    
+                    {/* Load more button as fallback */}
+                    {hasNextPage && !isFetchingNextPage && (
+                      <Button 
+                        variant="ghost" 
+                        className="w-full text-muted-foreground hover:text-white"
+                        onClick={() => fetchNextPage()}
+                        data-testid="load-more-history"
+                      >
+                        <ChevronDown className="w-4 h-4 mr-2" />
+                        Load more ({totalClosedTrades - closedTrades.length} remaining)
+                      </Button>
+                    )}
                  </div>
                )}
              </div>
