@@ -1,0 +1,147 @@
+# Replit AI Prompt — Redesign “Sell Position” Modal to Make Price (Bid/Ask) Obvious to First-Time Traders
+
+You already have full repo context. Please redesign the **Sell Position** pop-up so a user who has never traded understands immediately:
+
+- what price they bought at (entry)
+- what the position is worth *right now*
+- why “current value” can be lower than entry (bid/ask spread)
+- what they will actually receive if they sell now
+
+## Current Problem (from screenshot)
+- User bought YES at **14¢** (Entry Price)
+- Current orderbook shows **Bid 8¢ / Ask 11¢**
+- The modal currently shows:
+  - Entry Price 14¢
+  - “YES Orderbook 9¢ / 11¢” (hard to interpret)
+  - Gross Value (7 × 8¢) $0.57
+  - “Trading Fees -$0.05”
+  - “You’ll receive $0.57” (this looks inconsistent and causes distrust)
+
+The issue is **the user does not understand which number is the current sell price** and why it differs from entry.
+
+## Goal
+Make the modal “obvious in 2 seconds”:
+1) “If you sell now, you sell at the SELL price (Bid).”
+2) “Your position value uses the sell price.”
+3) “Entry price is just what you paid before.”
+
+---
+
+# UX Changes (Implementation Spec)
+
+## 1) Replace “YES Orderbook 9¢ / 11¢” with a simple “Current Prices” block
+Add a large, simple block near the top:
+
+### Proposed layout
+**Current YES Price**
+- **Sell now (you receive): 8¢**  ← this is the BID (make it the biggest number)
+- Buy now: 11¢ (ask)
+- Small label: “Prices differ because of spread”
+
+Copy should be *non-technical*. Avoid “bid/ask” unless in a tooltip.
+
+### Suggested microcopy
+- Label for Bid: **“Sell price”**
+- Label for Ask: **“Buy price”**
+- Tooltip on “spread”: “Like exchange rates — there’s a buy price and a sell price.”
+
+## 2) Make “You’ll receive” math consistent and transparent
+Right now the modal implies:
+- Gross Value uses 8¢
+- Fees show -$0.05
+But “You’ll receive” still equals gross, which is confusing.
+
+Fix:
+- `gross = shares * sellPrice`
+- `fees = tradingFee + platformFee (if applicable)`
+- `net = gross - fees`
+Render these clearly:
+
+**You’ll receive (estimated): $NET**
+- 7 shares × 8¢ = $0.56 (or $0.57 depending on rounding)
+- Fees: -$0.05
+- Net: $0.51
+
+If your sell is async and the final net may vary, add:
+- “Final amount may change slightly if the price moves before fill.”
+
+## 3) Demote Entry Price; keep it as context
+Entry price is not the actionable price for selling. Move it below the “Current YES Price” block and label it:
+
+- “You bought at: 14¢”
+- “Current sell price: 8¢”
+- “Difference: -6¢” (optional)
+
+## 4) Add a tiny, friendly “Why is it lower?” disclosure
+Under the current prices block:
+- “Why can this be lower?” [link]
+Opens a short inline expand (no separate screen):
+
+**Because of spread**
+- “You buy at the buy price.”
+- “You sell at the sell price.”
+- “If you sell right away, the gap can look like an instant loss.”
+
+Keep to 3 bullets max.
+
+## 5) Visual hierarchy rules (important)
+- The **largest number** in the modal should be the **Current sell price** (8¢) or **Net proceeds ($0.51)**.
+- Avoid showing “Orderbook 9¢ / 11¢” as the only indicator—users don’t know what it means.
+- Use plain English labels: “Sell price” and “Buy price”.
+
+---
+
+# Engineering Requirements
+
+## Data sources
+Use existing quote/orderbook source in app:
+- `sellPrice = bestBid` (what user will likely receive per share)
+- `buyPrice = bestAsk` (for reference)
+If bid is unavailable:
+- show “Sell price unavailable” and disable sell OR show “Market illiquid”.
+
+## Rounding
+- Display share price as integer cents (8¢).
+- Display proceeds in USD to 2 decimals.
+- Ensure net = gross - fees matches the number shown in “You’ll receive”.
+
+## Async sell handling
+If the sell endpoint returns `expectedUSDC: 0`:
+- Still show estimates based on current best bid, but label as:
+  - “Estimated (final updates after fill)”
+- After user confirms:
+  - toast: “Sell submitted — processing…”
+  - do NOT claim a final dollar number until settled.
+
+---
+
+# Deliverables
+1) Update the Sell Position modal UI component:
+   - Add “Current YES Price” block (Sell price big, Buy price small)
+   - Update fee math and ensure “You’ll receive” = net
+   - Add “Why is it lower?” explainer disclosure
+2) Remove/replace the current “YES Orderbook X¢ / Y¢” row.
+   - If you keep it, hide behind an “Advanced” dropdown.
+
+---
+
+# Acceptance Tests
+- A brand new user can answer:
+  - “What price will I sell at?” (They should say: the Sell price, 8¢)
+  - “Why am I down from 14¢?” (Spread explanation)
+  - “How much will I receive?” (Net proceeds number matches math)
+- “You’ll receive” always equals gross minus fees (no inconsistencies).
+- No “fake proceeds” are shown on async fills (label estimates clearly).
+
+---
+
+# Implementation Guidance
+Start by locating the Sell Position modal component used in the screenshot and:
+- refactor into sections: Header → Current Price Block → Position Details → Proceeds Breakdown → Actions
+- add a small `PricePill` subcomponent for “Sell price” / “Buy price”
+- add `Disclosure` for spread explainer
+
+Proceed to implement and show me:
+- file paths changed
+- key JSX/TS changes
+- any new helper functions for quote fetching and fee calculations
