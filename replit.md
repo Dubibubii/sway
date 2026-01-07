@@ -123,6 +123,10 @@ Preferred communication style: Simple, everyday language.
     - Fee utility: `client/src/utils/dflowFees.ts` calculates accurate fees and net shares
     - Note: DFlow deducts fees from wager, reducing effective shares received
     - **Important**: Fees are NOT the reason trades feel expensive - the bid-ask spread has much bigger impact
+  - **SpreadExplainerSheet**: Educational modal (`client/src/components/spread-explainer.tsx`) explaining bid-ask spread concept
+    - Uses example 60¢/52¢ buy/sell prices to illustrate the spread concept
+    - Explains why estimated values may differ from cost basis
+    - Triggered from position cards help icon and discovery buy confirmation
   - **Whole Shares Constraint**:
     - Kalshi only accepts whole contracts (integers), no fractional shares
     - `calculateTradeFeesForBuy` floors shares to whole numbers before returning
