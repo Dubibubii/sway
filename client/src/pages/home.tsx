@@ -233,12 +233,10 @@ export default function Home() {
   // Motion values for the active card to drive UI feedback
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-
-  // Reset motion values when markets change (new card becomes active)
-  useEffect(() => {
-    x.set(0);
-    y.set(0);
-  }, [displayedMarkets, x, y]);
+  
+  // Note: Motion value reset is handled in handleSwipe's setTimeout, after the card removal animation.
+  // DO NOT add a useEffect that resets x/y on displayedMarkets change - it causes the card to snap back
+  // before the swipe animation completes.
 
   // Button transforms based on drag
   const noScale = useTransform(x, [-150, 0], [1.2, 1]);
