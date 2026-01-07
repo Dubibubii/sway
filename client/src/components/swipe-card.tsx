@@ -223,16 +223,10 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
                 <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).noPercent}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-zinc-500">If No:</span>
                 <span className="text-zinc-400">${settings.noWager}</span>
                 <span className="text-zinc-500">→</span>
                 <span className="text-rose-400 font-semibold">${(() => {
-                  const returnVal = settings.noWager / market.noPrice;
-                  const multiplier = 1 / market.noPrice;
-                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
-                })()}</span>
-              </div>
-              <div className="text-[10px] text-zinc-500 mt-0.5">
-                If No: <span className="text-rose-400 font-medium">${(() => {
                   const returnVal = settings.noWager / market.noPrice;
                   const multiplier = 1 / market.noPrice;
                   return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
@@ -246,16 +240,10 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
                 <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-zinc-500">If Yes:</span>
                 <span className="text-zinc-400">${settings.yesWager}</span>
                 <span className="text-zinc-500">→</span>
                 <span className="text-[#1ED78B] font-semibold">${(() => {
-                  const returnVal = settings.yesWager / market.yesPrice;
-                  const multiplier = 1 / market.yesPrice;
-                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
-                })()}</span>
-              </div>
-              <div className="text-[10px] text-zinc-500 mt-0.5">
-                If Yes: <span className="text-[#1ED78B] font-medium">${(() => {
                   const returnVal = settings.yesWager / market.yesPrice;
                   const multiplier = 1 / market.yesPrice;
                   return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
