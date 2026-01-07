@@ -3,7 +3,7 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, HelpCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, ChevronRight, HelpCircle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -914,10 +914,13 @@ export default function Activity() {
                       {sellPrice < entryPrice && (
                         <button 
                           onClick={() => setShowSpreadExplainer(true)}
-                          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2.5 py-1.5 rounded-full transition-all mt-2"
+                          className="flex items-center gap-2 w-full text-xs bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 px-3 py-2 rounded-lg transition-all mt-3"
                         >
-                          <HelpCircle size={12} />
-                          <span>Why is this lower?</span>
+                          <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                            <Info size={12} className="text-amber-400" />
+                          </div>
+                          <span>Why is the sell price lower than my entry?</span>
+                          <ChevronRight size={14} className="ml-auto text-amber-400/60" />
                         </button>
                       )}
                     </div>
