@@ -65,6 +65,9 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             style={{ zIndex: 99999 }}
             onClick={onClose}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onMouseDownCapture={(e) => e.stopPropagation()}
+            onFocusCapture={(e) => e.stopPropagation()}
           />
           
           <motion.div
@@ -75,6 +78,9 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             className="fixed inset-x-0 bottom-0 max-h-[85vh] bg-zinc-900 rounded-t-3xl overflow-hidden"
             style={{ zIndex: 99999 }}
             onClick={(e) => e.stopPropagation()}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onMouseDownCapture={(e) => e.stopPropagation()}
+            onFocusCapture={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-5">
               <div className="flex items-center justify-between">
