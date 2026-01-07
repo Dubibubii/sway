@@ -737,6 +737,30 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
                       {hasAccurateQuote ? '' : '~'}{estimatedShares.toFixed(2)}
                     </span>
                   </div>
+                  
+                  {(() => {
+                    const buyPrice = betDirection === 'YES' 
+                      ? (selectedMarket.yesAsk ?? selectedMarket.yesPrice)
+                      : (selectedMarket.noAsk ?? selectedMarket.noPrice);
+                    const sellPrice = betDirection === 'YES'
+                      ? (selectedMarket.yesBid ?? selectedMarket.yesPrice * 0.9)
+                      : (selectedMarket.noBid ?? selectedMarket.noPrice * 0.9);
+                    const spreadCents = Math.round((buyPrice - sellPrice) * 100);
+                    const hasBidAsk = betDirection === 'YES' 
+                      ? (selectedMarket.yesAsk !== undefined && selectedMarket.yesBid !== undefined)
+                      : (selectedMarket.noAsk !== undefined && selectedMarket.noBid !== undefined);
+                    
+                    return hasBidAsk && spreadCents > 0 ? (
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          Sell price now
+                          <span className="text-amber-400/70 text-[10px]">({spreadCents}¢ spread)</span>
+                        </span>
+                        <span className="text-amber-400">{(sellPrice * 100).toFixed(0)}¢</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">If you win</span>
                     <span className={betDirection === 'YES' ? 'text-[#1ED78B]' : 'text-rose-400'}>

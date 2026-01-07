@@ -3,7 +3,7 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { FEE_CONFIG } from '@shared/schema';
 import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
+import { SpreadExplainerSheet } from '@/components/spread-explainer';
 
 type BulkSellMode = 'all' | 'losing' | 'winning' | null;
 
@@ -64,6 +65,9 @@ export default function Activity() {
     error?: string;
   } | null>(null);
   const [isLoadingSellQuote, setIsLoadingSellQuote] = useState(false);
+  
+  // Spread explainer state (educational modal)
+  const [showSpreadExplainer, setShowSpreadExplainer] = useState(false);
   
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
@@ -779,6 +783,11 @@ export default function Activity() {
 
   return (
     <Layout>
+      <SpreadExplainerSheet
+        open={showSpreadExplainer}
+        onClose={() => setShowSpreadExplainer(false)}
+      />
+      
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
           <DialogHeader>
@@ -875,12 +884,28 @@ export default function Activity() {
                   </div>
                 ) : sellQuote && !sellQuote.error && sellQuote.expectedUSDC > 0 ? (
                   <>
-                    <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
-                      <span>Expected USDC</span>
-                      <span className="text-[#1ED78B]">
-                        ${sellQuote.expectedUSDC.toFixed(2)}
-                      </span>
-                    </div>
+                    {(() => {
+                      const costBasisAmt = selectedPosition.wagerAmount / 100;
+                      const netAmount = sellQuote.expectedUSDC;
+                      const pnlFromSale = netAmount - costBasisAmt;
+                      
+                      return (
+                        <>
+                          <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                            <span>You'll receive</span>
+                            <span className="text-[#1ED78B]">
+                              ${netAmount.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                            <span>P&L from this sale</span>
+                            <span className={pnlFromSale >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}>
+                              {pnlFromSale >= 0 ? '+' : ''}${pnlFromSale.toFixed(2)}
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                     {sellQuote.priceImpactPct > 1 && (
                       <div className="flex justify-between text-xs text-amber-400">
                         <span>Price Impact</span>
@@ -1133,7 +1158,22 @@ export default function Activity() {
                                 {/* Show clear cost breakdown */}
                                 <div className="flex items-center gap-3 mt-1.5 text-[10px]">
                                   <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
-                                  <span className="text-muted-foreground">Value: <span className={pnl >= 0 ? 'text-[#1ED78B] font-medium' : 'text-red-400 font-medium'}>${currentValue.toFixed(2)}</span></span>
+                                  <span className="text-muted-foreground flex items-center gap-1">
+                                    Value{!hasLivePrice ? '' : ' (est)'}: 
+                                    <span className={pnl >= 0 ? 'text-[#1ED78B] font-medium' : 'text-red-400 font-medium'}>${currentValue.toFixed(2)}</span>
+                                    {hasLivePrice && (
+                                      <button
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setShowSpreadExplainer(true); 
+                                        }}
+                                        className="text-muted-foreground/60 hover:text-white transition-colors"
+                                        data-testid={`help-value-${position.id}`}
+                                      >
+                                        <HelpCircle size={10} />
+                                      </button>
+                                    )}
+                                  </span>
                                 </div>
                              </div>
                              <div className="text-right shrink-0">
