@@ -113,13 +113,16 @@ Preferred communication style: Simple, everyday language.
     - Fallback: REST API prices from initial load are used instead
     - Files: `wsClient.ts` (connection logic), `livePriceStore.ts` (stub hooks), `index.ts` (exports)
     - Future: Enable when DFlow supports browser-accessible WebSocket or implement server-side proxy
-  - **Trading Fee Formula**: `fee = scale * p * (1-p) * contracts`
+  - **Trading Fee Formula (CONFIRMED by DFlow team 2026-01-07)**: `fee = scale * p * (1-p) * contracts`
     - scale = 0.09 for Frost tier taker (most users), 0.0225 for maker
     - p = fill price (probability 0-1)
     - contracts = number of contracts traded
+    - Maximum fee is at 50¢: 0.09 × 0.5 × 0.5 × 1 = **$0.0225 per contract**
+    - Example: 3 contracts at 50¢ = $0.0675 total fee
     - Fee tiers based on 30-day volume: Frost (<$50M), Glacier ($50-150M), Steel ($150-300M), Obsidian (>$300M)
     - Fee utility: `client/src/utils/dflowFees.ts` calculates accurate fees and net shares
     - Note: DFlow deducts fees from wager, reducing effective shares received
+    - **Important**: Fees are NOT the reason trades feel expensive - the bid-ask spread has much bigger impact
   - **Whole Shares Constraint**:
     - Kalshi only accepts whole contracts (integers), no fractional shares
     - `calculateTradeFeesForBuy` floors shares to whole numbers before returning
