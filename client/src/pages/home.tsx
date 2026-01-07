@@ -523,15 +523,25 @@ export default function Home() {
     if (displayedMarkets.length === 0) return;
     const currentId = displayedMarkets[displayedMarkets.length - 1].id;
     
-    if (direction === 'left') {
-      await animate(x, -500, { duration: 0.3 }).finished;
-    } else if (direction === 'right') {
-      await animate(x, 500, { duration: 0.3 }).finished;
-    } else if (direction === 'down') {
-      await animate(y, 500, { duration: 0.3 }).finished;
+    // Animate the motion values to show visual feedback
+    // The animate() function updates the motion value which drives the card position via style prop
+    try {
+      if (direction === 'left') {
+        animate(x, -500, { duration: 0.25, ease: "easeOut" });
+      } else if (direction === 'right') {
+        animate(x, 500, { duration: 0.25, ease: "easeOut" });
+      } else if (direction === 'down') {
+        animate(y, 500, { duration: 0.25, ease: "easeOut" });
+      }
+    } catch (e) {
+      // Animation may fail silently, still proceed with swipe
+      console.log('[Swipe] Animation error:', e);
     }
     
-    handleSwipe(currentId, direction);
+    // Small delay to let animation start visually, then trigger the swipe logic
+    setTimeout(() => {
+      handleSwipe(currentId, direction);
+    }, 50);
   };
 
   const resetDeck = () => {

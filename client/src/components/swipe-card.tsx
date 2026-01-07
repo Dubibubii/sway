@@ -132,12 +132,18 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
       await controls.start({ y: 500, opacity: 0 });
       onSwipe('down');
     }
-    // Reset
+    // Reset - also reset the motion values to sync with controls
     else {
       controls.start({ x: 0, y: 0 });
+      x.set(0);
+      y.set(0);
     }
   };
 
+  // When external dragX/dragY are provided, they drive the animation
+  // When dragging ends, controls takes over for the exit animation
+  // This avoids conflicts between motion values and controls
+  
   return (
     <motion.div
       drag={active ? true : false}
