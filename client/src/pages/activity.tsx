@@ -914,9 +914,10 @@ export default function Activity() {
                       {sellPrice < entryPrice && (
                         <button 
                           onClick={() => setShowSpreadExplainer(true)}
-                          className="text-xs text-blue-400 hover:text-blue-300 underline mt-1"
+                          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2.5 py-1.5 rounded-full transition-all mt-2"
                         >
-                          Why is this lower than my entry?
+                          <HelpCircle size={12} />
+                          <span>Why is this lower?</span>
                         </button>
                       )}
                     </div>
