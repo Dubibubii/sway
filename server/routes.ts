@@ -6,7 +6,7 @@ import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
-import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, SOLANA_TOKENS } from "./pond-trading";
+import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, startMarketInfoPrewarm, SOLANA_TOKENS } from "./pond-trading";
 import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
 // Note: Using native fetch (Node.js 20+) - no need for node-fetch
 
@@ -65,6 +65,10 @@ export async function registerRoutes(
     startBackgroundCacheRefresh();
   }, 2000);
   
+  // Pre-warm market info cache immediately (for isInitialized checking)
+  // This runs in background and doesn't block - the sooner we start, the better
+  startMarketInfoPrewarm();
+  
   // Provide RPC config to client at runtime (for production where build-time vars may be stale)
   app.get('/api/config/rpc', (_req: Request, res: Response) => {
     const heliusKey = process.env.HELIUS_API_KEY || '';
@@ -103,13 +107,32 @@ export async function registerRoutes(
       // This is fast because it uses background-refreshed cache
       let markets: SimplifiedMarket[] = await getEvents(10000);
       
-      // All markets from DFlow /markets API are tradeable (they have live prices)
-      // We assume they're initialized to avoid blocking on slow pagination
-      // The occasional untradeable market will fail gracefully at trade time
+      // Get DFlow market info to check which markets are actually initialized for trading
+      // This uses cache and triggers background refresh if stale - doesn't block
+      const marketInfo = await getDflowMarketInfo();
+      
+      // Add isInitialized status based on actual DFlow metadata
+      const hasMarketInfo = marketInfo.size > 0;
+      
+      if (!hasMarketInfo) {
+        // Cache still loading - return empty to prevent showing untradeable markets
+        console.log('Markets: Market info cache still loading, returning empty to prevent untradeable markets');
+        return res.json({ 
+          markets: [],
+          cacheTimestamp: getCacheTimestamp(),
+          total: 0,
+          hasMore: true,
+          loading: true
+        });
+      }
+      
+      // Add isInitialized status - default to false for unknown markets
       markets = markets.map(m => ({
         ...m,
-        isInitialized: true, // Assume all DFlow /markets are tradeable
+        isInitialized: marketInfo.get(m.id) ?? false,
       }));
+      
+      console.log(`Markets: ${markets.length} total markets, marketInfo cache has ${marketInfo.size} entries`);
       
       // Apply strict diversification for swipe tab (removes extreme probabilities, uninitialized markets, low volume)
       // This ensures users only see markets that can actually be traded without errors
