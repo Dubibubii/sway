@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FEE_CONFIG } from '@shared/schema';
 import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
 import { SpreadExplainerSheet } from '@/components/spread-explainer';
+import { useLivePrice } from '@/lib/dflow/livePriceStore';
 
 type BulkSellMode = 'all' | 'losing' | 'winning' | null;
 
@@ -75,6 +76,9 @@ export default function Activity() {
   const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   const { placeTrade: placePondTrade, sellPosition, getSellQuote, redeemPosition, checkRedemption, isTrading: isPondTrading } = usePondTrading();
   const queryClient = useQueryClient();
+  
+  // Live price for selected position (for sell modal)
+  const selectedMarketLivePrice = useLivePrice(selectedPosition?.marketId);
 
   const { data: positionsData, isLoading: positionsLoading } = useQuery({
     queryKey: ['positions'],
@@ -925,15 +929,42 @@ export default function Activity() {
                   </>
                 ) : (
                   <>
-                    <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
-                      <span>Est. Value (at entry price)</span>
-                      <span>${(wholeShares * parseFloat(selectedPosition.price)).toFixed(2)}</span>
-                    </div>
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
-                      <p className="text-xs text-amber-400">
-                        {sellQuote?.error || 'Could not get live quote. Actual sale proceeds may vary based on market liquidity.'}
-                      </p>
-                    </div>
+                    {/* Use live bid price from WebSocket if available, otherwise fall back to entry price */}
+                    {(() => {
+                      const isYes = selectedPosition.direction.toUpperCase() === 'YES';
+                      const liveBidPrice = isYes ? selectedMarketLivePrice?.yesBid : selectedMarketLivePrice?.noBid;
+                      const hasLivePrice = liveBidPrice !== null && liveBidPrice !== undefined && liveBidPrice > 0;
+                      const estimatedValue = hasLivePrice 
+                        ? wholeShares * liveBidPrice 
+                        : wholeShares * parseFloat(selectedPosition.price);
+                      const costBasis = selectedPosition.wagerAmount / 100;
+                      const estimatedPnL = estimatedValue - costBasis;
+                      
+                      return (
+                        <>
+                          <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                            <span>{hasLivePrice ? 'Est. Value (live bid)' : 'Est. Value (at entry price)'}</span>
+                            <span>${estimatedValue.toFixed(2)}</span>
+                          </div>
+                          {hasLivePrice && (
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Est. P&L</span>
+                              <span className={estimatedPnL >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}>
+                                {estimatedPnL >= 0 ? '+' : ''}${estimatedPnL.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
+                            <p className="text-xs text-amber-400">
+                              {sellQuote?.error || (hasLivePrice 
+                                ? 'Estimated from live bid price. Actual proceeds may vary.'
+                                : 'Could not get live quote. Actual sale proceeds may vary based on market liquidity.'
+                              )}
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </div>

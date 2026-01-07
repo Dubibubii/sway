@@ -1043,9 +1043,11 @@ export async function registerRoutes(
       );
 
       // Calculate expected USDC from quote
-      const outAmount = parseInt(orderResponse.quote?.outAmount || '0');
+      // DFlow API returns these fields at the root level, not under .quote
+      const rawResponse = orderResponse as any;
+      const outAmount = parseInt(rawResponse.outAmount || rawResponse.quote?.outAmount || '0');
       const expectedUSDC = outAmount / 1_000_000;
-      const priceImpactPct = parseFloat(orderResponse.quote?.priceImpactPct || '0');
+      const priceImpactPct = parseFloat(rawResponse.priceImpactPct || rawResponse.quote?.priceImpactPct || '0');
       const pricePerShare = shares > 0 ? expectedUSDC / shares : 0;
 
       console.log('[Pond Sell Quote] Quote received:', {
