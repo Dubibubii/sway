@@ -519,9 +519,14 @@ export default function Home() {
     }
   };
 
-  const manualSwipe = async (direction: 'left' | 'right' | 'down') => {
-    if (displayedMarkets.length === 0) return;
-    const currentId = displayedMarkets[displayedMarkets.length - 1].id;
+  const manualSwipe = (direction: 'left' | 'right' | 'down') => {
+    // The active card is marketsWithLivePrices[0] (first in the displayed list)
+    // because we show .slice(0, 2).reverse() and the last item in reversed array is the top card
+    if (marketsWithLivePrices.length === 0) return;
+    const currentMarket = marketsWithLivePrices[0];
+    if (!currentMarket) return;
+    
+    console.log('[ManualSwipe] Direction:', direction, 'Market:', currentMarket.id);
     
     // Animate the motion values to show visual feedback
     // The animate() function updates the motion value which drives the card position via style prop
@@ -535,12 +540,12 @@ export default function Home() {
       }
     } catch (e) {
       // Animation may fail silently, still proceed with swipe
-      console.log('[Swipe] Animation error:', e);
+      console.log('[ManualSwipe] Animation error:', e);
     }
     
     // Small delay to let animation start visually, then trigger the swipe logic
     setTimeout(() => {
-      handleSwipe(currentId, direction);
+      handleSwipe(currentMarket.id, direction);
     }, 50);
   };
 
