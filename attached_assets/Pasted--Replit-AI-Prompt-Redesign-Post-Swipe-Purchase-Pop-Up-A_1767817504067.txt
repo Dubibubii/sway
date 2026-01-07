@@ -1,0 +1,157 @@
+# Replit AI Prompt — Redesign Post-Swipe “Purchase” Pop-Up + Add Wager Tooltip (Whole Shares Only)
+
+You already have full repo context. Please redesign the purchase confirmation pop-up that appears after a user swipes YES/NO on a market.
+
+## Problem
+Users set a **wager per swipe** (e.g., $1). If the current share price is **$0.60**, the system buys **1 whole share**, not 1.66 shares, because the execution venue only supports **whole shares** (no partials). This behavior is correct, but the current pop-up is confusing and does not build the right mental model for later sell screens (bid/ask, spread, whole shares).
+
+## Goal
+Create a super user-friendly purchase pop-up that:
+1) Instantly explains what they bought (direction + number of shares)
+2) Clearly shows the price per share used (buy price / ask)
+3) Clearly shows why they may not “use the full wager” (whole shares only)
+4) Shows what happens to leftover funds (stays in balance)
+5) Sets context for the sell modal (selling uses the sell price)
+Keep it simple. No jargon by default; “bid/ask” can exist behind an info tooltip.
+
+---
+
+# A) New Purchase Pop-Up Spec (after swipe)
+
+## Layout (simple hierarchy)
+### Header
+✅ **Trade placed**
+(Secondary: “You bought YES” / “You bought NO”)
+
+### Big primary line (what they own)
+**You now own: {N} shares**
+Small label: “Shares are whole units (no partial shares)”
+
+### Price + spend summary (3 rows max)
+- **Buy price:** {askPrice}¢ per share  (tooltip: “Buy price = current price to enter”)
+- **Shares bought:** {N}
+- **Total spent:** ${spent}  (computed: N * askPrice)
+
+### Wager usage clarity (this is the key)
+Show a single friendly line:
+**Your swipe wager is ${wager}. We used ${spent} because shares can only be bought in whole numbers.**
+Then show:
+- **Leftover stays in your balance:** ${wager - spent}
+
+### Tiny “What happens if I sell?” line (context for later)
+“Selling uses the current *sell price*, which can be different from the buy price.”
+
+Add a small “Learn why” link (optional) that opens a mini explanation:
+- “Markets have a buy price and a sell price.”
+- “The gap is called spread.”
+- “Selling immediately can be lower.”
+
+### Buttons
+Primary: **Done**
+Secondary (optional): **View position**
+
+---
+
+# Copy (final strings to implement)
+
+## Title variants (pick one)
+- “Trade placed”
+- “Purchase confirmed”
+- “Position opened”
+
+## Main message (single sentence)
+**“You bought {N} {YES/NO} shares at {askPrice}¢ each.”**
+
+## Whole share explanation (short, human)
+**“Shares are whole units, so we can’t buy partial shares.”**
+
+## Leftover explanation (must be explicit)
+**“Unused wager stays in your balance.”**
+
+## Sell context (one line)
+**“If you sell, you’ll get the current sell price (which may be different).”**
+
+---
+
+# B) Wager Settings Tooltip (Profile / Account Settings)
+
+Where: the screen where users set “Wager per swipe”.
+
+Add an info icon next to “Wager per swipe” that opens a tooltip / bottom sheet.
+
+## Tooltip title
+**How your wager works**
+
+## Tooltip body (3 bullets max, no jargon)
+- “Your wager is the max we’ll spend on each swipe.”
+- “We buy whole shares only, so the actual spend may be slightly less.”
+- “Any unused amount stays in your balance.”
+
+## Add a simple example (mandatory)
+Example block:
+**Example**
+- Wager: **$1.00**
+- Share price: **60¢**
+- You buy: **1 share** (spend **60¢**)
+- Leftover: **40¢** stays in balance
+
+Optional 1-liner at bottom:
+“Selling uses the current sell price, not your entry price.”
+
+---
+
+# C) Edge Cases (must handle cleanly)
+
+1) If wager < share price (e.g., wager $1, share price $1.20):
+- Show: “Your wager isn’t enough to buy 1 share at the current price.”
+- CTA: “Increase wager” or “Skip trade”
+- Do not place trade.
+
+2) If share price changes between swipe and execution:
+- Use actual execution price if available; otherwise show:
+  - “Estimated buy price: X¢” + “Final price confirmed on fill”
+- Keep wording honest.
+
+3) If fees apply (SWAY fee / trading fee):
+- Keep pop-up simple:
+  - Either include one line: “Fees included in total” with a tooltip breakdown
+  - Or show a “Fees” row only if it’s non-zero and material.
+Do NOT clutter the main view.
+
+---
+
+# D) Engineering Requirements
+
+## Data needed for the pop-up
+- market title + side (YES/NO)
+- wagerPerSwipe (USD)
+- execution ask price (or best available)
+- sharesPurchased (integer)
+- totalSpent (USD)
+- leftover = wager - totalSpent
+- (optional) fee breakdown if available
+
+## Implementation steps
+1) Locate the current post-swipe buy confirmation component/modal.
+2) Replace layout + copy per spec above.
+3) Ensure the math is consistent:
+   - shares = floor(wager / pricePerShare)
+   - spent = shares * pricePerShare
+   - leftover = wager - spent
+4) Add the wager tooltip/bottom sheet in settings:
+   - attach to info icon beside “Wager per swipe”
+
+## Deliverables
+- Updated Buy pop-up UI with new copy + layout
+- Added wager tooltip with example
+- File paths changed + brief notes on where the data is sourced
+
+---
+
+# Acceptance Criteria
+- A first-time user can answer instantly:
+  1) “What did I buy?” → {N} shares YES/NO at {price}
+  2) “Why didn’t it spend my full $1?” → whole shares only
+  3) “Where did the leftover go?” → stays in balance
+  4) “When I sell, what price do I get?” → current sell price
+- The pop-up contains no trading jargon unless behind a tooltip.
