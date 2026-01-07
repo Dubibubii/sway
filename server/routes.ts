@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, setMarketCacheReadyCallback, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, setMarketCacheReadyCallback, getMarketCache, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
@@ -1061,9 +1061,9 @@ export async function registerRoutes(
       // Get live orderbook prices from cache (marketTokens already fetched above)
       let orderbook = { yesBid: 0, yesAsk: 0, noBid: 0, noAsk: 0 };
       // Try to get from DFlow markets cache
-      const cachedMarkets = (global as any).dflowMarketsCache?.markets as any[];
-      if (cachedMarkets) {
-        const market = cachedMarkets.find((m: any) => m.ticker === marketId);
+      const cachedMarkets = getMarketCache();
+      if (cachedMarkets && cachedMarkets.length > 0) {
+        const market = cachedMarkets.find((m) => m.id === marketId);
         if (market) {
           orderbook = {
             yesBid: market.yesBid || 0,

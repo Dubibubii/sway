@@ -16,6 +16,10 @@ export function getCacheTimestamp(): number {
   return cacheTimestamp;
 }
 
+export function getMarketCache(): SimplifiedMarket[] {
+  return marketCache;
+}
+
 export interface KalshiMarket {
   ticker: string;
   title: string;
