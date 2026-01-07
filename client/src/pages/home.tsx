@@ -10,7 +10,7 @@ import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
 import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { getMarkets, createTrade, getBalancedPercentages, type Market, type MarketsResponse } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePrivy } from '@privy-io/react-auth';
@@ -94,6 +94,29 @@ export default function Home() {
   
   const embeddedAddress = embeddedWallet?.address || null;
   const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
+  const { getAccessToken } = usePrivy();
+  
+  // Fetch user's open positions to exclude from swipe deck
+  const { data: positionsData } = useQuery({
+    queryKey: ['positions'],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) return { positions: [] };
+      const res = await fetch('/api/positions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return { positions: [] };
+      return res.json() as Promise<{ positions: { marketId: string }[] }>;
+    },
+    enabled: authenticated,
+    staleTime: 30000, // Refetch every 30 seconds
+  });
+  
+  // Get market IDs where user has open positions
+  const ownedMarketIds = useMemo(() => {
+    if (!positionsData?.positions) return [];
+    return positionsData.positions.map(p => p.marketId);
+  }, [positionsData]);
   
   const [showFundingPrompt, setShowFundingPrompt] = useState(false);
   const [requiredAmount, setRequiredAmount] = useState(0);
@@ -109,13 +132,16 @@ export default function Home() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['markets'],
+    queryKey: ['markets', ownedMarketIds],
     queryFn: async ({ pageParam = 0 }) => {
-      const excludeIds = getSwipedIds();
+      // Combine swiped IDs and owned position IDs to exclude both
+      const swipedIds = getSwipedIds();
+      const combinedIds = swipedIds.concat(ownedMarketIds);
+      const allExcludeIds = Array.from(new Set(combinedIds));
       const response = await getMarkets({
         limit: BATCH_SIZE,
         offset: pageParam,
-        excludeIds: excludeIds.length > 0 ? excludeIds : undefined,
+        excludeIds: allExcludeIds.length > 0 ? allExcludeIds : undefined,
       });
       
       if (response.cacheTimestamp) {
@@ -143,10 +169,12 @@ export default function Home() {
     if (marketsData?.pages) {
       const allMarkets: DisplayMarket[] = [];
       const seenIds = new Set<string>();
+      const ownedSet = new Set(ownedMarketIds);
       
       for (const page of marketsData.pages) {
         for (const market of page.markets) {
-          if (market.isInitialized !== false && !seenIds.has(market.id)) {
+          // Skip markets user already owns positions in
+          if (market.isInitialized !== false && !seenIds.has(market.id) && !ownedSet.has(market.id)) {
             seenIds.add(market.id);
             fetchedMarketIdsRef.current.add(market.id);
             allMarkets.push(formatMarket(market));
@@ -157,7 +185,7 @@ export default function Home() {
       const visibleMarkets = getVisibleCards(allMarkets);
       setDisplayedMarkets(visibleMarkets);
     }
-  }, [marketsData, getVisibleCards]);
+  }, [marketsData, getVisibleCards, ownedMarketIds]);
   
   useEffect(() => {
     if (displayedMarkets.length < LOW_CARDS_THRESHOLD && hasNextPage && !isFetchingNextPage && !isLoadingMore) {
