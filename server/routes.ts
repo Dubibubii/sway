@@ -1050,11 +1050,21 @@ export async function registerRoutes(
       const priceImpactPct = parseFloat(rawResponse.priceImpactPct || rawResponse.quote?.priceImpactPct || '0');
       const pricePerShare = shares > 0 ? expectedUSDC / shares : 0;
 
+      // Calculate estimated fees (DFlow taker fee formula: 0.09 * p * (1-p) * contracts)
+      // Since we're selling, p = pricePerShare
+      const estimatedDFlowFee = 0.09 * pricePerShare * (1 - pricePerShare) * shares;
+      const platformFeeBps = 25; // 0.25% for positions channel
+      const grossValue = shares * pricePerShare;
+      const platformFee = grossValue * (platformFeeBps / 10000);
+      
       console.log('[Pond Sell Quote] Quote received:', {
         expectedUSDC,
         priceImpactPct,
         pricePerShare,
-        executionMode: orderResponse.executionMode
+        executionMode: orderResponse.executionMode,
+        estimatedDFlowFee,
+        platformFee,
+        grossValue
       });
 
       // Check if we have a production API key (any non-empty key)
@@ -1067,9 +1077,15 @@ export async function registerRoutes(
         executionMode: orderResponse.executionMode,
         warning: priceImpactPct > 5 ? 'High price impact detected. This market may have low liquidity.' : null,
         apiInfo: isProduction 
-          ? 'Live market prices. Slippage tolerance: 3%.'
+          ? 'Net after DFlow taker fee + 0.25% platform fee.'
           : 'Using development API. Prices may differ in production.',
         isProduction,
+        feeBreakdown: {
+          grossValue: grossValue,
+          estimatedDFlowFee: estimatedDFlowFee,
+          platformFee: platformFee,
+          netAmount: expectedUSDC
+        }
       });
     } catch (error: any) {
       console.error('Error getting sell quote:', error);

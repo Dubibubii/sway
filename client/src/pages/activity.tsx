@@ -64,6 +64,12 @@ export default function Activity() {
     apiInfo?: string;
     isProduction?: boolean;
     error?: string;
+    feeBreakdown?: {
+      grossValue: number;
+      estimatedDFlowFee: number;
+      platformFee: number;
+      netAmount: number;
+    };
   } | null>(null);
   const [isLoadingSellQuote, setIsLoadingSellQuote] = useState(false);
   
@@ -892,10 +898,28 @@ export default function Activity() {
                       const costBasisAmt = selectedPosition.wagerAmount / 100;
                       const netAmount = sellQuote.expectedUSDC;
                       const pnlFromSale = netAmount - costBasisAmt;
+                      const fb = sellQuote.feeBreakdown;
                       
                       return (
                         <>
-                          <div className="border-t border-zinc-700 pt-2 flex justify-between text-sm font-bold">
+                          {/* Fee breakdown if available */}
+                          {fb && (
+                            <>
+                              <div className="border-t border-zinc-700 pt-2 flex justify-between text-xs text-muted-foreground">
+                                <span>Gross Value ({wholeShares} × {(sellQuote.pricePerShare * 100).toFixed(0)}¢)</span>
+                                <span>${fb.grossValue.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>DFlow Trading Fee</span>
+                                <span className="text-amber-400">-${fb.estimatedDFlowFee.toFixed(3)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Platform Fee (0.25%)</span>
+                                <span className="text-amber-400">-${fb.platformFee.toFixed(3)}</span>
+                              </div>
+                            </>
+                          )}
+                          <div className={`${fb ? 'border-t border-zinc-700 pt-2 mt-2' : 'border-t border-zinc-700 pt-2'} flex justify-between text-sm font-bold`}>
                             <span>You'll receive</span>
                             <span className="text-[#1ED78B]">
                               ${netAmount.toFixed(2)}
@@ -919,11 +943,6 @@ export default function Activity() {
                     {sellQuote.warning && (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 mt-2">
                         <p className="text-xs text-amber-400">{sellQuote.warning}</p>
-                      </div>
-                    )}
-                    {sellQuote.apiInfo && (
-                      <div className="bg-zinc-700/50 rounded p-2 mt-2">
-                        <p className="text-xs text-muted-foreground">{sellQuote.apiInfo}</p>
                       </div>
                     )}
                   </>
