@@ -66,9 +66,14 @@ export default function Activity() {
     error?: string;
     feeBreakdown?: {
       grossValue: number;
-      estimatedDFlowFee: number;
-      platformFee: number;
+      totalFees: number;
       netAmount: number;
+    };
+    orderbook?: {
+      yesBid: number;
+      yesAsk: number;
+      noBid: number;
+      noAsk: number;
     };
   } | null>(null);
   const [isLoadingSellQuote, setIsLoadingSellQuote] = useState(false);
@@ -899,23 +904,34 @@ export default function Activity() {
                       const netAmount = sellQuote.expectedUSDC;
                       const pnlFromSale = netAmount - costBasisAmt;
                       const fb = sellQuote.feeBreakdown;
+                      const ob = sellQuote.orderbook;
+                      const isYes = selectedPosition.direction.toUpperCase() === 'YES';
                       
                       return (
                         <>
+                          {/* Orderbook prices */}
+                          {ob && (ob.yesBid > 0 || ob.yesAsk > 0) && (
+                            <div className="border-t border-zinc-700 pt-2 flex justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                {isYes ? 'YES' : 'NO'} Orderbook
+                              </span>
+                              <span>
+                                <span className="text-[#1ED78B]">{((isYes ? ob.yesBid : ob.noBid) * 100).toFixed(0)}¢</span>
+                                <span className="text-muted-foreground mx-1">/</span>
+                                <span className="text-red-400">{((isYes ? ob.yesAsk : ob.noAsk) * 100).toFixed(0)}¢</span>
+                              </span>
+                            </div>
+                          )}
                           {/* Fee breakdown if available */}
                           {fb && (
                             <>
-                              <div className="border-t border-zinc-700 pt-2 flex justify-between text-xs text-muted-foreground">
+                              <div className="flex justify-between text-xs text-muted-foreground">
                                 <span>Gross Value ({wholeShares} × {(sellQuote.pricePerShare * 100).toFixed(0)}¢)</span>
                                 <span>${fb.grossValue.toFixed(2)}</span>
                               </div>
                               <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>DFlow Trading Fee</span>
-                                <span className="text-amber-400">-${fb.estimatedDFlowFee.toFixed(3)}</span>
-                              </div>
-                              <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>Platform Fee (0.25%)</span>
-                                <span className="text-amber-400">-${fb.platformFee.toFixed(3)}</span>
+                                <span>Trading Fees</span>
+                                <span className="text-amber-400">-${fb.totalFees.toFixed(2)}</span>
                               </div>
                             </>
                           )}

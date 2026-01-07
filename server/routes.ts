@@ -1056,15 +1056,32 @@ export async function registerRoutes(
       const platformFeeBps = 25; // 0.25% for positions channel
       const grossValue = shares * pricePerShare;
       const platformFee = grossValue * (platformFeeBps / 10000);
+      const totalFees = estimatedDFlowFee + platformFee;
+      
+      // Get live orderbook prices from cache (marketTokens already fetched above)
+      let orderbook = { yesBid: 0, yesAsk: 0, noBid: 0, noAsk: 0 };
+      // Try to get from DFlow markets cache
+      const cachedMarkets = (global as any).dflowMarketsCache?.markets as any[];
+      if (cachedMarkets) {
+        const market = cachedMarkets.find((m: any) => m.ticker === marketId);
+        if (market) {
+          orderbook = {
+            yesBid: market.yesBid || 0,
+            yesAsk: market.yesAsk || 0,
+            noBid: market.noBid || 0,
+            noAsk: market.noAsk || 0
+          };
+        }
+      }
       
       console.log('[Pond Sell Quote] Quote received:', {
         expectedUSDC,
         priceImpactPct,
         pricePerShare,
         executionMode: orderResponse.executionMode,
-        estimatedDFlowFee,
-        platformFee,
-        grossValue
+        totalFees,
+        grossValue,
+        orderbook
       });
 
       // Check if we have a production API key (any non-empty key)
@@ -1076,16 +1093,13 @@ export async function registerRoutes(
         shares,
         executionMode: orderResponse.executionMode,
         warning: priceImpactPct > 5 ? 'High price impact detected. This market may have low liquidity.' : null,
-        apiInfo: isProduction 
-          ? 'Net after DFlow taker fee + 0.25% platform fee.'
-          : 'Using development API. Prices may differ in production.',
         isProduction,
         feeBreakdown: {
           grossValue: grossValue,
-          estimatedDFlowFee: estimatedDFlowFee,
-          platformFee: platformFee,
+          totalFees: totalFees,
           netAmount: expectedUSDC
-        }
+        },
+        orderbook
       });
     } catch (error: any) {
       console.error('Error getting sell quote:', error);
