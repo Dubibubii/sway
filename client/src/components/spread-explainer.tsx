@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { HelpCircle, X, TrendingUp, TrendingDown, ArrowRight, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,7 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
   const spreadCents = Math.round((displayBuyPrice - displaySellPrice) * 100);
   const spreadPercent = displayBuyPrice > 0 ? ((displayBuyPrice - displaySellPrice) / displayBuyPrice * 100).toFixed(1) : '0';
   
-  return (
+  const content = (
     <AnimatePresence>
       {open && (
         <>
@@ -61,7 +62,8 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            style={{ zIndex: 99999 }}
             onClick={onClose}
           />
           
@@ -70,7 +72,8 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             animate={{ opacity: 1, y: "0%" }}
             exit={{ opacity: 0, y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[9999] max-h-[85vh] bg-zinc-900 rounded-t-3xl overflow-hidden"
+            className="fixed inset-x-0 bottom-0 max-h-[85vh] bg-zinc-900 rounded-t-3xl overflow-hidden"
+            style={{ zIndex: 99999 }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-5">
@@ -173,6 +176,8 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
       )}
     </AnimatePresence>
   );
+  
+  return createPortal(content, document.body);
 }
 
 interface SpreadIndicatorProps {
