@@ -1,0 +1,112 @@
+# Replit AI Prompt — Simplify Post-Swipe “Trade Placed” Pop-Up (Smaller, Less Text, Still Clear)
+
+You already have full repo context. The current post-swipe pop-up is too large and text-heavy. Redesign it into a **compact toast / mini-modal** that covers minimal screen space while still making the key concepts obvious.
+
+## Core UX goals (must be understood in ~2 seconds)
+1) What did I buy? (side + whole shares)
+2) What did it cost? (total spent)
+3) Where did leftover wager go? (stays in balance)
+Everything else must be hidden behind a single “Details” tap.
+
+---
+
+# A) New Compact Layout (default view)
+
+## Component style
+- Small bottom sheet or compact modal (max ~25–30% of screen height)
+- One primary line + 2 secondary lines + 1 small hint line
+- No paragraphs
+
+## Default content (no “details” expanded)
+**Title:** Trade placed
+
+**Primary line (big):**
+**Bought {N} {YES/NO} share(s)**
+
+**Secondary lines (small):**
+- **Spent:** ${spent} (of ${wager})
+- **Left in balance:** ${leftover}
+
+**Tiny hint (muted):**
+“Whole shares only.”  (with an ⓘ icon)
+
+Buttons:
+- Primary: **Done**
+- Secondary: **Details** (chevron / expands inline)
+
+Notes:
+- Remove “buy price”, “payout if wins”, “selling uses sell price”, and “processing on-chain” from the default view.
+- Keep “Processing…” as a tiny spinner badge only if you truly need it (optional).
+
+---
+
+# B) Details (expand/collapse on tap)
+
+When user taps **Details**, expand just enough to show 3 extra rows:
+
+- **Buy price:** {ask}¢
+- **Shares:** {N} (whole shares)
+- **Potential payout:** ${payoutIfWin}  (optional; only if you think it adds confidence)
+
+Add a *single* one-liner at the bottom:
+“Sell price may differ.” (ⓘ tooltip: “Markets have a buy and sell price.”)
+
+No more than **4 rows** in expanded mode.
+
+---
+
+# C) Microcopy (exact strings)
+
+Title:
+- “Trade placed”
+
+Primary:
+- “Bought {N} {YES/NO} share{plural}”
+
+Secondary:
+- “Spent ${spent} of ${wager}”
+- “Left in balance: ${leftover}”
+
+Hint tooltip (on “Whole shares only”):
+- “We can only buy whole shares. Any unused amount stays in your balance.”
+
+Sell tooltip (optional):
+- “You sell at the current sell price, which can be different from the buy price.”
+
+---
+
+# D) Behavior rules
+
+1) If leftover is $0.00, hide the “Left in balance” line.
+2) If sharesBought == 0 (wager too low), do NOT show the trade placed pop-up:
+   - Show compact error toast:
+     “Wager too low to buy 1 share at {ask}¢. Increase wager.”
+3) If the trade is async:
+   - Show a small “Submitting…” / “Processing…” badge (not a full line of text).
+
+---
+
+# E) Engineering requirements
+
+- Use the existing data you already compute:
+  - side (YES/NO)
+  - sharesBought (int)
+  - spent
+  - wager
+  - leftover
+  - askPrice (optional for Details)
+  - payoutIfWin (optional)
+
+- Ensure the component is responsive and does not cover more than ~30% height in default state.
+
+---
+
+# Deliverables
+1) Replace the current large post-swipe modal with this compact version.
+2) Add “Details” expand/collapse.
+3) Ensure text + spacing fits small screens.
+
+Show me:
+- file paths changed
+- any new props or helpers added
+- final UI output (screenshot or description) after implementation
