@@ -1057,7 +1057,8 @@ export async function registerRoutes(
         executionMode: orderResponse.executionMode
       });
 
-      const isProduction = DFLOW_API_KEY && DFLOW_API_KEY.length > 20;
+      // Check if we have a production API key (any non-empty key)
+      const isProduction = Boolean(DFLOW_API_KEY && DFLOW_API_KEY.trim().length > 0);
       res.json({
         expectedUSDC,
         priceImpactPct,
