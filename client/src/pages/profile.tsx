@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
 import { useQuery } from '@tanstack/react-query';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 
 const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 
@@ -29,6 +30,7 @@ function ProfileContent() {
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [wagerInfoOpen, setWagerInfoOpen] = useState(false);
   
   // Prioritize external wallet when connected (e.g., Phantom) so signing works
   // Only use embedded wallet when no external wallet is connected
@@ -355,7 +357,16 @@ function ProfileContent() {
         {/* Trading Settings */}
         <div className="space-y-6" ref={settingsRef}>
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Trading Preferences</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wider text-xs ml-1">Trading Preferences</h3>
+              <button
+                onClick={() => setWagerInfoOpen(true)}
+                className="p-1 rounded-full hover:bg-zinc-800 transition-colors"
+                data-testid="button-wager-info"
+              >
+                <HelpCircle size={14} className="text-zinc-500 hover:text-zinc-300" />
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="unified-wager" className="text-xs text-muted-foreground">Use same amount for both</Label>
               <Switch 
@@ -494,6 +505,92 @@ function ProfileContent() {
         externalWalletAddress={externalWalletAddress}
         onSuccess={refetchBalance}
       />
+      
+      {/* Wager Info Drawer */}
+      <Drawer open={wagerInfoOpen} onOpenChange={setWagerInfoOpen}>
+        <DrawerContent className="bg-zinc-950 border-zinc-800">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-white text-lg">How Your Wager Works</DrawerTitle>
+            <DrawerDescription className="text-zinc-400 text-sm">
+              Understanding what happens when you swipe
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="px-4 pb-6 space-y-4">
+            {/* Key points */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/20 p-1.5 rounded-full mt-0.5">
+                  <DollarSign size={14} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-zinc-200 text-sm font-medium">Your wager is the max we'll spend</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Each swipe uses up to this amount from your balance</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="bg-amber-500/20 p-1.5 rounded-full mt-0.5">
+                  <PieChart size={14} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-zinc-200 text-sm font-medium">We buy whole shares only</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Shares can't be split, so actual spend may be slightly less</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-500/20 p-1.5 rounded-full mt-0.5">
+                  <Wallet size={14} className="text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-zinc-200 text-sm font-medium">Unused amount stays in your balance</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Nothing is lost - it's there for your next trade</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Example */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mt-4">
+              <p className="text-zinc-400 text-xs uppercase tracking-wider font-medium mb-3">Example</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Your wager</span>
+                  <span className="text-white font-mono">$1.00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Share price</span>
+                  <span className="text-white font-mono">60¢</span>
+                </div>
+                <div className="h-px bg-zinc-800 my-2" />
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">You buy</span>
+                  <span className="text-primary font-mono font-bold">1 share</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Spent</span>
+                  <span className="text-white font-mono">60¢</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Leftover</span>
+                  <span className="text-amber-400 font-mono">40¢</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Sell note */}
+            <p className="text-zinc-500 text-xs text-center pt-2">
+              When you sell, you'll get the current sell price, which may differ from your entry.
+            </p>
+            
+            <DrawerClose asChild>
+              <Button className="w-full mt-2" variant="outline">
+                Got it
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerContent>
+      </Drawer>
       
     </Layout>
   );

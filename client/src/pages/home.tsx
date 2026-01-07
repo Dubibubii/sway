@@ -307,35 +307,79 @@ export default function Home() {
           const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent;
           const isAsync = result.executionMode === 'async';
           
+          // Calculate leftover from original wager
+          const leftover = settings.yesWager - actualSpend;
+          const buyPriceCents = Math.round((market.yesAsk ?? market.yesPrice) * 100);
+          
           toast({
             title: (
               <div className="flex items-center gap-2">
-                <div className="bg-[#1ED78B]/20 p-1 rounded-full">
+                <div className="bg-[#1ED78B]/20 p-1.5 rounded-full">
                   <Check size={14} className="text-[#1ED78B]" />
                 </div>
-                <span className="text-[#1ED78B] font-bold uppercase tracking-wider text-xs">Trade Executed</span>
+                <div>
+                  <span className="text-[#1ED78B] font-bold uppercase tracking-wider text-xs">Trade Placed</span>
+                  <span className="text-zinc-400 text-[10px] ml-2">You bought YES</span>
+                </div>
               </div>
             ),
             description: (
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-3xl font-black tracking-tighter text-white">YES</span>
-                  <span className="text-sm font-mono text-[#1ED78B] bg-[#1ED78B]/10 px-2 py-0.5 rounded">@{pricePerShare}¢</span>
-                </div>
-                <div className="h-px bg-white/10 w-full" />
-                <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
-                  <div className="flex justify-between">
-                    <span>Bought: <span className="text-zinc-200">{confirmedShares} shares</span></span>
-                    <span>Spent: <span className="text-zinc-200">${actualSpend.toFixed(2)}</span></span>
+              <div className="mt-3 space-y-3">
+                {/* Primary: What they own */}
+                <div className="bg-[#1ED78B]/5 border border-[#1ED78B]/20 rounded-lg p-3">
+                  <div className="text-center">
+                    <span className="text-3xl font-black text-white">{confirmedShares}</span>
+                    <span className="text-lg text-zinc-300 ml-2">share{confirmedShares !== 1 ? 's' : ''}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Payout if Yes: <span className="text-[#1ED78B] font-mono">${confirmedShares}</span></span>
-                    {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
+                  <div className="text-center text-[10px] text-zinc-500 mt-1">Shares are whole units (no partials)</div>
+                </div>
+                
+                {/* Price breakdown */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Buy price</span>
+                    <span className="text-zinc-200 font-mono">{buyPriceCents}¢ per share</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Total spent</span>
+                    <span className="text-zinc-200 font-mono">${actualSpend.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Payout if Yes wins</span>
+                    <span className="text-[#1ED78B] font-mono font-bold">${confirmedShares}.00</span>
                   </div>
                 </div>
+                
+                {/* Wager usage explanation - only show if there's leftover */}
+                {leftover > 0.01 && (
+                  <div className="bg-zinc-800/50 rounded-lg p-2.5 text-[11px] text-zinc-400">
+                    <div className="flex items-start gap-2">
+                      <DollarSign size={12} className="text-zinc-500 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="text-zinc-300">Wager: ${settings.yesWager.toFixed(2)}</span>
+                        <span className="mx-1">→</span>
+                        <span>Used ${actualSpend.toFixed(2)} for {confirmedShares} whole share{confirmedShares !== 1 ? 's' : ''}</span>
+                        <div className="mt-1 text-zinc-500">
+                          <span className="text-amber-400/80">${leftover.toFixed(2)}</span> stays in your balance
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Sell context */}
+                <div className="text-[10px] text-zinc-500 text-center pt-1">
+                  Selling uses the current sell price (may differ from buy)
+                </div>
+                
+                {isAsync && (
+                  <div className="text-center">
+                    <span className="text-amber-400 text-[10px] animate-pulse">Processing on-chain...</span>
+                  </div>
+                )}
               </div>
             ),
-            className: "bg-zinc-950/90 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-2xl shadow-[#1ED78B]/10 p-4"
+            className: "bg-zinc-950/95 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-2xl shadow-[#1ED78B]/10 p-4"
           });
         } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
           // Show funding prompt
@@ -432,35 +476,79 @@ export default function Home() {
           const pricePerShare = getBalancedPercentages(market.yesPrice, market.noPrice).noPercent;
           const isAsync = result.executionMode === 'async';
           
+          // Calculate leftover from original wager
+          const leftover = settings.noWager - actualSpend;
+          const buyPriceCents = Math.round((market.noAsk ?? market.noPrice) * 100);
+          
           toast({
             title: (
               <div className="flex items-center gap-2">
-                <div className="bg-rose-500/20 p-1 rounded-full">
+                <div className="bg-rose-500/20 p-1.5 rounded-full">
                   <X size={14} className="text-rose-500" />
                 </div>
-                <span className="text-rose-500 font-bold uppercase tracking-wider text-xs">Trade Executed</span>
+                <div>
+                  <span className="text-rose-500 font-bold uppercase tracking-wider text-xs">Trade Placed</span>
+                  <span className="text-zinc-400 text-[10px] ml-2">You bought NO</span>
+                </div>
               </div>
             ),
             description: (
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-3xl font-black tracking-tighter text-white">NO</span>
-                  <span className="text-sm font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">@{pricePerShare}¢</span>
-                </div>
-                <div className="h-px bg-white/10 w-full" />
-                <div className="flex flex-col gap-1 text-xs text-zinc-400 font-medium">
-                  <div className="flex justify-between">
-                    <span>Bought: <span className="text-zinc-200">{confirmedShares} shares</span></span>
-                    <span>Spent: <span className="text-zinc-200">${actualSpend.toFixed(2)}</span></span>
+              <div className="mt-3 space-y-3">
+                {/* Primary: What they own */}
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-3">
+                  <div className="text-center">
+                    <span className="text-3xl font-black text-white">{confirmedShares}</span>
+                    <span className="text-lg text-zinc-300 ml-2">share{confirmedShares !== 1 ? 's' : ''}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Payout if No: <span className="text-rose-400 font-mono">${confirmedShares}</span></span>
-                    {isAsync && <span className="text-amber-400 text-[10px]">Processing...</span>}
+                  <div className="text-center text-[10px] text-zinc-500 mt-1">Shares are whole units (no partials)</div>
+                </div>
+                
+                {/* Price breakdown */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Buy price</span>
+                    <span className="text-zinc-200 font-mono">{buyPriceCents}¢ per share</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Total spent</span>
+                    <span className="text-zinc-200 font-mono">${actualSpend.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Payout if No wins</span>
+                    <span className="text-rose-400 font-mono font-bold">${confirmedShares}.00</span>
                   </div>
                 </div>
+                
+                {/* Wager usage explanation - only show if there's leftover */}
+                {leftover > 0.01 && (
+                  <div className="bg-zinc-800/50 rounded-lg p-2.5 text-[11px] text-zinc-400">
+                    <div className="flex items-start gap-2">
+                      <DollarSign size={12} className="text-zinc-500 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="text-zinc-300">Wager: ${settings.noWager.toFixed(2)}</span>
+                        <span className="mx-1">→</span>
+                        <span>Used ${actualSpend.toFixed(2)} for {confirmedShares} whole share{confirmedShares !== 1 ? 's' : ''}</span>
+                        <div className="mt-1 text-zinc-500">
+                          <span className="text-amber-400/80">${leftover.toFixed(2)}</span> stays in your balance
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Sell context */}
+                <div className="text-[10px] text-zinc-500 text-center pt-1">
+                  Selling uses the current sell price (may differ from buy)
+                </div>
+                
+                {isAsync && (
+                  <div className="text-center">
+                    <span className="text-amber-400 text-[10px] animate-pulse">Processing on-chain...</span>
+                  </div>
+                )}
               </div>
             ),
-            className: "bg-zinc-950/90 border-rose-500/20 text-white backdrop-blur-xl shadow-2xl shadow-rose-500/10 p-4"
+            className: "bg-zinc-950/95 border-rose-500/20 text-white backdrop-blur-xl shadow-2xl shadow-rose-500/10 p-4"
           });
         } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
           // Show funding prompt
