@@ -61,7 +61,7 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
             onClick={onClose}
           />
           
@@ -70,7 +70,7 @@ export function SpreadExplainerSheet({ open, onClose, buyPrice, sellPrice, direc
             animate={{ opacity: 1, y: "0%" }}
             exit={{ opacity: 0, y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[100] max-h-[85vh] bg-zinc-900 rounded-t-3xl overflow-hidden"
+            className="fixed inset-x-0 bottom-0 z-[9999] max-h-[85vh] bg-zinc-900 rounded-t-3xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-5">
