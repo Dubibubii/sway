@@ -815,6 +815,16 @@ export default function Home() {
                     />
                 ))}
               </AnimatePresence>
+              
+              {/* AI Mascot - top left of card deck */}
+              {marketsWithLivePrices.length > 0 && marketsWithLivePrices[0] && (
+                <AIMascot
+                  marketTitle={marketsWithLivePrices[0].question}
+                  category={marketsWithLivePrices[0].category}
+                  yesPrice={marketsWithLivePrices[0].yesBid || marketsWithLivePrices[0].yesPrice || 0.5}
+                  noPrice={marketsWithLivePrices[0].noBid || marketsWithLivePrices[0].noPrice || 0.5}
+                />
+              )}
 
               {marketsWithLivePrices.length === 0 && !isFetchingNextPage && (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-4">
@@ -835,16 +845,6 @@ export default function Home() {
             </>
           )}
         </div>
-        
-        {/* AI Mascot - shows insights for current market */}
-        {marketsWithLivePrices.length > 0 && marketsWithLivePrices[0] && (
-          <AIMascot
-            marketTitle={marketsWithLivePrices[0].question}
-            category={marketsWithLivePrices[0].category}
-            yesPrice={marketsWithLivePrices[0].yesBid || marketsWithLivePrices[0].yesPrice || 0.5}
-            noPrice={marketsWithLivePrices[0].noBid || marketsWithLivePrices[0].noPrice || 0.5}
-          />
-        )}
         
         {/* Controls Area */}
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black to-transparent z-20 flex items-end justify-between px-6 pb-8">

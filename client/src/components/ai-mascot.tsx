@@ -70,16 +70,47 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
   }, [marketTitle]);
 
   return (
-    <div className={`fixed bottom-24 right-2 z-40 ${className}`}>
+    <div className={`absolute top-3 left-3 z-50 ${className}`}>
+      <motion.button
+        onClick={handleTap}
+        whileTap={{ scale: 0.9 }}
+        animate={isExpanded ? {} : { 
+          y: [0, -3, 0],
+        }}
+        transition={isExpanded ? {} : {
+          y: { repeat: Infinity, duration: 2, repeatDelay: 3 }
+        }}
+        className="relative w-10 h-10 rounded-full overflow-hidden shadow-lg border-2 border-[#1ED78B]/50 bg-black"
+        data-testid="button-ai-mascot"
+      >
+        <img
+          src={mascotImage}
+          alt="AI Assistant"
+          className="w-full h-full object-cover"
+        />
+        
+        {!hasFetched && !isExpanded && (
+          <motion.div 
+            className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1ED78B] rounded-full flex items-center justify-center"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          >
+            <span className="text-[8px] font-bold text-black">!</span>
+          </motion.div>
+        )}
+      </motion.button>
+
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, x: 50, scale: 0.8 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 50, scale: 0.8 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="absolute bottom-16 right-0 w-64 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10"
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+            className="absolute top-12 left-0 w-64 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10"
           >
+            <div className="absolute -top-2 left-4 w-4 h-4 bg-zinc-900/95 border-l border-t border-white/10 rotate-45" />
+            
             <button
               onClick={() => setIsExpanded(false)}
               className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10"
@@ -99,40 +130,9 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
                 </p>
               )}
             </div>
-            
-            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-zinc-900/95 border-r border-b border-white/10 rotate-45" />
           </motion.div>
         )}
       </AnimatePresence>
-
-      <motion.button
-        onClick={handleTap}
-        whileTap={{ scale: 0.9 }}
-        animate={isExpanded ? {} : { 
-          x: [0, 5, 0],
-        }}
-        transition={isExpanded ? {} : {
-          x: { repeat: Infinity, duration: 2, repeatDelay: 3 }
-        }}
-        className="relative w-14 h-14 rounded-full overflow-hidden shadow-lg border-2 border-[#1ED78B]/50 bg-black"
-        data-testid="button-ai-mascot"
-      >
-        <img
-          src={mascotImage}
-          alt="AI Assistant"
-          className="w-full h-full object-cover"
-        />
-        
-        {!hasFetched && !isExpanded && (
-          <motion.div 
-            className="absolute -top-1 -right-1 w-4 h-4 bg-[#1ED78B] rounded-full flex items-center justify-center"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-          >
-            <span className="text-[10px] font-bold text-black">!</span>
-          </motion.div>
-        )}
-      </motion.button>
     </div>
   );
 }
