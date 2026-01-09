@@ -1566,27 +1566,27 @@ export async function registerRoutes(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
+          model: 'sonar',
           messages: [
             {
               role: 'system',
-              content: `You are a market research assistant. Provide brief, factual, UP-TO-DATE context about prediction market topics. In 1-2 sentences, share the most recent relevant news or developments. Be neutral - never recommend how to bet. Focus only on current facts from the last few weeks.`
+              content: 'You are a market research assistant. Provide brief, factual, up-to-date context. In 1-2 sentences, share recent news or developments. Be neutral and factual.'
             },
             {
               role: 'user',
-              content: `What is the latest news about: "${marketTitle}"? Current market odds: ${yesPercent}% YES. Give me the most recent developments in 1-2 sentences.`
+              content: `What is the latest news about: ${marketTitle}? Give me the most recent developments in 1-2 sentences.`
             }
           ],
           max_tokens: 150,
           temperature: 0.2,
-          search_recency_filter: 'week',
-          return_images: false,
-          return_related_questions: false,
+          search_recency_filter: 'month',
           stream: false,
         }),
       });
       
       if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error('[Perplexity] API error:', perplexityResponse.status, errorText);
         throw new Error(`Perplexity API error: ${perplexityResponse.status}`);
       }
       
