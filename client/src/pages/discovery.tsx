@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -150,6 +150,12 @@ export default function Discovery() {
   
   const isActiveSearch = debouncedSearch.length >= 2;
 
+  // Memoized callback for selecting a market - prevents MarketCard re-renders
+  const handleSelectMarket = useCallback((market: Market) => {
+    trackMarketView(market.id, market.title);
+    setSelectedMarket(market);
+  }, [trackMarketView]);
+
   // Helper function to check if title contains keyword as a whole word
   const containsWholeWord = (text: string, keyword: string): boolean => {
     // For single/short keywords, use word boundary matching
@@ -279,10 +285,7 @@ export default function Discovery() {
                 <MarketCard 
                   key={market.id} 
                   market={market} 
-                  onClick={() => {
-                    trackMarketView(market.id, market.title);
-                    setSelectedMarket(market);
-                  }}
+                  onSelect={handleSelectMarket}
                 />
               ))}
             </div>
@@ -305,14 +308,14 @@ export default function Discovery() {
   );
 }
 
-function MarketCard({ market, onClick }: { market: Market; onClick: () => void }) {
+const MarketCard = memo(function MarketCard({ market, onSelect }: { market: Market; onSelect: (market: Market) => void }) {
   const { yesPercent, noPercent } = getBalancedPercentages(market.yesPrice, market.noPrice);
   const isNotInitialized = market.isInitialized === false;
 
   return (
     <div 
       data-testid={`card-market-${market.id}`}
-      onClick={onClick}
+      onClick={() => onSelect(market)}
       className="relative aspect-[4/5] rounded-xl overflow-hidden bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-white/20 transition-all cursor-pointer group"
     >
       {market.imageUrl && (
@@ -360,7 +363,7 @@ function MarketCard({ market, onClick }: { market: Market; onClick: () => void }
       </div>
     </div>
   );
-}
+});
 
 function PriceChart({ data, currentPrice }: { data: PriceHistory[]; currentPrice?: number }) {
   // Calculate chart data - if we have history, use it. Otherwise create synthetic data for display
