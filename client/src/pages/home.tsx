@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SwipeCard } from '@/components/swipe-card';
 import { Layout } from '@/components/layout';
+import { AIMascot } from '@/components/ai-mascot';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { useSwipeHistory } from '@/hooks/use-swipe-history';
@@ -834,6 +835,16 @@ export default function Home() {
             </>
           )}
         </div>
+        
+        {/* AI Mascot - shows insights for current market */}
+        {marketsWithLivePrices.length > 0 && marketsWithLivePrices[0] && (
+          <AIMascot
+            marketTitle={marketsWithLivePrices[0].question}
+            category={marketsWithLivePrices[0].category}
+            yesPrice={marketsWithLivePrices[0].yesBid || marketsWithLivePrices[0].yesPrice || 0.5}
+            noPrice={marketsWithLivePrices[0].noBid || marketsWithLivePrices[0].noPrice || 0.5}
+          />
+        )}
         
         {/* Controls Area */}
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black to-transparent z-20 flex items-end justify-between px-6 pb-8">
