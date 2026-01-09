@@ -35,7 +35,7 @@ export default function Discovery() {
   
   const debouncedSearch = useDebounce(searchQuery, 300);
   
-  // Handle trade execution from discovery modal
+  // Handle trade execution from discovery modal - optimistic UI
   const handleTrade = async (
     marketId: string, 
     side: 'yes' | 'no', 
@@ -70,8 +70,16 @@ export default function Discovery() {
       return;
     }
     
-    // Execute trade using 'discovery' channel - 0.75% fee
-    // Use actualSpend (adjusted for whole shares) instead of raw amount
+    // Close modal immediately for instant UX - trade continues in background
+    setSelectedMarket(null);
+    
+    // Show processing toast
+    toast({ 
+      title: 'Placing bet...', 
+      description: `$${actualSpend.toFixed(2)} on ${side.toUpperCase()}`,
+    });
+    
+    // Execute trade in background using 'discovery' channel - 0.75% fee
     const result = await placePondTrade(marketId, side, actualSpend, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
     
     if (result.success) {
@@ -104,15 +112,14 @@ export default function Discovery() {
         queryClient.invalidateQueries({ queryKey: ['tradeHistory'] });
       }, 2000);
       
-      // Show success and close modal
+      // Show success toast
       const confirmedShares = result.actualShares || shares;
       toast({
         title: 'Trade Executed!',
         description: `Bought ${confirmedShares} shares on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢ for $${actualSpend.toFixed(2)}`,
       });
-      setSelectedMarket(null);
     } else {
-      // Handle errors
+      // Handle errors via toast - modal already closed
       if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
         toast({ title: 'Need More SOL for Gas', description: 'You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.', variant: 'destructive' });
       } else if (result.error?.startsWith('BALANCE_LOADING:')) {
@@ -557,6 +564,7 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.1 }}
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
         onClick={onClose}
       />
@@ -565,7 +573,7 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
         initial={{ opacity: 0, y: "100%" }}
         animate={{ opacity: 1, y: "5%" }}
         exit={{ opacity: 0, y: "100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        transition={{ type: "spring", damping: 35, stiffness: 500 }}
         className="fixed inset-x-0 bottom-0 z-50 h-[90%] bg-gradient-to-b from-zinc-900 to-black rounded-t-3xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
