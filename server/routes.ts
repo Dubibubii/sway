@@ -1547,5 +1547,48 @@ export async function registerRoutes(
     }
   });
 
+  // AI Market Insights endpoint
+  app.post('/api/ai/market-insight', async (req: Request, res: Response) => {
+    try {
+      const { marketTitle, category, yesPrice, noPrice } = req.body;
+      
+      if (!marketTitle) {
+        return res.status(400).json({ error: 'Market title required' });
+      }
+      
+      // Use Replit AI Integrations (OpenAI-compatible)
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      
+      const yesPercent = Math.round((yesPrice || 0.5) * 100);
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful prediction market analyst giving quick insights. Be conversational and brief (1-3 sentences max). Include relevant recent news or context if applicable. Don't be preachy or give financial advice. Use a friendly, casual tone.`
+          },
+          {
+            role: 'user', 
+            content: `Give a quick insight about this prediction market: "${marketTitle}" (Category: ${category || 'General'}). Current odds: ${yesPercent}% YES / ${100 - yesPercent}% NO. What's the key context or recent news that might affect this?`
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.7,
+      });
+      
+      const insight = response.choices[0]?.message?.content || 'No insight available';
+      
+      res.json({ insight });
+    } catch (error: any) {
+      console.error('[AI Insight] Error:', error);
+      res.status(500).json({ error: 'Failed to generate insight', fallback: 'Check out the latest news to form your own view!' });
+    }
+  });
+
   return httpServer;
 }
