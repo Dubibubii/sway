@@ -363,11 +363,12 @@ function PriceChart({ data, currentPrice }: { data: PriceHistory[]; currentPrice
     ? data.map((d) => ({
         time: new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         price: Math.round(d.price * 100),
+        timestamp: d.timestamp,
       }))
     : currentPrice !== undefined 
       ? [
-          { time: 'Earlier', price: Math.round(currentPrice * 100) },
-          { time: 'Now', price: Math.round(currentPrice * 100) }
+          { time: 'Earlier', price: Math.round(currentPrice * 100), timestamp: Date.now() - 86400000 },
+          { time: 'Now', price: Math.round(currentPrice * 100), timestamp: Date.now() }
         ]
       : [];
 
@@ -377,16 +378,22 @@ function PriceChart({ data, currentPrice }: { data: PriceHistory[]; currentPrice
   const minPrice = Math.max(0, Math.min(...prices) - 10);
   const maxPrice = Math.min(100, Math.max(...prices) + 10);
   
-  // Calculate price change
+  // Calculate price change (7-day if we have history)
   const currentPriceVal = chartData[chartData.length - 1].price;
   const firstPrice = chartData[0].price;
   const priceChange = currentPriceVal - firstPrice;
   const isUp = priceChange >= 0;
   const lineColor = hasHistory ? (isUp ? '#1ED78B' : '#ef4444') : '#1ED78B';
+  
+  // Calculate time span for label
+  const timeSpan = hasHistory && chartData.length > 1
+    ? Math.round((chartData[chartData.length - 1].timestamp - chartData[0].timestamp) / (1000 * 60 * 60 * 24))
+    : 1;
+  const timeLabel = timeSpan >= 7 ? '7D' : timeSpan >= 1 ? `${timeSpan}D` : '24H';
 
   return (
     <div className="w-full h-full flex flex-col px-4 pt-8">
-      {/* Price header like Kalshi */}
+      {/* Price header with time period */}
       <div className="flex items-baseline gap-2 mb-2">
         <span className="text-3xl font-bold text-[#1ED78B]">{currentPriceVal}%</span>
         <span className="text-sm text-muted-foreground">chance</span>
@@ -395,6 +402,7 @@ function PriceChart({ data, currentPrice }: { data: PriceHistory[]; currentPrice
             {isUp ? '▲' : '▼'} {Math.abs(priceChange).toFixed(1)}
           </span>
         )}
+        <span className="text-xs text-zinc-500 ml-auto">{timeLabel}</span>
       </div>
       
       {/* Chart */}

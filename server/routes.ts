@@ -214,15 +214,13 @@ export async function registerRoutes(
     }
   });
 
-  // Market history endpoint for price charts
-  // Note: Kalshi Elections API doesn't support candlesticks endpoint
-  // We return market info with last/previous prices for basic price change display
+  // Market history endpoint for price charts - 7 day history using candlesticks API
   app.get('/api/markets/:ticker/history', async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { ticker } = req.params;
       const KALSHI_BASE_URL = 'https://api.elections.kalshi.com/trade-api/v2';
       
-      // Get market info - it includes last_price and previous_price
+      // First get market info to extract series_ticker
       const marketResponse = await fetch(
         `${KALSHI_BASE_URL}/markets/${ticker}`,
         {
@@ -242,6 +240,8 @@ export async function registerRoutes(
           previous_price?: number;
           open_time?: string;
           created_time?: string;
+          series_ticker?: string;
+          event_ticker?: string;
         } 
       };
       
@@ -250,25 +250,70 @@ export async function registerRoutes(
         return res.json({ history: [], marketInfo: null });
       }
       
-      // Create simple history from last/previous prices (prices are in cents)
+      // Try to get 7-day candlestick history
       const history: Array<{ timestamp: number; price: number }> = [];
-      const now = Date.now();
+      const seriesTicker = market.series_ticker || market.event_ticker;
       
-      if (market.previous_price !== undefined && market.previous_price > 0) {
-        history.push({
-          timestamp: now - (24 * 60 * 60 * 1000), // Yesterday
-          price: market.previous_price / 100,
-        });
+      if (seriesTicker) {
+        const endTs = Math.floor(Date.now() / 1000);
+        const startTs = endTs - (7 * 24 * 60 * 60); // 7 days ago
+        
+        try {
+          // Use daily interval (1440 minutes) for 7-day view
+          const candlesUrl = `${KALSHI_BASE_URL}/series/${seriesTicker}/markets/${ticker}/candlesticks?start_ts=${startTs}&end_ts=${endTs}&period_interval=1440`;
+          const candlesResponse = await fetch(candlesUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (candlesResponse.ok) {
+            const candlesData = await candlesResponse.json() as {
+              candlesticks?: Array<{
+                end_period_ts: number;
+                price?: { close?: number };
+              }>;
+            };
+            
+            if (candlesData.candlesticks && candlesData.candlesticks.length > 0) {
+              // Daily candles should give us 7 data points max
+              for (const candle of candlesData.candlesticks) {
+                // Accept candles with valid close price (including 0)
+                if (candle.price?.close !== undefined) {
+                  history.push({
+                    timestamp: candle.end_period_ts * 1000,
+                    price: candle.price.close / 100,
+                  });
+                }
+              }
+              
+              // Sort by timestamp
+              history.sort((a, b) => a.timestamp - b.timestamp);
+            }
+          } else {
+            console.log(`Candlestick API returned ${candlesResponse.status} for ${ticker}`);
+          }
+        } catch (candleError) {
+          console.log('Candlestick fetch failed, falling back to simple history');
+        }
       }
       
-      if (market.last_price !== undefined && market.last_price > 0) {
-        history.push({
-          timestamp: now,
-          price: market.last_price / 100,
-        });
+      // Fallback to simple last/previous price if no candlestick data
+      if (history.length < 2) {
+        const now = Date.now();
+        if (market.previous_price !== undefined) {
+          history.push({
+            timestamp: now - (24 * 60 * 60 * 1000),
+            price: market.previous_price / 100,
+          });
+        }
+        if (market.last_price !== undefined) {
+          history.push({
+            timestamp: now,
+            price: market.last_price / 100,
+          });
+        }
       }
       
-      // Include market info for additional context
       const marketInfo = {
         lastPrice: market.last_price ? market.last_price / 100 : null,
         previousPrice: market.previous_price ? market.previous_price / 100 : null,
