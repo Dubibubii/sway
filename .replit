@@ -41,7 +41,7 @@ waitForPort = 5000
 
 [agent]
 mockupState = "FULLSTACK"
-integrations = ["github:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
+integrations = ["github:1.0.0", "javascript_openai_ai_integrations:2.0.0", "perplexity_v0:1.0.0"]
 
 [userenv]
 
