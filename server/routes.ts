@@ -1570,15 +1570,15 @@ export async function registerRoutes(
         messages: [
           {
             role: 'system',
-            content: `You're a sharp prediction market trader giving quick takes to a friend who's about to bet RIGHT NOW. Be direct and urgent. In 1-2 punchy sentences: Tell them the ONE thing they need to know before betting. Focus on the key risk or opportunity. Use phrases like "Watch out:" or "Key thing:" or "The play here:". No disclaimers, no "it depends", no hedging. Be bold and opinionated.`
+            content: `You are a helpful market research tooltip. Your job is to provide brief, factual context about prediction markets so users can make informed decisions. In 1-2 sentences, share relevant recent news, key dates, or important context about the topic. Be neutral and informative - never recommend which way to bet. Focus on facts that help the user understand the current situation.`
           },
           {
             role: 'user', 
-            content: `Quick take on this bet: "${marketTitle}" - Currently ${yesPercent}% YES. What's the one thing I need to know before I swipe?`
+            content: `Provide brief context for this market: "${marketTitle}" (${category || 'General'}). Current odds: ${yesPercent}% YES. What recent news or key facts should someone know about this topic?`
           }
         ],
-        max_tokens: 80,
-        temperature: 0.8,
+        max_tokens: 100,
+        temperature: 0.6,
       });
       
       const insight = response.choices[0]?.message?.content || 'No insight available';
