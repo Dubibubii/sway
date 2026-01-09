@@ -637,8 +637,10 @@ export default function Activity() {
         // Redemption: try full amount first, will fail gracefully if fractional not supported
         shares = rawShares;
       } else {
-        // Selling: must floor to whole contracts
-        shares = Math.floor(rawShares);
+        // Selling: round to nearest whole number first (to handle floating point precision issues)
+        // If the value is very close to a whole number (e.g., 3.9999 or 4.0001), treat it as that whole number
+        const roundedShares = Math.round(rawShares);
+        shares = Math.abs(rawShares - roundedShares) < 0.01 ? roundedShares : Math.floor(rawShares);
         
         if (shares < 1) {
           toast({ 

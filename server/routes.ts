@@ -426,11 +426,17 @@ export async function registerRoutes(
       const netWagerAmount = wagerAmountDollars - entryFee;
       
       // Use actual filled shares if provided (from async trade polling), otherwise calculate from quote
+      // IMPORTANT: Kalshi only accepts whole contracts, so always floor to whole shares
       const newShares = actualShares 
-        ? Math.round(parseFloat(actualShares) * 100) / 100
-        : Math.round((netWagerAmount / price) * 100) / 100;
+        ? Math.floor(parseFloat(actualShares))
+        : Math.floor(netWagerAmount / price);
       
       console.log(`[Trade] Using shares: ${newShares} (actualShares provided: ${!!actualShares}, executionMode: ${executionMode || 'unknown'})`);
+      
+      // Reject trades that result in 0 shares (wager too small)
+      if (newShares < 1) {
+        return res.status(400).json({ error: 'Wager amount too small to purchase at least 1 share' });
+      }
       
       // Calculate ACTUAL entry price based on what was paid per share
       // This accounts for price impact and slippage, giving accurate P&L later
@@ -442,7 +448,7 @@ export async function registerRoutes(
       if (executionMode === 'async' && !actualShares) {
         console.warn(`[Trade] WARNING: Async trade recorded without actual fill data - shares may be inaccurate`);
       }
-      const newEstimatedPayout = Math.round(newShares * 100) / 100;
+      const newEstimatedPayout = newShares; // Each whole share pays $1 at settlement
 
       // Check if there's an existing open position for this market/direction
       const existingTrade = await storage.getOpenTradeForUserMarketDirection(req.userId, marketId, direction);
@@ -455,8 +461,10 @@ export async function registerRoutes(
         const existingPrice = parseFloat(existingTrade.price);
         
         // Calculate combined values
+        // Round existing shares to handle legacy fractional data (3.99 -> 4, 3.01 -> 3)
         const totalWagerCents = existingWagerCents + wagerAmountCents;
-        const totalShares = existingShares + newShares;
+        const existingSharesRounded = Math.round(existingShares);
+        const totalShares = existingSharesRounded + newShares;
         const totalEntryFee = existingEntryFee + entryFee;
         const totalEstimatedPayout = totalShares; // Each share pays $1 at settlement
         
@@ -465,18 +473,18 @@ export async function registerRoutes(
         // Total cost basis / total shares = true average entry price
         const weightedAvgPrice = (totalWagerCents / 100) / totalShares;
         
-        console.log(`[Trade] Consolidating position: ${existingShares} shares + ${newShares} shares = ${totalShares} shares @ avg ${weightedAvgPrice.toFixed(4)}/share`);
+        console.log(`[Trade] Consolidating position: ${existingSharesRounded} shares (was ${existingShares}) + ${newShares} new = ${totalShares} total @ avg ${weightedAvgPrice.toFixed(4)}/share`);
         console.log(`[Trade] Entry fee: $${existingEntryFee.toFixed(4)} + $${entryFee.toFixed(4)} = $${totalEntryFee.toFixed(4)}`);
 
         const updatedTrade = await storage.updateTradePosition(existingTrade.id, {
           wagerAmount: totalWagerCents,
-          shares: totalShares.toFixed(2),
+          shares: String(totalShares), // Store as whole number
           entryFee: totalEntryFee.toFixed(4),
-          estimatedPayout: totalEstimatedPayout.toFixed(2),
+          estimatedPayout: String(totalEstimatedPayout), // Store as whole number
           price: weightedAvgPrice.toFixed(4), // Store with 4 decimal precision for accurate entry price
         });
 
-        console.log(`[Trade] Position consolidated. Total wager: $${(totalWagerCents / 100).toFixed(2)}, Total shares: ${totalShares.toFixed(2)}`);
+        console.log(`[Trade] Position consolidated. Total wager: $${(totalWagerCents / 100).toFixed(2)}, Total shares: ${totalShares}`);
         
         res.json({ trade: updatedTrade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: true });
       } else {
@@ -492,8 +500,8 @@ export async function registerRoutes(
           direction,
           wagerAmount: wagerAmountCents, // Store as cents (integer)
           price: actualEntryPrice.toFixed(4), // Store ACTUAL entry price (cost/shares) not market mid-price
-          shares: newShares.toFixed(2),
-          estimatedPayout: newEstimatedPayout.toFixed(2),
+          shares: String(newShares), // Store as whole number (no fractional shares)
+          estimatedPayout: String(newEstimatedPayout), // Store as whole number
           entryFee: entryFee.toFixed(4),
           exitFee: null,
           isClosed: false,
