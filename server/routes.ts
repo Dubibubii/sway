@@ -1591,7 +1591,15 @@ export async function registerRoutes(
       }
       
       const data = await perplexityResponse.json();
-      const insight = data.choices?.[0]?.message?.content || 'No insight available';
+      let insight = data.choices?.[0]?.message?.content || 'No insight available';
+      
+      // Clean up citations like [1][4][5] and markdown formatting
+      insight = insight
+        .replace(/\[\d+\]/g, '') // Remove citations like [1], [4], [5]
+        .replace(/\*\*/g, '')    // Remove bold markdown **
+        .replace(/\*/g, '')      // Remove italic markdown *
+        .replace(/\s+/g, ' ')    // Normalize whitespace
+        .trim();
       
       res.json({ insight });
     } catch (error: any) {
