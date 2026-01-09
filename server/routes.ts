@@ -1547,7 +1547,7 @@ export async function registerRoutes(
     }
   });
 
-  // AI Market Insights endpoint
+  // AI Market Insights endpoint - uses Perplexity for real-time web search
   app.post('/api/ai/market-insight', async (req: Request, res: Response) => {
     try {
       const { marketTitle, category, yesPrice, noPrice } = req.body;
@@ -1556,32 +1556,42 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Market title required' });
       }
       
-      // Use Replit AI Integrations (OpenAI-compatible)
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      
       const yesPercent = Math.round((yesPrice || 0.5) * 100);
       
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a helpful market research tooltip. Your job is to provide brief, factual context about prediction markets so users can make informed decisions. In 1-2 sentences, share relevant recent news, key dates, or important context about the topic. Be neutral and informative - never recommend which way to bet. Focus on facts that help the user understand the current situation.`
-          },
-          {
-            role: 'user', 
-            content: `Provide brief context for this market: "${marketTitle}" (${category || 'General'}). Current odds: ${yesPercent}% YES. What recent news or key facts should someone know about this topic?`
-          }
-        ],
-        max_tokens: 100,
-        temperature: 0.6,
+      // Use Perplexity API for real-time web search
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-small-128k-online',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a market research assistant. Provide brief, factual, UP-TO-DATE context about prediction market topics. In 1-2 sentences, share the most recent relevant news or developments. Be neutral - never recommend how to bet. Focus only on current facts from the last few weeks.`
+            },
+            {
+              role: 'user',
+              content: `What is the latest news about: "${marketTitle}"? Current market odds: ${yesPercent}% YES. Give me the most recent developments in 1-2 sentences.`
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.2,
+          search_recency_filter: 'week',
+          return_images: false,
+          return_related_questions: false,
+          stream: false,
+        }),
       });
       
-      const insight = response.choices[0]?.message?.content || 'No insight available';
+      if (!perplexityResponse.ok) {
+        throw new Error(`Perplexity API error: ${perplexityResponse.status}`);
+      }
+      
+      const data = await perplexityResponse.json();
+      const insight = data.choices?.[0]?.message?.content || 'No insight available';
       
       res.json({ insight });
     } catch (error: any) {
