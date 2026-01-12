@@ -115,12 +115,39 @@ export async function getPondQuote(
   // DFlow API uses /order endpoint directly (NOT /api/v1/order)
   const orderUrl = `${DFLOW_API_BASE}/order?${queryParams.toString()}`;
   console.log('[Pond] Calling quote API:', orderUrl.split('?')[0]);
+  console.log('[Pond] Full query params:', Object.fromEntries(queryParams.entries()));
   
   const response = await fetch(orderUrl, { headers });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`DFlow API error: ${response.status} - ${error}`);
+    const errorText = await response.text();
+    console.error('[Pond] DFlow API error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorText,
+      inputMint,
+      outputMint,
+      amount,
+      feeParams: feeParams ? {
+        platformFeeScale: feeParams.platformFeeScale,
+        feeAccount: feeParams.feeAccount?.slice(0, 20) + '...'
+      } : 'none'
+    });
+    
+    // Parse error to provide more specific feedback
+    let errorData: any = {};
+    try {
+      errorData = JSON.parse(errorText);
+    } catch {
+      // Not JSON, use raw text
+    }
+    
+    // Include route_not_found in error message so client can detect it
+    if (errorText.includes('route_not_found') || errorData.error?.includes('route_not_found')) {
+      throw new Error(`DFlow API error: route_not_found - This market may not have liquidity in DFlow's routing network`);
+    }
+    
+    throw new Error(`DFlow API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
