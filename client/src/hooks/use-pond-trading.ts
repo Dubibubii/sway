@@ -395,7 +395,7 @@ export function usePondTrading() {
       // For async trades, poll order status in the background (non-blocking)
       // This updates the database record but doesn't delay the user notification
       let actualFilledShares = expectedShares;
-      const expectedUSDC = wagerAmount; // The max wager we sent
+      const expectedUSDC = amountUSDC; // The max wager we sent
       if (executionMode === 'async') {
         console.log('[PondTrading] Async trade - starting background polling for fill confirmation...');
         const token = await getAccessToken();
