@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, memo } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
+import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2, Clock } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, createTrade, getBalancedPercentages, type Market, type PriceHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,6 +32,7 @@ export default function Discovery() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
+  const [showEndingSoon, setShowEndingSoon] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
   
@@ -168,11 +169,21 @@ export default function Discovery() {
     return regex.test(text);
   };
 
-  // Filter markets based on selected category
+  // Filter markets based on selected category and ending soon toggle
   const filteredMarkets = useMemo(() => {
-    const sourceMarkets = isActiveSearch ? searchResults : markets;
+    let sourceMarkets = isActiveSearch ? searchResults : markets;
     
-    // If "All" is selected, show everything
+    // Apply "<24 hours" filter if enabled
+    if (showEndingSoon) {
+      const now = new Date();
+      const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      sourceMarkets = sourceMarkets.filter((market) => {
+        const endDate = new Date(market.endDate);
+        return endDate > now && endDate <= in24Hours;
+      });
+    }
+    
+    // If "All" is selected, return the source (possibly filtered by endingSoon)
     if (selectedCategory === "All") {
       return sourceMarkets;
     }
@@ -220,7 +231,7 @@ export default function Discovery() {
     });
     
     return result;
-  }, [markets, searchResults, selectedCategory, isActiveSearch]);
+  }, [markets, searchResults, selectedCategory, isActiveSearch, showEndingSoon]);
 
   return (
     <Layout>
@@ -238,6 +249,22 @@ export default function Discovery() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
+          {/* Ending Soon Filter */}
+          <Button
+            data-testid="filter-ending-soon"
+            variant={showEndingSoon ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowEndingSoon(!showEndingSoon)}
+            className={`rounded-full whitespace-nowrap text-xs flex items-center gap-1 ${
+              showEndingSoon 
+                ? "bg-amber-500 text-white hover:bg-amber-600" 
+                : "bg-white/5 border-white/10 hover:bg-white/10"
+            }`}
+          >
+            <Clock size={12} />
+            &lt;24h
+          </Button>
+          
           {CATEGORIES.map((category) => (
             <Button
               key={category}
@@ -255,9 +282,9 @@ export default function Discovery() {
             </Button>
           ))}
         </div>
-        {selectedCategory !== "All" && (
+        {(selectedCategory !== "All" || showEndingSoon) && (
           <p className="text-xs text-muted-foreground mb-2">
-            Showing {filteredMarkets.length} {selectedCategory} markets
+            Showing {filteredMarkets.length} {showEndingSoon ? 'ending within 24h' : ''} {selectedCategory !== "All" ? selectedCategory : ''} markets
           </p>
         )}
 
