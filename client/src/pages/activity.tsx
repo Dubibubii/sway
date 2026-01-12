@@ -116,6 +116,9 @@ export default function Activity() {
   // Spread explainer state (educational modal)
   const [showSpreadExplainer, setShowSpreadExplainer] = useState(false);
   
+  // Sell mode selection state - shows choice before sell confirmation
+  const [sellModeStep, setSellModeStep] = useState<'choice' | 'confirm'>('choice');
+  
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
@@ -441,6 +444,7 @@ export default function Activity() {
     e.stopPropagation();
     setSelectedPosition(position);
     setSellQuote(null);
+    setSellModeStep('choice'); // Reset to choice screen
     setCloseModalOpen(true);
     
     // Fetch sell quote for accurate pricing
@@ -885,10 +889,88 @@ export default function Activity() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={closeModalOpen} onOpenChange={setCloseModalOpen}>
+      <Dialog open={closeModalOpen} onOpenChange={(open) => {
+        if (!open) setSellModeStep('choice');
+        setCloseModalOpen(open);
+      }}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
+          {sellModeStep === 'choice' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>How would you like to sell?</DialogTitle>
+                <DialogDescription>
+                  Choose how to sell your {selectedPosition?.direction} position
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 pt-4">
+                {/* Sell Now Option */}
+                <button
+                  onClick={() => setSellModeStep('confirm')}
+                  className="w-full text-left bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 rounded-xl p-4 transition-all group"
+                  data-testid="button-sell-now-option"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0">
+                      <TrendingDown size={20} className="text-rose-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-white group-hover:text-rose-400 transition-colors">
+                        Sell Now
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Instant sale at current market price. Get your money immediately but at the current bid price.
+                      </p>
+                    </div>
+                    <ChevronRight size={20} className="text-muted-foreground group-hover:text-white transition-colors mt-2" />
+                  </div>
+                </button>
+                
+                {/* Sell Later Option */}
+                <div
+                  className="w-full text-left bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4 opacity-70"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Clock size={20} className="text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">Sell Later</span>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">Coming Soon</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Set your own price and wait for a buyer. You could get a better price because you're patient - 
+                        usually there's a few cents difference between buy and sell prices in the orderbook.
+                      </p>
+                      <div className="mt-2 text-xs text-[#1ED78B]/80 flex items-center gap-1">
+                        <TrendingUp size={12} />
+                        <span>Lower fees + potentially better price</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => setCloseModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
           <DialogHeader>
-            <DialogTitle>Sell Position</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <button 
+                onClick={() => setSellModeStep('choice')} 
+                className="p-1 hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <ChevronRight size={18} className="rotate-180 text-muted-foreground" />
+              </button>
+              Sell Now
+            </DialogTitle>
             <DialogDescription>
               Sell your {selectedPosition?.direction} position on "{selectedPosition?.marketTitle}"
             </DialogDescription>
@@ -1065,6 +1147,8 @@ export default function Activity() {
               </Button>
             </div>
           </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
