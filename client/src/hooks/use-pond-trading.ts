@@ -384,9 +384,16 @@ export function usePondTrading() {
 
       console.log('[PondTrading] Trade executed! Signature:', signature);
 
-      const expectedShares = quote?.outAmount
+      // IMPORTANT: Floor shares to whole numbers - Kalshi only accepts whole contracts
+      // Fractional shares cannot be sold, so we must enforce whole shares throughout
+      const rawExpectedShares = quote?.outAmount
         ? parseInt(quote.outAmount) / 1_000_000
         : undefined;
+      const expectedShares = rawExpectedShares !== undefined 
+        ? Math.floor(rawExpectedShares) 
+        : undefined;
+      
+      console.log('[PondTrading] Raw shares:', rawExpectedShares, '| Floored to whole:', expectedShares);
       
       // Return immediately after on-chain confirmation - don't wait for order status polling
       // The Solana transaction is already confirmed at this point
@@ -402,17 +409,20 @@ export function usePondTrading() {
         // Non-blocking background poll with fewer attempts and shorter delay
         pollOrderStatus(signature, token || '', 5, 1500).then(orderResult => {
           if (orderResult) {
+            // Floor actual shares to whole numbers - Kalshi only accepts whole contracts
+            const actualSharesFloored = Math.floor(orderResult.actualShares);
+            
             console.log('[PondTrading] Background poll complete:');
-            console.log('[PondTrading]   Expected shares:', expectedShares, '| Actual shares:', orderResult.actualShares);
+            console.log('[PondTrading]   Expected shares:', expectedShares, '| Actual shares (raw):', orderResult.actualShares, '| Floored:', actualSharesFloored);
             console.log('[PondTrading]   Max wager:', expectedUSDC?.toFixed(2), '| Actual USDC spent:', orderResult.actualUSDCSpent?.toFixed(2));
             
             // Only flag as partial fill if we have expected values to compare against
-            // and there's a meaningful difference (>1% of expected or >$0.02)
+            // and there's a meaningful difference (>1 share or >$0.02)
             const hasExpectedShares = expectedShares != null && expectedShares > 0;
             const hasExpectedUSDC = expectedUSDC != null && expectedUSDC > 0;
             
             let isPartialFill = false;
-            if (hasExpectedShares && orderResult.actualShares < expectedShares - 0.01) {
+            if (hasExpectedShares && actualSharesFloored < expectedShares) {
               isPartialFill = true;
             }
             if (hasExpectedUSDC && (expectedUSDC - orderResult.actualUSDCSpent) > 0.02) {
@@ -423,11 +433,11 @@ export function usePondTrading() {
               console.log('[PondTrading] PARTIAL FILL DETECTED - Leftover USDC:', (expectedUSDC - orderResult.actualUSDCSpent).toFixed(2));
             }
             
-            // Notify UI of confirmed fill data
+            // Notify UI of confirmed fill data with floored shares
             setLastFillConfirmation({
               signature,
               expectedShares,
-              actualShares: orderResult.actualShares,
+              actualShares: actualSharesFloored,
               expectedUSDC,
               actualUSDCSpent: orderResult.actualUSDCSpent,
               isPartialFill,

@@ -682,6 +682,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Invalid actualShares value' });
       }
 
+      // IMPORTANT: Floor to whole shares - Kalshi only accepts whole contracts
+      // Fractional shares cannot be sold, so we must store whole numbers only
+      const flooredShares = Math.floor(actualShares);
+      
+      if (flooredShares < 1) {
+        return res.status(400).json({ error: 'Cannot update to less than 1 share' });
+      }
+
       // Get the existing trade
       const trades = await storage.getUserTrades(req.userId!);
       const trade = trades.find((t: any) => t.id === tradeId);
@@ -690,34 +698,33 @@ export async function registerRoutes(
         return res.status(404).json({ error: 'Trade not found' });
       }
 
-      const currentShares = parseFloat(trade.shares);
-      if (Math.abs(currentShares - actualShares) < 0.01) {
-        // No significant difference, no update needed
+      const currentShares = Math.floor(parseFloat(trade.shares));
+      if (currentShares === flooredShares) {
+        // No difference after flooring, no update needed
         return res.json({ trade, updated: false });
       }
 
-      console.log(`[Trade] Updating shares for trade ${tradeId}: ${currentShares} -> ${actualShares} (partial fill correction)`);
+      console.log(`[Trade] Updating shares for trade ${tradeId}: ${currentShares} -> ${flooredShares} (partial fill correction, raw: ${actualShares})`);
 
-      // Recalculate values based on actual shares
+      // Recalculate values based on actual whole shares
       const price = parseFloat(trade.price);
-      const entryFee = parseFloat(trade.entryFee || '0');
       
       // Adjust wager amount proportionally to the actual shares received
-      const adjustedWagerCents = Math.round((actualShares / currentShares) * trade.wagerAmount);
+      const adjustedWagerCents = Math.round((flooredShares / currentShares) * trade.wagerAmount);
       // Entry fee is estimated using DFlow formula
       const adjustedFeePercent = FEE_CONFIG.PLATFORM_TAKER_SCALE * price * (1 - price);
       const adjustedEntryFee = (adjustedWagerCents / 100) * adjustedFeePercent;
-      const adjustedEstimatedPayout = actualShares;
+      const adjustedEstimatedPayout = flooredShares; // Whole shares = whole payout
 
       const updatedTrade = await storage.updateTradePosition(tradeId, {
         wagerAmount: adjustedWagerCents,
-        shares: actualShares.toFixed(2),
+        shares: flooredShares.toString(), // Store as whole number
         entryFee: adjustedEntryFee.toFixed(4),
-        estimatedPayout: adjustedEstimatedPayout.toFixed(2),
+        estimatedPayout: adjustedEstimatedPayout.toString(),
         price: price.toFixed(2),
       });
 
-      console.log(`[Trade] Trade updated: shares=${actualShares}, wager=$${(adjustedWagerCents/100).toFixed(2)}`);
+      console.log(`[Trade] Trade updated: shares=${flooredShares}, wager=$${(adjustedWagerCents/100).toFixed(2)}`);
 
       res.json({ trade: updatedTrade, updated: true });
     } catch (error) {
