@@ -20,7 +20,10 @@ async function getResendClient() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
+  console.log('[Resend] Checking config - hostname:', !!hostname, 'token:', !!xReplitToken);
+
   if (!xReplitToken || !hostname) {
+    console.log('[Resend] Missing hostname or token');
     return null;
   }
 
@@ -35,17 +38,34 @@ async function getResendClient() {
       }
     );
     const data = await response.json();
+    console.log('[Resend] API response items:', data.items?.length || 0);
     const connectionSettings = data.items?.[0];
 
     if (!connectionSettings?.settings?.api_key) {
+      console.log('[Resend] No API key in connection settings');
       return null;
     }
+    
+    // Use the configured from_email, but fall back to Resend's test domain
+    // if the configured email is from a consumer domain that can't be verified
+    let fromEmail = connectionSettings.settings.from_email;
+    const consumerDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com'];
+    const emailDomain = fromEmail?.split('@')[1]?.toLowerCase();
+    
+    if (!fromEmail || consumerDomains.includes(emailDomain)) {
+      // Can't send from consumer email domains - use Resend's test domain
+      // Note: onboarding@resend.dev only delivers to the Resend account owner's email
+      fromEmail = 'onboarding@resend.dev';
+      console.log('[Resend] Using Resend test domain (original was unverifiable consumer domain)');
+    }
+    
+    console.log('[Resend] Got API key, fromEmail:', fromEmail);
     return {
       client: new Resend(connectionSettings.settings.api_key),
-      fromEmail: connectionSettings.settings.from_email || 'onboarding@resend.dev'
+      fromEmail
     };
   } catch (error) {
-    console.error('Failed to get Resend client:', error);
+    console.error('[Resend] Failed to get client:', error);
     return null;
   }
 }
@@ -1843,6 +1863,7 @@ export async function registerRoutes(
   app.post('/api/feedback', async (req: Request, res: Response) => {
     try {
       const { feedback, userWallet } = req.body;
+      console.log('[Feedback] Received request with feedback length:', feedback?.length);
       
       if (!feedback || typeof feedback !== 'string' || feedback.trim().length === 0) {
         return res.status(400).json({ error: 'Feedback is required' });
@@ -1854,13 +1875,14 @@ export async function registerRoutes(
       
       const resendData = await getResendClient();
       if (!resendData) {
-        console.error('[Feedback] Resend not configured');
+        console.error('[Feedback] Resend not configured - check Resend integration');
         return res.status(500).json({ error: 'Email service not configured' });
       }
       
       const { client, fromEmail } = resendData;
+      console.log('[Feedback] Sending email from:', fromEmail);
       
-      await client.emails.send({
+      const result = await client.emails.send({
         from: fromEmail,
         to: 'dubziik@gmail.com',
         subject: 'SWAY Feedback',
@@ -1873,10 +1895,17 @@ export async function registerRoutes(
         `,
       });
       
-      console.log('[Feedback] Email sent successfully');
+      console.log('[Feedback] Resend response:', JSON.stringify(result));
+      
+      if (result.error) {
+        console.error('[Feedback] Resend error:', result.error);
+        return res.status(500).json({ error: 'Failed to send email: ' + (result.error.message || 'Unknown error') });
+      }
+      
+      console.log('[Feedback] Email sent successfully, id:', result.data?.id);
       res.json({ success: true });
     } catch (error: any) {
-      console.error('[Feedback] Error sending email:', error);
+      console.error('[Feedback] Error sending email:', error.message || error);
       res.status(500).json({ error: 'Failed to send feedback' });
     }
   });
