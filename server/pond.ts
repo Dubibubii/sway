@@ -1514,8 +1514,8 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     const yesPercent = m.yesPrice * 100;
     if (!probabilityFilter(yesPercent)) return false;
     
-    // In strict mode, require minimum volume for liquidity
-    if (strictMode && (m.volume || 0) < 10000) return false;
+    // In strict mode, require minimum volume for liquidity ($100k+ for reliable orderbooks)
+    if (strictMode && (m.volume || 0) < 100000) return false;
     
     // In strict mode, require actual bid/ask prices (not zero) to ensure orderbook has liquidity
     // Markets with 0 bids/asks will fail with "no liquidity" errors at trade time

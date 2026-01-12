@@ -14,10 +14,10 @@ SWAY is a mobile-first prediction markets trading application that allows users 
 To ensure users can trade without errors, the swipe tab applies strict filtering:
 - **Probability Range**: Only markets with 10-90% probability (balanced odds = thicker orderbooks)
 - **Initialized Only**: Must be initialized on DFlow (tokens exist on-chain)
-- **Minimum Volume**: Requires $10,000+ total volume for liquidity
+- **Minimum Volume**: Requires $100,000+ total volume for reliable orderbook liquidity
 - **Has Bids/Asks**: Markets must have non-zero bid AND ask prices (yesBid, yesAsk, noBid, noAsk all > 0)
 - **Max Spread**: Markets with >2 cent absolute spread are filtered out (tight spreads = minimal round-trip loss)
-- **Result**: Users only see ~225 markets with tight spreads, preventing immediate losses from wide bid-ask gaps
+- **Result**: Users only see ~100 markets with tight spreads and deep liquidity, preventing immediate losses and failed trades
 
 ### Discovery Tab Filtering (Relaxed Mode)
 The discovery tab allows more freedom:
