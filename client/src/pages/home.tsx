@@ -4,12 +4,13 @@ import { Layout } from '@/components/layout';
 import { AIMascot } from '@/components/ai-mascot';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useSwipeHistory } from '@/hooks/use-swipe-history';
 import { usePondTrading } from '@/hooks/use-pond-trading';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
 import { usePageView, useBetPlaced } from '@/hooks/use-analytics';
 import { AnimatePresence, useMotionValue, useTransform, motion, animate } from 'framer-motion';
-import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, DollarSign, ArrowRight, ExternalLink, Wifi, WifiOff, ChevronDown, Info } from 'lucide-react';
+import { RefreshCw, X, Check, ChevronsDown, Loader2, Wallet, ExternalLink, Wifi, WifiOff, ChevronDown, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { getMarkets, createTrade, getBalancedPercentages, type Market, type MarketsResponse } from '@/lib/api';
@@ -227,8 +228,6 @@ export default function Home() {
     return positionsData.positions.map(p => p.marketId);
   }, [positionsData]);
   
-  const [showFundingPrompt, setShowFundingPrompt] = useState(false);
-  const [requiredAmount, setRequiredAmount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const fetchedMarketIdsRef = useRef<Set<string>>(new Set());
@@ -470,22 +469,26 @@ export default function Home() {
             className: "bg-zinc-950/95 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-xl p-3"
           });
         } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
-          // Show funding prompt
-          setRequiredAmount(settings.yesWager);
-          setShowFundingPrompt(true);
+          // Show gentle toast reminder with action button
+          toast({
+            title: "Not enough USDC",
+            description: `You need $${settings.yesWager} for this trade.`,
+            action: <ToastAction altText="Add funds" onClick={() => window.location.href = '/profile'} className="bg-primary text-black hover:bg-primary/90 border-0">Add Funds</ToastAction>,
+            className: "bg-zinc-950/95 border-zinc-700/50 text-white backdrop-blur-xl shadow-xl",
+          });
         } else if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
           // Not enough SOL for gas fees
           toast({
-            title: "Need More SOL for Gas",
-            description: "You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.",
-            variant: "destructive",
+            title: "Need SOL for Gas",
+            description: "Add SOL for transaction fees.",
+            action: <ToastAction altText="Add SOL" onClick={() => window.location.href = '/profile'} className="bg-primary text-black hover:bg-primary/90 border-0">Add SOL</ToastAction>,
+            className: "bg-zinc-950/95 border-zinc-700/50 text-white backdrop-blur-xl shadow-xl",
           });
         } else if (result.error?.startsWith('BALANCE_LOADING:')) {
           // Balance not yet loaded
           toast({
             title: "Loading...",
             description: "Please wait for your wallet balance to load, then try again.",
-            variant: "destructive",
           });
         } else {
           // Check for zero out amount error - trade too small for DFlow
@@ -495,7 +498,6 @@ export default function Home() {
           toast({
             title: "Trade Failed",
             description: errorMsg,
-            variant: "destructive",
           });
         }
       } else {
@@ -590,15 +592,20 @@ export default function Home() {
             className: "bg-zinc-950/95 border-rose-500/20 text-white backdrop-blur-xl shadow-xl p-3"
           });
         } else if (result.error?.startsWith('INSUFFICIENT_FUNDS:')) {
-          // Show funding prompt
-          setRequiredAmount(settings.noWager);
-          setShowFundingPrompt(true);
+          // Show gentle toast reminder with action button
+          toast({
+            title: "Not enough USDC",
+            description: `You need $${settings.noWager} for this trade.`,
+            action: <ToastAction altText="Add funds" onClick={() => window.location.href = '/profile'} className="bg-primary text-black hover:bg-primary/90 border-0">Add Funds</ToastAction>,
+            className: "bg-zinc-950/95 border-zinc-700/50 text-white backdrop-blur-xl shadow-xl",
+          });
         } else if (result.error?.startsWith('INSUFFICIENT_GAS:')) {
           // Not enough SOL for gas fees
           toast({
-            title: "Need More SOL for Gas",
-            description: "You need at least 0.003 SOL for transaction fees. Deposit more SOL from your profile page.",
-            variant: "destructive",
+            title: "Need SOL for Gas",
+            description: "Add SOL for transaction fees.",
+            action: <ToastAction altText="Add SOL" onClick={() => window.location.href = '/profile'} className="bg-primary text-black hover:bg-primary/90 border-0">Add SOL</ToastAction>,
+            className: "bg-zinc-950/95 border-zinc-700/50 text-white backdrop-blur-xl shadow-xl",
           });
         } else if (result.error?.startsWith('BALANCE_LOADING:')) {
           // Balance not yet loaded
@@ -745,50 +752,6 @@ export default function Home() {
                 </p>
               </div>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Funding Prompt Dialog */}
-      <Dialog open={showFundingPrompt} onOpenChange={setShowFundingPrompt}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-sm mx-auto rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl font-bold">Add Funds to Trade</DialogTitle>
-            <DialogDescription className="text-center text-zinc-400">
-              Your embedded wallet needs USDC to place trades
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="flex flex-col items-center gap-4 py-4">
-            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-              <DollarSign size={32} className="text-primary" />
-            </div>
-            
-            <div className="text-center space-y-2">
-              <p className="text-zinc-400 text-sm">
-                You need <span className="text-white font-bold">${requiredAmount} USDC</span> for this trade
-              </p>
-              <p className="text-zinc-500 text-xs">
-                Current balance: <span className="text-zinc-300">${(usdcBalance ?? 0).toFixed(2)} USDC</span>
-              </p>
-            </div>
-            
-            <div className="w-full space-y-3 mt-4">
-              <Button 
-                onClick={() => {
-                  setShowFundingPrompt(false);
-                  window.location.href = '/profile';
-                }}
-                className="w-full bg-primary hover:bg-primary/90 text-black font-bold py-6 text-base rounded-2xl"
-              >
-                <ArrowRight className="mr-2" size={20} />
-                Go to Profile to Add Funds
-              </Button>
-              
-              <p className="text-zinc-600 text-xs text-center">
-                Deposit SOL and it will auto-convert to USDC
-              </p>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
