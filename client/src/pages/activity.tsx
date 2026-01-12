@@ -948,11 +948,6 @@ export default function Activity() {
                         <span className="text-sm text-muted-foreground">Sell price (you receive)</span>
                         <span className="text-2xl font-bold text-[#1ED78B]">{(sellPrice * 100).toFixed(0)}¢</span>
                       </div>
-                      {/* Buy Price - smaller */}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Buy price</span>
-                        <span>{buyPrice && buyPrice > 0 ? `${(buyPrice * 100).toFixed(0)}¢` : '—'}</span>
-                      </div>
                       {/* Spread explainer */}
                       {sellPrice < entryPrice && (
                         <button 
