@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { FEE_CONFIG } from '@shared/schema';
 import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
 import { SpreadExplainerSheet } from '@/components/spread-explainer';
 import { useLivePrice } from '@/lib/dflow/livePriceStore';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 type BulkSellMode = 'all' | 'losing' | 'winning' | null;
 
@@ -1260,6 +1261,136 @@ export default function Activity() {
              <div className="text-xl font-mono font-bold text-[#1ED78B]">${totalValue.toFixed(2)}</div>
           </div>
         </div>
+
+        {/* PnL Chart Section */}
+        {(() => {
+          // Calculate total PnL from all active positions
+          const totalPnL = activePositions.reduce((acc, position) => {
+            const shares = parseFloat(position.shares);
+            const costBasis = position.wagerAmount / 100;
+            const livePrice = currentPrices[position.marketId];
+            const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
+            const currentValue = shares * currentPrice;
+            return acc + (currentValue - costBasis);
+          }, 0);
+          
+          // Calculate daily PnL (positions created today)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dailyPnL = activePositions.reduce((acc, position) => {
+            const positionDate = new Date(position.createdAt);
+            if (positionDate >= today) {
+              const shares = parseFloat(position.shares);
+              const costBasis = position.wagerAmount / 100;
+              const livePrice = currentPrices[position.marketId];
+              const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
+              const currentValue = shares * currentPrice;
+              return acc + (currentValue - costBasis);
+            }
+            return acc;
+          }, 0);
+          
+          // Generate 7-day chart data
+          const chartData = Array.from({ length: 7 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (6 - i));
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            // Calculate cumulative PnL up to this day
+            let dayPnL = 0;
+            activePositions.forEach(position => {
+              const positionDate = new Date(position.createdAt);
+              positionDate.setHours(0, 0, 0, 0);
+              const currentDay = new Date(date);
+              currentDay.setHours(0, 0, 0, 0);
+              
+              if (positionDate <= currentDay) {
+                const shares = parseFloat(position.shares);
+                const costBasis = position.wagerAmount / 100;
+                const livePrice = currentPrices[position.marketId];
+                const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
+                const currentValue = shares * currentPrice;
+                dayPnL += (currentValue - costBasis);
+              }
+            });
+            
+            return {
+              name: dayNames[date.getDay()],
+              pnl: dayPnL,
+            };
+          });
+          
+          const hasPositions = activePositions.length > 0;
+          const isPositive = totalPnL >= 0;
+          
+          return (
+            <div className="mb-6 glass-panel rounded-2xl p-4">
+              {/* PnL Stats Row */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total PnL</div>
+                  <div className={`text-2xl font-mono font-bold ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
+                    {isPositive ? '+' : ''}{hasPositions ? `$${totalPnL.toFixed(2)}` : '$0.00'}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Today</div>
+                  <div className={`text-lg font-mono font-bold ${dailyPnL >= 0 ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
+                    {dailyPnL >= 0 ? '+' : ''}{hasPositions ? `$${dailyPnL.toFixed(2)}` : '$0.00'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* 7-Day Chart */}
+              <div className="h-32">
+                {hasPositions ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={isPositive ? '#1ED78B' : '#f43f5e'} stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor={isPositive ? '#1ED78B' : '#f43f5e'} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#71717a', fontSize: 10 }}
+                      />
+                      <YAxis hide domain={['dataMin', 'dataMax']} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#18181b', 
+                          border: '1px solid #3f3f46',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'PnL']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="pnl" 
+                        stroke={isPositive ? '#1ED78B' : '#f43f5e'} 
+                        strokeWidth={2}
+                        fill="url(#pnlGradient)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                    Place some bets to see your PnL chart
+                  </div>
+                )}
+              </div>
+              
+              {/* 7-day label */}
+              <div className="text-center mt-2">
+                <span className="text-[10px] text-muted-foreground">Last 7 Days</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
