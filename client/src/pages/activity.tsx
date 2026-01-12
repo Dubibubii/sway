@@ -127,6 +127,7 @@ export default function Activity() {
   const [isLoadingInsight, setIsLoadingInsight] = useState(false);
   const [insightFetched, setInsightFetched] = useState(false);
   
+  
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();

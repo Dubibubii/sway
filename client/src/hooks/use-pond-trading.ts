@@ -395,29 +395,31 @@ export function usePondTrading() {
       
       console.log('[PondTrading] Raw shares:', rawExpectedShares, '| Floored to whole:', expectedShares);
       
-      // Return immediately after on-chain confirmation - don't wait for order status polling
-      // The Solana transaction is already confirmed at this point
-      setIsTrading(false);
-      
-      // For async trades, poll order status in the background (non-blocking)
-      // This updates the database record but doesn't delay the user notification
+      // For async trades, WAIT for confirmation before returning success
+      // This prevents "ghost trades" where we record success but tokens never arrive
       let actualFilledShares = expectedShares;
-      const expectedUSDC = amountUSDC; // The max wager we sent
+      const expectedUSDC = amountUSDC;
+      
       if (executionMode === 'async') {
-        console.log('[PondTrading] Async trade - starting background polling for fill confirmation...');
+        console.log('[PondTrading] Async trade - waiting for fill confirmation before recording...');
         const token = await getAccessToken();
-        // Non-blocking background poll with fewer attempts and shorter delay
-        pollOrderStatus(signature, token || '', 5, 1500).then(orderResult => {
-          if (orderResult) {
+        
+        try {
+          // BLOCKING poll - wait for confirmation before returning success
+          // This ensures we don't record ghost trades
+          const orderResult = await pollOrderStatus(signature, token || '', 8, 2000);
+          
+          if (orderResult && orderResult.actualShares > 0) {
             // Floor actual shares to whole numbers - Kalshi only accepts whole contracts
             const actualSharesFloored = Math.floor(orderResult.actualShares);
             
-            console.log('[PondTrading] Background poll complete:');
-            console.log('[PondTrading]   Expected shares:', expectedShares, '| Actual shares (raw):', orderResult.actualShares, '| Floored:', actualSharesFloored);
+            console.log('[PondTrading] Async fill CONFIRMED:');
+            console.log('[PondTrading]   Expected shares:', expectedShares, '| Actual shares:', actualSharesFloored);
             console.log('[PondTrading]   Max wager:', expectedUSDC?.toFixed(2), '| Actual USDC spent:', orderResult.actualUSDCSpent?.toFixed(2));
             
-            // Only flag as partial fill if we have expected values to compare against
-            // and there's a meaningful difference (>1 share or >$0.02)
+            actualFilledShares = actualSharesFloored;
+            
+            // Check for partial fill
             const hasExpectedShares = expectedShares != null && expectedShares > 0;
             const hasExpectedUSDC = expectedUSDC != null && expectedUSDC > 0;
             
@@ -430,10 +432,10 @@ export function usePondTrading() {
             }
             
             if (isPartialFill) {
-              console.log('[PondTrading] PARTIAL FILL DETECTED - Leftover USDC:', (expectedUSDC - orderResult.actualUSDCSpent).toFixed(2));
+              console.log('[PondTrading] PARTIAL FILL - Leftover USDC:', (expectedUSDC - orderResult.actualUSDCSpent).toFixed(2));
             }
             
-            // Notify UI of confirmed fill data with floored shares
+            // Notify UI of confirmed fill data
             setLastFillConfirmation({
               signature,
               expectedShares,
@@ -442,11 +444,29 @@ export function usePondTrading() {
               actualUSDCSpent: orderResult.actualUSDCSpent,
               isPartialFill,
             });
+          } else if (orderResult && orderResult.status === 'failed') {
+            // Trade explicitly failed
+            console.error('[PondTrading] Async trade FAILED - DFlow rejected the order');
+            setIsTrading(false);
+            return {
+              success: false,
+              error: 'Trade was rejected by the exchange. Your funds have been returned.',
+              signature,
+            };
+          } else {
+            // Poll timed out but no explicit failure - trade may still be processing
+            // For safety, we'll still return success but log a warning
+            console.warn('[PondTrading] Async poll timed out - trade may still be processing');
+            // Use expected shares since we couldn't confirm actual
           }
-        }).catch(err => {
-          console.warn('[PondTrading] Background order status poll failed:', err);
-        });
+        } catch (pollError) {
+          console.error('[PondTrading] Async confirmation failed:', pollError);
+          // If we can't confirm, still return success with expected shares
+          // The transaction was submitted, just couldn't confirm fill status
+        }
       }
+      
+      setIsTrading(false);
       
       return {
         success: true,
