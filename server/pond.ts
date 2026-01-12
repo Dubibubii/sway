@@ -1529,18 +1529,18 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
       const hasAsks = yesAsk > 0 && noAsk > 0;
       if (!hasBids || !hasAsks) return false;
       
-      // Check spread - markets with >40% spread often have liquidity issues at trade time
-      // Spread = (ask - bid) / ask
-      const yesSpread = yesAsk > 0 ? (yesAsk - yesBid) / yesAsk : 1;
-      const noSpread = noAsk > 0 ? (noAsk - noBid) / noAsk : 1;
-      const maxSpread = Math.max(yesSpread, noSpread);
-      if (maxSpread > 0.40) return false; // Filter out >40% spread
+      // Check spread - use absolute spread (max 5 cents) to prevent immediate losses
+      // A 5 cent spread means max loss of $0.05 per share on round-trip
+      const yesAbsoluteSpread = yesAsk - yesBid;
+      const noAbsoluteSpread = noAsk - noBid;
+      const maxAbsoluteSpread = Math.max(yesAbsoluteSpread, noAbsoluteSpread);
+      if (maxAbsoluteSpread > 0.05) return false; // Filter out >5 cent spread
     }
     
     return true;
   });
   
-  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 40% spread)' : 'discovery (1-99%)';
+  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 5¢ spread)' : 'discovery (1-99%)';
   console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
   
   // Re-classify markets before filtering
