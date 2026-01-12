@@ -15,7 +15,8 @@ To ensure users can trade without errors, the swipe tab applies strict filtering
 - **Probability Range**: Only markets with 10-90% probability (balanced odds = thicker orderbooks)
 - **Initialized Only**: Must be initialized on DFlow (tokens exist on-chain)
 - **Minimum Volume**: Requires $10,000+ total volume for liquidity
-- **Result**: Users only see markets that can actually be traded without "route not found" errors
+- **Has Bids/Asks**: Markets must have non-zero bid AND ask prices (yesBid, yesAsk, noBid, noAsk all > 0)
+- **Result**: Users only see markets that can actually be traded without "no liquidity" errors
 
 ### Discovery Tab Filtering (Relaxed Mode)
 The discovery tab allows more freedom:

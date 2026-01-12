@@ -1517,10 +1517,18 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     // In strict mode, require minimum volume for liquidity
     if (strictMode && (m.volume || 0) < 10000) return false;
     
+    // In strict mode, require actual bid/ask prices (not zero) to ensure orderbook has liquidity
+    // Markets with 0 bids/asks will fail with "no liquidity" errors at trade time
+    if (strictMode) {
+      const hasBids = (m.yesBid ?? 0) > 0 && (m.noBid ?? 0) > 0;
+      const hasAsks = (m.yesAsk ?? 0) > 0 && (m.noAsk ?? 0) > 0;
+      if (!hasBids || !hasAsks) return false;
+    }
+    
     return true;
   });
   
-  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume)' : 'discovery (1-99%)';
+  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks)' : 'discovery (1-99%)';
   console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
   
   // Re-classify markets before filtering
