@@ -1018,7 +1018,7 @@ export async function registerRoutes(
   });
 
   // Redeem endpoint - redeems winning outcome tokens from settled markets
-  // Uses 'positions' channel fee (0.25%) since redemption is a position management action
+  // Uses unified platform fee: 0.045 × p × (1-p) × contracts (50% of DFlow rate)
   app.post('/api/pond/redeem', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { outcomeMint, shares, userPublicKey, slippageBps = 100 } = req.body;
@@ -1103,7 +1103,7 @@ export async function registerRoutes(
 
       console.log('[Pond Sell Quote] Getting quote:', { marketId, side, shares, amountAtomic });
 
-      // Get quote from DFlow
+      // Get quote from DFlow using unified platform fee scale
       const orderResponse = await getPondQuote(
         inputMint,
         outputMint,
@@ -1112,7 +1112,7 @@ export async function registerRoutes(
         slippageBps,
         DFLOW_API_KEY || undefined,
         {
-          platformFeeScale: 3, // 0.25% fee for positions channel
+          platformFeeScale: FEE_CONFIG.PLATFORM_FEE_SCALE, // 45 = 0.045 (50% of DFlow's 0.09)
           feeAccount: FEE_CONFIG.FEE_RECIPIENT,
           referralAccount: FEE_CONFIG.FEE_WALLET,
         }
@@ -1126,13 +1126,14 @@ export async function registerRoutes(
       const priceImpactPct = parseFloat(rawResponse.priceImpactPct || rawResponse.quote?.priceImpactPct || '0');
       const pricePerShare = shares > 0 ? expectedUSDC / shares : 0;
 
-      // Calculate estimated fees (DFlow taker fee formula: 0.09 * p * (1-p) * contracts)
-      // Since we're selling, p = pricePerShare
-      const estimatedDFlowFee = 0.09 * pricePerShare * (1 - pricePerShare) * shares;
-      const platformFeeBps = 25; // 0.25% for positions channel
+      // Calculate estimated fees using DFlow formula: scale * p * (1-p) * contracts
+      // DFlow taker fee: 0.09 * p * (1-p) * contracts
+      // Platform fee: 0.045 * p * (1-p) * contracts (50% of DFlow rate)
+      const p = pricePerShare;
+      const estimatedDFlowFee = 0.09 * p * (1 - p) * shares;
+      const estimatedPlatformFee = FEE_CONFIG.PLATFORM_TAKER_SCALE * p * (1 - p) * shares;
       const grossValue = shares * pricePerShare;
-      const platformFee = grossValue * (platformFeeBps / 10000);
-      const totalFees = estimatedDFlowFee + platformFee;
+      const totalFees = estimatedDFlowFee + estimatedPlatformFee;
       
       // Get live orderbook prices from cache (marketTokens already fetched above)
       let orderbook = { yesBid: 0, yesAsk: 0, noBid: 0, noAsk: 0 };
@@ -1184,7 +1185,7 @@ export async function registerRoutes(
   });
 
   // Sell endpoint - converts outcome tokens back to USDC
-  // Uses 'positions' channel fee by default (0.25%)
+  // Uses unified platform fee: 0.045 × p × (1-p) × contracts (50% of DFlow rate)
   app.post('/api/pond/sell', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { marketId, side, shares, userPublicKey, slippageBps = 300, channel = 'positions' } = req.body;

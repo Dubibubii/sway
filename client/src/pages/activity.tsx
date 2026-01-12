@@ -603,7 +603,7 @@ export default function Activity() {
       const side = selectedPosition.direction.toLowerCase() as 'yes' | 'no';
       console.log('[Activity] Starting add to position trade:', selectedPosition.marketId, side, actualSpend);
       
-      // Use 'positions' channel for adding to position - 0.25% fee
+      // Use unified platform fee: 0.045 × p × (1-p) × contracts
       // Use actualSpend (adjusted for whole shares) instead of raw amount
       const result = await placePondTrade(
         selectedPosition.marketId, 

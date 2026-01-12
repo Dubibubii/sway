@@ -80,7 +80,7 @@ export default function Discovery() {
       description: `$${actualSpend.toFixed(2)} on ${side.toUpperCase()}`,
     });
     
-    // Execute trade in background using 'discovery' channel - 0.75% fee
+    // Execute trade in background using unified platform fee
     const result = await placePondTrade(marketId, side, actualSpend, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
     
     if (result.success) {
