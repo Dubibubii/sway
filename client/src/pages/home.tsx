@@ -163,11 +163,12 @@ function formatMarket(m: Market): DisplayMarket {
   let endDateFormatted: string;
   const endDateValue = m.endDate;
   
-  if (typeof endDateValue === 'number') {
-    const timestamp = endDateValue < 10000000000 ? endDateValue * 1000 : endDateValue;
+  // Parse endDate - could be string or number, always Unix timestamp in SECONDS
+  const numericEndDate = typeof endDateValue === 'string' ? parseInt(endDateValue, 10) : endDateValue;
+  if (!isNaN(numericEndDate) && numericEndDate > 0) {
+    // Convert seconds to milliseconds (Unix timestamps < 10 billion are in seconds)
+    const timestamp = numericEndDate < 10000000000 ? numericEndDate * 1000 : numericEndDate;
     endDateFormatted = new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } else if (typeof endDateValue === 'string') {
-    endDateFormatted = new Date(endDateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } else {
     endDateFormatted = 'TBD';
   }

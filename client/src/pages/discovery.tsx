@@ -178,7 +178,9 @@ export default function Discovery() {
       const now = new Date();
       const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       sourceMarkets = sourceMarkets.filter((market) => {
-        const endDate = new Date(market.endDate);
+        // endDate is Unix timestamp in SECONDS (as string or number), convert to milliseconds
+        const endDateSeconds = typeof market.endDate === 'string' ? parseInt(market.endDate, 10) : market.endDate;
+        const endDate = new Date(endDateSeconds * 1000);
         return endDate > now && endDate <= in24Hours;
       });
     }
@@ -869,7 +871,7 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
                     >
                       <div className="pt-3 mt-3 border-t border-white/10 text-sm text-muted-foreground space-y-2">
                         <p>This market will resolve based on official announcements and verifiable public information.</p>
-                        <p>End date: {new Date(market.endDate).toLocaleDateString('en-US', { 
+                        <p>End date: {new Date((typeof market.endDate === 'string' ? parseInt(market.endDate, 10) : market.endDate) * 1000).toLocaleDateString('en-US', { 
                           year: 'numeric', 
                           month: 'long', 
                           day: 'numeric' 
