@@ -60,8 +60,12 @@ function TradeConfirmToast({
       
       {/* Secondary lines */}
       <div className="text-sm text-zinc-400 space-y-0.5">
-        <div>Spent <span className="text-white font-medium">${spent.toFixed(2)}</span> of ${wager.toFixed(2)}</div>
-        {leftover > 0.005 ? (
+        {isAsync ? (
+          <div>Cost: <span className="text-white font-medium">~${spent.toFixed(2)}</span> <span className="text-zinc-500">(confirming...)</span></div>
+        ) : (
+          <div>Spent <span className="text-white font-medium">${spent.toFixed(2)}</span> of ${wager.toFixed(2)}</div>
+        )}
+        {!isAsync && leftover > 0.005 ? (
           <div>Left in balance: <span className="text-amber-400">${leftover.toFixed(2)}</span></div>
         ) : null}
       </div>
@@ -200,7 +204,7 @@ export default function Home() {
   const { login, authenticated, ready } = usePrivy();
   const { embeddedWallet } = usePrivySafe();
   const { recordSwipe, getVisibleCards, resetHistory, updateCacheTimestamp, getSwipedIds } = useSwipeHistory();
-  const { placeTrade: placePondTrade, isTrading: isPondTrading } = usePondTrading();
+  const { placeTrade: placePondTrade, isTrading: isPondTrading, lastFillConfirmation, clearFillConfirmation } = usePondTrading();
   
   const embeddedAddress = embeddedWallet?.address || null;
   const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedAddress);
@@ -305,6 +309,41 @@ export default function Home() {
       fetchNextPage().finally(() => setIsLoadingMore(false));
     }
   }, [displayedMarkets.length, hasNextPage, isFetchingNextPage, isLoadingMore, fetchNextPage]);
+
+  // Show follow-up toast when async trade fill is confirmed with actual amounts
+  useEffect(() => {
+    if (lastFillConfirmation && lastFillConfirmation.actualUSDCSpent > 0) {
+      const { actualShares, actualUSDCSpent, expectedUSDC, isPartialFill } = lastFillConfirmation;
+      const leftover = (expectedUSDC || 0) - actualUSDCSpent;
+      
+      toast({
+        title: (
+          <div className="flex items-center gap-2">
+            <div className="bg-[#1ED78B]/20 p-1 rounded-full">
+              <Check size={12} className="text-[#1ED78B]" />
+            </div>
+            <span className="text-[#1ED78B] font-medium text-xs">Trade Confirmed</span>
+          </div>
+        ),
+        description: (
+          <div className="text-sm text-zinc-400">
+            <div>Bought <span className="text-white font-medium">{actualShares}</span> share{actualShares !== 1 ? 's' : ''}</div>
+            <div>Cost: <span className="text-white font-medium">${actualUSDCSpent.toFixed(2)}</span></div>
+            {isPartialFill && leftover > 0.01 && (
+              <div className="text-zinc-500 text-xs mt-1">${leftover.toFixed(2)} returned to balance</div>
+            )}
+          </div>
+        ),
+        className: "bg-zinc-950/95 border-[#1ED78B]/20 text-white backdrop-blur-xl shadow-xl",
+      });
+      
+      // Refresh balance to show correct amount
+      refetchBalance();
+      
+      // Clear the confirmation after handling
+      clearFillConfirmation();
+    }
+  }, [lastFillConfirmation, clearFillConfirmation, refetchBalance]);
 
   const tickersToSubscribe = useMemo(() => {
     return displayedMarkets.slice(0, 30).map(m => m.id);

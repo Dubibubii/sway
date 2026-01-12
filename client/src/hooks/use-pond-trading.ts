@@ -33,7 +33,18 @@ export interface PondTradeResult {
   expectedShares?: number;
   actualShares?: number;
   expectedUSDC?: number;
+  actualUSDCSpent?: number;
   isAsync?: boolean;
+}
+
+// Callback for when async trade fill is confirmed
+export interface FillConfirmation {
+  signature: string;
+  expectedShares?: number;
+  actualShares: number;
+  expectedUSDC?: number;
+  actualUSDCSpent: number;
+  isPartialFill: boolean;
 }
 
 interface OrderStatusFill {
@@ -52,7 +63,7 @@ async function pollOrderStatus(
   token: string,
   maxAttempts: number = 10,
   delayMs: number = 2000
-): Promise<{ actualShares: number; status: string } | null> {
+): Promise<{ actualShares: number; actualUSDCSpent: number; status: string } | null> {
   console.log('[PondTrading] Polling order status for signature:', signature);
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -70,20 +81,25 @@ async function pollOrderStatus(
       const data: OrderStatusResponse = await response.json();
       console.log('[PondTrading] Order status:', data.status, 'fills:', data.fills?.length || 0);
       
-      // If order is complete, calculate actual shares from fills
+      // If order is complete, calculate actual shares and USDC spent from fills
       if (data.status === 'closed' || data.status === 'pendingClose') {
         if (data.fills && data.fills.length > 0) {
-          // Sum up all fill amounts (outAmount is the tokens received)
+          // Sum up all fill amounts
+          // outAmount = tokens received (shares), inAmount = USDC spent
           const totalOutAmount = data.fills.reduce((sum, fill) => {
             return sum + parseInt(fill.outAmount || '0');
           }, 0);
+          const totalInAmount = data.fills.reduce((sum, fill) => {
+            return sum + parseInt(fill.inAmount || '0');
+          }, 0);
           const actualShares = totalOutAmount / 1_000_000; // Convert from atomic units
-          console.log('[PondTrading] Order complete! Actual shares:', actualShares);
-          return { actualShares, status: data.status };
+          const actualUSDCSpent = totalInAmount / 1_000_000; // USDC has 6 decimals
+          console.log('[PondTrading] Order complete! Actual shares:', actualShares, 'USDC spent:', actualUSDCSpent);
+          return { actualShares, actualUSDCSpent, status: data.status };
         }
         // Order closed but no fills - might be cancelled
         console.warn('[PondTrading] Order closed with no fills');
-        return { actualShares: 0, status: data.status };
+        return { actualShares: 0, actualUSDCSpent: 0, status: data.status };
       }
       
       if (data.status === 'failed') {
@@ -147,6 +163,7 @@ export function usePondTrading() {
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isTrading, setIsTrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFillConfirmation, setLastFillConfirmation] = useState<FillConfirmation | null>(null);
 
   const placeTrade = useCallback(async (
     marketId: string,
@@ -378,16 +395,43 @@ export function usePondTrading() {
       // For async trades, poll order status in the background (non-blocking)
       // This updates the database record but doesn't delay the user notification
       let actualFilledShares = expectedShares;
+      const expectedUSDC = wagerAmount; // The max wager we sent
       if (executionMode === 'async') {
         console.log('[PondTrading] Async trade - starting background polling for fill confirmation...');
         const token = await getAccessToken();
         // Non-blocking background poll with fewer attempts and shorter delay
         pollOrderStatus(signature, token || '', 5, 1500).then(orderResult => {
           if (orderResult) {
-            console.log('[PondTrading] Background poll complete - Expected:', expectedShares, 'Actual:', orderResult.actualShares);
-            if (orderResult.actualShares && orderResult.actualShares !== expectedShares) {
-              console.log('[PondTrading] PARTIAL FILL DETECTED - Expected:', expectedShares, 'Actual:', orderResult.actualShares);
+            console.log('[PondTrading] Background poll complete:');
+            console.log('[PondTrading]   Expected shares:', expectedShares, '| Actual shares:', orderResult.actualShares);
+            console.log('[PondTrading]   Max wager:', expectedUSDC?.toFixed(2), '| Actual USDC spent:', orderResult.actualUSDCSpent?.toFixed(2));
+            
+            // Only flag as partial fill if we have expected values to compare against
+            // and there's a meaningful difference (>1% of expected or >$0.02)
+            const hasExpectedShares = expectedShares != null && expectedShares > 0;
+            const hasExpectedUSDC = expectedUSDC != null && expectedUSDC > 0;
+            
+            let isPartialFill = false;
+            if (hasExpectedShares && orderResult.actualShares < expectedShares - 0.01) {
+              isPartialFill = true;
             }
+            if (hasExpectedUSDC && (expectedUSDC - orderResult.actualUSDCSpent) > 0.02) {
+              isPartialFill = true;
+            }
+            
+            if (isPartialFill) {
+              console.log('[PondTrading] PARTIAL FILL DETECTED - Leftover USDC:', (expectedUSDC - orderResult.actualUSDCSpent).toFixed(2));
+            }
+            
+            // Notify UI of confirmed fill data
+            setLastFillConfirmation({
+              signature,
+              expectedShares,
+              actualShares: orderResult.actualShares,
+              expectedUSDC,
+              actualUSDCSpent: orderResult.actualUSDCSpent,
+              isPartialFill,
+            });
           }
         }).catch(err => {
           console.warn('[PondTrading] Background order status poll failed:', err);
@@ -804,6 +848,11 @@ export function usePondTrading() {
     }
   }, [getAccessToken]);
 
+  // Clear fill confirmation after UI has handled it
+  const clearFillConfirmation = useCallback(() => {
+    setLastFillConfirmation(null);
+  }, []);
+
   return {
     placeTrade,
     sellPosition,
@@ -812,5 +861,7 @@ export function usePondTrading() {
     checkRedemption,
     isTrading,
     error,
+    lastFillConfirmation,
+    clearFillConfirmation,
   };
 }

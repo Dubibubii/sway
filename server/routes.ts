@@ -1452,6 +1452,107 @@ export async function registerRoutes(
     }
   });
 
+  // Transaction verification endpoint - verifies USDC debits/credits on-chain
+  app.get('/api/solana/transaction/:signature', async (req: Request, res: Response) => {
+    try {
+      const { signature } = req.params;
+      const { wallet } = req.query; // Optional: filter to specific wallet
+      
+      if (!signature || signature.length < 32) {
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+
+      console.log(`[Helius] Fetching transaction: ${signature.slice(0, 20)}...`);
+
+      const txResponse = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getTransaction',
+          params: [
+            signature,
+            {
+              encoding: 'jsonParsed',
+              maxSupportedTransactionVersion: 0,
+              commitment: 'confirmed'
+            }
+          ]
+        })
+      });
+
+      if (!txResponse.ok) {
+        return res.status(txResponse.status).json({ 
+          error: 'RPC request failed',
+          status: txResponse.status
+        });
+      }
+
+      const txData = await txResponse.json() as any;
+      
+      if (!txData.result) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+
+      const tx = txData.result;
+      const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      
+      // Extract pre/post token balances for USDC
+      const preBalances = tx.meta?.preTokenBalances || [];
+      const postBalances = tx.meta?.postTokenBalances || [];
+      
+      // Build a map of account index -> balance changes for USDC
+      const usdcChanges: { owner: string; preBalance: number; postBalance: number; change: number }[] = [];
+      
+      for (const post of postBalances) {
+        if (post.mint === USDC_MINT) {
+          const pre = preBalances.find((p: any) => 
+            p.accountIndex === post.accountIndex && p.mint === USDC_MINT
+          );
+          const preAmount = pre?.uiTokenAmount?.uiAmount || 0;
+          const postAmount = post.uiTokenAmount?.uiAmount || 0;
+          const change = postAmount - preAmount;
+          
+          if (Math.abs(change) > 0.0001) { // Only include meaningful changes
+            usdcChanges.push({
+              owner: post.owner || 'unknown',
+              preBalance: preAmount,
+              postBalance: postAmount,
+              change: change
+            });
+          }
+        }
+      }
+      
+      // Filter to specific wallet if provided
+      const filteredChanges = wallet 
+        ? usdcChanges.filter(c => c.owner === wallet)
+        : usdcChanges;
+      
+      // Find the user's USDC change (usually negative = spent)
+      const userChange = filteredChanges.find(c => c.change < 0);
+      
+      console.log(`[Helius] Transaction ${signature.slice(0, 12)}... USDC changes:`, filteredChanges);
+
+      res.json({
+        signature,
+        slot: tx.slot,
+        blockTime: tx.blockTime,
+        success: tx.meta?.err === null,
+        usdcChanges: filteredChanges,
+        userSpent: userChange ? Math.abs(userChange.change) : null,
+        fee: tx.meta?.fee ? tx.meta.fee / 1_000_000_000 : null, // SOL fee in SOL
+      });
+    } catch (error: any) {
+      console.error('[Helius] Transaction fetch error:', error.message);
+      res.status(500).json({ 
+        error: 'Failed to fetch transaction',
+        details: error.message
+      });
+    }
+  });
+
   // CoinGecko price proxy with caching (to avoid CORS and rate limits)
   let cachedSolPrice = { usd: 130, timestamp: 0 };
   const PRICE_CACHE_TTL = 60000; // 1 minute cache
