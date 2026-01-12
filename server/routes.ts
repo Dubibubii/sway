@@ -421,15 +421,23 @@ export async function registerRoutes(
       console.log(`[Trade] On-chain tx successful, attempting DB write...`);
       console.log(`[Trade] Data payload: marketId=${marketId}, direction=${direction}, wagerAmount=$${wagerAmountDollars} (${wagerAmountCents} cents), price=${price}, actualShares=${actualShares}`);
 
-      // Calculate 1% entry fee (in dollars for display)
-      const entryFee = wagerAmountDollars * FEE_CONFIG.FEE_PERCENTAGE;
-      const netWagerAmount = wagerAmountDollars - entryFee;
+      // Parse price for fee calculation
+      const priceVal = parseFloat(price);
       
-      // Use actual filled shares if provided (from async trade polling), otherwise calculate from quote
+      // Calculate shares using combined fee scale (DFlow + platform)
+      // This ensures total spend never exceeds the user's wager
+      // Formula: contracts = wager / (price + (dflowScale + platformScale) * p * (1-p))
+      const dflowScale = FEE_CONFIG.DFLOW_TAKER_SCALE; // 0.09
+      const platformScale = FEE_CONFIG.PLATFORM_TAKER_SCALE; // 0.045
+      const combinedScale = dflowScale + platformScale; // 0.135
+      const combinedFeeMultiplier = combinedScale * priceVal * (1 - priceVal);
+      const effectiveCostPerContract = priceVal + combinedFeeMultiplier;
+      
+      // Use actual filled shares if provided (from async trade polling), otherwise calculate from combined formula
       // IMPORTANT: Kalshi only accepts whole contracts, so always floor to whole shares
       const newShares = actualShares 
         ? Math.floor(parseFloat(actualShares))
-        : Math.floor(netWagerAmount / price);
+        : Math.floor(wagerAmountDollars / effectiveCostPerContract);
       
       console.log(`[Trade] Using shares: ${newShares} (actualShares provided: ${!!actualShares}, executionMode: ${executionMode || 'unknown'})`);
       
@@ -438,11 +446,25 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Wager amount too small to purchase at least 1 share' });
       }
       
-      // Calculate ACTUAL entry price based on what was paid per share
-      // This accounts for price impact and slippage, giving accurate P&L later
-      // Entry price = cost / shares (what you actually paid per share)
-      const actualEntryPrice = newShares > 0 ? wagerAmountDollars / newShares : price;
-      console.log(`[Trade] Market mid-price: ${price}, Actual entry price: ${actualEntryPrice.toFixed(4)} (includes slippage/price impact)`);
+      // Calculate fees based on filled shares
+      // DFlow fee: 0.09 × p × (1-p) × contracts (deducted on-chain)
+      // Platform fee: 0.045 × p × (1-p) × contracts (collected via platformFeeScale)
+      const dflowFee = dflowScale * priceVal * (1 - priceVal) * newShares;
+      const entryFee = platformScale * priceVal * (1 - priceVal) * newShares;
+      const contractCost = newShares * priceVal;
+      const totalFees = dflowFee + entryFee;
+      const actualSpend = contractCost + totalFees;
+      const unspentAmount = Math.max(0, wagerAmountDollars - actualSpend);
+      
+      // Store ACTUAL SPEND as wagerAmount for accurate P&L calculation
+      // P&L = settlement payout - wagerAmount = shares - actualSpend
+      // This ensures cost basis includes ALL fees (DFlow + platform)
+      const actualSpendCents = Math.round(actualSpend * 100);
+      
+      // Entry price stored as effective price per share (actualSpend / shares)
+      // This includes all fees and gives accurate cost basis display
+      const actualEntryPrice = actualSpend / newShares;
+      console.log(`[Trade] Market price: ${price}, Actual spend: $${actualSpend.toFixed(4)} (contract: $${contractCost.toFixed(4)}, DFlow: $${dflowFee.toFixed(4)}, platform: $${entryFee.toFixed(4)}), Unspent: $${unspentAmount.toFixed(4)}`);
       
       // Warn if async trade didn't provide actual shares
       if (executionMode === 'async' && !actualShares) {
@@ -455,41 +477,38 @@ export async function registerRoutes(
       
       if (existingTrade) {
         // Consolidate: update the existing position instead of creating a new one
-        const existingWagerCents = existingTrade.wagerAmount;
+        const existingSpendCents = existingTrade.wagerAmount; // Actual spend in cents
         const existingShares = parseFloat(existingTrade.shares);
         const existingEntryFee = parseFloat(existingTrade.entryFee || '0');
-        const existingPrice = parseFloat(existingTrade.price);
         
         // Calculate combined values
         // Round existing shares to handle legacy fractional data (3.99 -> 4, 3.01 -> 3)
-        const totalWagerCents = existingWagerCents + wagerAmountCents;
         const existingSharesRounded = Math.round(existingShares);
         const totalShares = existingSharesRounded + newShares;
+        const totalSpendCents = existingSpendCents + actualSpendCents;
         const totalEntryFee = existingEntryFee + entryFee;
         const totalEstimatedPayout = totalShares; // Each share pays $1 at settlement
         
-        // Calculate weighted average entry price based on actual cost basis
-        // This uses the ACTUAL entry price (cost/shares) not the market mid-price
-        // Total cost basis / total shares = true average entry price
-        const weightedAvgPrice = (totalWagerCents / 100) / totalShares;
+        // Calculate weighted average effective price (total spend / total shares)
+        const weightedAvgPrice = (totalSpendCents / 100) / totalShares;
         
-        console.log(`[Trade] Consolidating position: ${existingSharesRounded} shares (was ${existingShares}) + ${newShares} new = ${totalShares} total @ avg ${weightedAvgPrice.toFixed(4)}/share`);
-        console.log(`[Trade] Entry fee: $${existingEntryFee.toFixed(4)} + $${entryFee.toFixed(4)} = $${totalEntryFee.toFixed(4)}`);
+        console.log(`[Trade] Consolidating position: ${existingSharesRounded} shares + ${newShares} new = ${totalShares} total @ avg ${weightedAvgPrice.toFixed(4)}/share`);
+        console.log(`[Trade] Platform fee: $${existingEntryFee.toFixed(4)} + $${entryFee.toFixed(4)} = $${totalEntryFee.toFixed(4)}`);
 
         const updatedTrade = await storage.updateTradePosition(existingTrade.id, {
-          wagerAmount: totalWagerCents,
+          wagerAmount: totalSpendCents, // Store actual spend in cents (includes all fees)
           shares: String(totalShares), // Store as whole number
-          entryFee: totalEntryFee.toFixed(4),
+          entryFee: totalEntryFee.toFixed(4), // Platform fee only (for separate tracking)
           estimatedPayout: String(totalEstimatedPayout), // Store as whole number
-          price: weightedAvgPrice.toFixed(4), // Store with 4 decimal precision for accurate entry price
+          price: weightedAvgPrice.toFixed(4), // Effective price per share including fees
         });
 
-        console.log(`[Trade] Position consolidated. Total wager: $${(totalWagerCents / 100).toFixed(2)}, Total shares: ${totalShares}`);
+        console.log(`[Trade] Position consolidated. Total spend: $${(totalSpendCents / 100).toFixed(2)}, Total shares: ${totalShares}`);
         
-        res.json({ trade: updatedTrade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: true });
+        res.json({ trade: updatedTrade, entryFee, unspentAmount, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: true });
       } else {
         // No existing position - create new trade
-        console.log(`Trade created: Entry fee of $${entryFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
+        console.log(`Trade created: Platform fee of $${entryFee.toFixed(4)} (DFlow formula at 50%). Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
 
         const trade = await storage.createTrade({
           userId: req.userId,
@@ -498,18 +517,18 @@ export async function registerRoutes(
           marketCategory: marketCategory || null,
           optionLabel: optionLabel || null, // e.g., "Democratic Party"
           direction,
-          wagerAmount: wagerAmountCents, // Store as cents (integer)
-          price: actualEntryPrice.toFixed(4), // Store ACTUAL entry price (cost/shares) not market mid-price
+          wagerAmount: actualSpendCents, // Store ACTUAL SPEND (includes DFlow + platform fees)
+          price: actualEntryPrice.toFixed(4), // Effective price per share (includes fees)
           shares: String(newShares), // Store as whole number (no fractional shares)
           estimatedPayout: String(newEstimatedPayout), // Store as whole number
-          entryFee: entryFee.toFixed(4),
+          entryFee: entryFee.toFixed(4), // Platform fee only (for separate tracking)
           exitFee: null,
           isClosed: false,
           closedAt: null,
           pnl: null,
         });
 
-        res.json({ trade, entryFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: false });
+        res.json({ trade, entryFee, unspentAmount, feeRecipient: FEE_CONFIG.FEE_RECIPIENT, consolidated: false });
       }
     } catch (error) {
       console.error('Error creating trade:', error);
@@ -576,13 +595,14 @@ export async function registerRoutes(
       const { tradeId } = req.params;
       const { pnl, payout } = req.body;
 
-      // Calculate 1% exit fee on the payout amount
+      // Exit fees are now handled by DFlow using platformFeeScale
+      // We record the exit fee as 0 since DFlow collects it directly
       const payoutAmount = payout || 0;
-      const exitFee = payoutAmount * FEE_CONFIG.FEE_PERCENTAGE;
-      const netPayout = payoutAmount - exitFee;
-      const adjustedPnl = pnl ? (parseFloat(pnl) - exitFee) : (netPayout - payoutAmount);
+      const exitFee = 0; // DFlow handles fee collection via platformFeeScale
+      const netPayout = payoutAmount;
+      const adjustedPnl = pnl ? parseFloat(pnl) : 0;
 
-      console.log(`Trade closed: Exit fee of $${exitFee.toFixed(4)} (1%) collected. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
+      console.log(`Trade closed: DFlow handles fees via platformFeeScale=${FEE_CONFIG.PLATFORM_FEE_SCALE}. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
 
       const trade = await storage.closeTrade(tradeId, adjustedPnl, exitFee);
       res.json({ trade, exitFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT });
@@ -624,7 +644,9 @@ export async function registerRoutes(
       
       // Adjust wager amount proportionally to the actual shares received
       const adjustedWagerCents = Math.round((actualShares / currentShares) * trade.wagerAmount);
-      const adjustedEntryFee = (adjustedWagerCents / 100) * FEE_CONFIG.FEE_PERCENTAGE;
+      // Entry fee is estimated using DFlow formula
+      const adjustedFeePercent = FEE_CONFIG.PLATFORM_TAKER_SCALE * price * (1 - price);
+      const adjustedEntryFee = (adjustedWagerCents / 100) * adjustedFeePercent;
       const adjustedEstimatedPayout = actualShares;
 
       const updatedTrade = await storage.updateTradePosition(tradeId, {
@@ -722,7 +744,8 @@ export async function registerRoutes(
 
       // Also record in our local database
       if (req.userId) {
-        const entryFee = count * price * FEE_CONFIG.FEE_PERCENTAGE;
+        // Entry fee uses DFlow formula: scale * p * (1-p) * contracts
+        const entryFee = FEE_CONFIG.PLATFORM_TAKER_SCALE * price * (1 - price) * count;
         await storage.createTrade({
           userId: req.userId,
           marketId: ticker,

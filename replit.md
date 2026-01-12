@@ -102,10 +102,13 @@ Preferred communication style: Simple, everyday language.
   - **Async Trade Polling**: Uses `/order-status?signature=` to get actual fill amounts for async trades
   - **Async Sell Handling**: For async sells, expectedUSDC returns 0 from API. Success toast shows "X Shares Sold - Processing..." instead of showing incorrect estimates. User should check their balance after a few seconds.
   - Required env var: `DFLOW_API_KEY` (for production access)
-  - **Platform Fees**: Channel-based fees collected via DFlow's platformFeeBps parameter
-    - Swipe tab: $0.05 flat fee (effective 1000 bps on $0.50 min, 200 bps on $2.50 avg)
-    - Discovery tab: 0.75% (75 bps)
-    - Positions tab: 0.25% (25 bps)
+  - **Platform Fees**: Unified DFlow-formula fees at 50% of VIP 0 (Frost tier) rates
+    - Fee formula: platformScale × p × (1-p) × contracts
+    - Platform Taker Scale: 0.045 (50% of DFlow's 0.09)
+    - Platform Maker Scale: 0.01125 (50% of DFlow's 0.0225)
+    - DFlow API parameter: platformFeeScale = 45 (3 decimals: 45 = 0.045)
+    - Maximum platform fee at 50¢: 0.045 × 0.5 × 0.5 × 1 = $0.01125 per contract
+    - Combined with DFlow's fee: 0.135 × p × (1-p) × contracts total
     - Fee account: 9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY
   - **WebSocket API (Live Prices)**: Server-side proxy streams real-time bid/ask prices
     - DFlow WS Endpoint: `wss://b.prediction-markets-api.dflow.net/api/v1/ws` (requires API key header)

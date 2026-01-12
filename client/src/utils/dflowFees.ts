@@ -8,8 +8,17 @@
  * - p = fill price (probability 0-1)
  * - contracts = number of contracts traded
  * 
+ * Platform Fee: 50% of DFlow VIP 0 (Frost tier) fees
+ * - Platform Taker Scale: 0.045 (50% of 0.09)
+ * - Platform Maker Scale: 0.01125 (50% of 0.0225)
+ * 
  * See: https://pond.dflow.net/concepts/prediction/api-fees-and-rebates
  */
+
+// Platform fee = 50% of DFlow VIP 0 rates
+export const PLATFORM_TAKER_SCALE = 0.045;  // 50% of DFlow's 0.09
+export const PLATFORM_MAKER_SCALE = 0.01125; // 50% of DFlow's 0.0225
+export const PLATFORM_FEE_SCALE = 45; // For DFlow API (3 decimals: 45 = 0.045)
 
 export interface FeeSchedule {
   tier: string;
@@ -90,19 +99,24 @@ export interface FeeBreakdown {
 }
 
 /**
- * Calculate platform fee based on channel
+ * Calculate platform fee using DFlow formula at 50% of their VIP 0 rate
+ * Formula: scale × p × (1-p) × contracts
+ * 
+ * Since we need price to calculate exact fee, this returns the scale constant.
+ * The actual fee is: PLATFORM_TAKER_SCALE × price × (1-price) × contracts
+ * 
+ * @param price - Fill price (probability 0-1)
+ * @param contracts - Number of contracts
+ * @param orderType - 'taker' or 'maker'
+ * @returns Platform fee in USDC
  */
-function getPlatformFee(usdcAmount: number, channel: 'swipe' | 'discovery' | 'positions'): number {
-  switch (channel) {
-    case 'swipe':
-      return 0.05; // Flat $0.05 fee
-    case 'discovery':
-      return usdcAmount * 0.0075; // 0.75%
-    case 'positions':
-      return usdcAmount * 0.0025; // 0.25%
-    default:
-      return 0;
-  }
+export function calculatePlatformFee(
+  price: number,
+  contracts: number,
+  orderType: OrderType = 'taker'
+): number {
+  const scale = orderType === 'taker' ? PLATFORM_TAKER_SCALE : PLATFORM_MAKER_SCALE;
+  return scale * price * (1 - price) * contracts;
 }
 
 /**
@@ -126,7 +140,7 @@ function getPlatformFee(usdcAmount: number, channel: 'swipe' | 'discovery' | 'po
 export function calculateTradeFeesForBuy(
   usdcAmount: number,
   price: number,
-  channel: 'swipe' | 'discovery' | 'positions' = 'swipe'
+  _channel: 'swipe' | 'discovery' | 'positions' = 'swipe' // Channel no longer affects fee
 ): FeeBreakdown & { actualSpend: number; unspentAmount: number } {
   // Guard against invalid prices
   if (price <= 0 || price >= 1) {
@@ -143,22 +157,20 @@ export function calculateTradeFeesForBuy(
   }
   
   const tier = getFeeTier(0);
-  const scale = tier.takerScale; // 0.09 for Frost tier
+  const dflowScale = tier.takerScale; // 0.09 for Frost tier
+  const platformScale = PLATFORM_TAKER_SCALE; // 0.045 (50% of DFlow)
   
-  // Calculate platform fee first (deducted from wager)
-  const platformFee = getPlatformFee(usdcAmount, channel);
-  
-  // Amount available after platform fee
-  const wagerAfterPlatformFee = Math.max(0, usdcAmount - platformFee);
-  
-  // Solve for contracts algebraically:
-  // contracts = wagerAfterPlatformFee / (price + scale * p * (1-p))
-  const feeMultiplier = scale * price * (1 - price);
-  const effectiveCostPerContract = price + feeMultiplier;
+  // Combined fee scale includes both DFlow and platform fees
+  // This ensures total spend never exceeds the user's wager
+  // Solve: wager = contracts * price + (dflowScale + platformScale) * p * (1-p) * contracts
+  // contracts = wager / (price + (dflowScale + platformScale) * p * (1-p))
+  const combinedScale = dflowScale + platformScale; // 0.135
+  const combinedFeeMultiplier = combinedScale * price * (1 - price);
+  const effectiveCostPerContract = price + combinedFeeMultiplier;
   
   // Calculate raw shares, then FLOOR to whole contracts
   const rawShares = effectiveCostPerContract > 0 
-    ? wagerAfterPlatformFee / effectiveCostPerContract 
+    ? usdcAmount / effectiveCostPerContract 
     : 0;
   const netShares = Math.floor(rawShares);
   
@@ -176,12 +188,15 @@ export function calculateTradeFeesForBuy(
     };
   }
   
-  // Recalculate fees based on whole contracts
-  const dflowFee = feeMultiplier * netShares;
+  // Calculate fees based on filled contracts
+  const dflowFeeMultiplier = dflowScale * price * (1 - price);
+  const dflowFee = dflowFeeMultiplier * netShares;
+  const platformFee = platformScale * price * (1 - price) * netShares;
   const contractCost = netShares * price;
   
-  // Actual spend = platformFee + contractCost + dflowFee
-  const actualSpend = platformFee + contractCost + dflowFee;
+  // Actual spend includes contract cost, DFlow fee, and platform fee
+  // (Platform fee is collected via DFlow's platformFeeScale parameter)
+  const actualSpend = contractCost + dflowFee + platformFee;
   const unspentAmount = Math.max(0, usdcAmount - actualSpend);
   
   const totalFee = dflowFee + platformFee;
@@ -229,17 +244,17 @@ export function calculateTradeFeesForSell(
   }
   
   const tier = getFeeTier(0);
-  const scale = tier.takerScale;
+  const dflowScale = tier.takerScale; // 0.09 for Frost tier
+  const platformScale = PLATFORM_TAKER_SCALE; // 0.045 (50% of DFlow)
   
   // DFlow fee for selling: scale * p * (1-p) * shares
-  const feeMultiplier = scale * price * (1 - price);
-  const dflowFee = feeMultiplier * shares;
+  const dflowFee = dflowScale * price * (1 - price) * shares;
+  
+  // Platform fee uses same formula at 50% of DFlow rate
+  const platformFee = platformScale * price * (1 - price) * shares;
   
   // Gross USDC from selling at price
   const grossUSDC = shares * price;
-  
-  // Platform fee for positions (selling) - 0.25%
-  const platformFee = grossUSDC * 0.0025;
   
   const totalFee = dflowFee + platformFee;
   
