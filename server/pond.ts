@@ -1540,7 +1540,7 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     return true;
   });
   
-  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 5¢ spread)' : 'discovery (1-99%)';
+  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 2¢ spread)' : 'discovery (1-99%)';
   console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
   
   // Re-classify markets before filtering

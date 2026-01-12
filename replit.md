@@ -16,8 +16,8 @@ To ensure users can trade without errors, the swipe tab applies strict filtering
 - **Initialized Only**: Must be initialized on DFlow (tokens exist on-chain)
 - **Minimum Volume**: Requires $10,000+ total volume for liquidity
 - **Has Bids/Asks**: Markets must have non-zero bid AND ask prices (yesBid, yesAsk, noBid, noAsk all > 0)
-- **Max Spread**: Markets with >5 cent absolute spread are filtered out (tight spreads = minimal round-trip loss)
-- **Result**: Users only see ~400 markets with tight spreads, preventing immediate losses from wide bid-ask gaps
+- **Max Spread**: Markets with >2 cent absolute spread are filtered out (tight spreads = minimal round-trip loss)
+- **Result**: Users only see ~225 markets with tight spreads, preventing immediate losses from wide bid-ask gaps
 
 ### Discovery Tab Filtering (Relaxed Mode)
 The discovery tab allows more freedom:
