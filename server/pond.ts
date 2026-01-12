@@ -1520,15 +1520,27 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     // In strict mode, require actual bid/ask prices (not zero) to ensure orderbook has liquidity
     // Markets with 0 bids/asks will fail with "no liquidity" errors at trade time
     if (strictMode) {
-      const hasBids = (m.yesBid ?? 0) > 0 && (m.noBid ?? 0) > 0;
-      const hasAsks = (m.yesAsk ?? 0) > 0 && (m.noAsk ?? 0) > 0;
+      const yesBid = m.yesBid ?? 0;
+      const yesAsk = m.yesAsk ?? 0;
+      const noBid = m.noBid ?? 0;
+      const noAsk = m.noAsk ?? 0;
+      
+      const hasBids = yesBid > 0 && noBid > 0;
+      const hasAsks = yesAsk > 0 && noAsk > 0;
       if (!hasBids || !hasAsks) return false;
+      
+      // Check spread - markets with >40% spread often have liquidity issues at trade time
+      // Spread = (ask - bid) / ask
+      const yesSpread = yesAsk > 0 ? (yesAsk - yesBid) / yesAsk : 1;
+      const noSpread = noAsk > 0 ? (noAsk - noBid) / noAsk : 1;
+      const maxSpread = Math.max(yesSpread, noSpread);
+      if (maxSpread > 0.40) return false; // Filter out >40% spread
     }
     
     return true;
   });
   
-  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks)' : 'discovery (1-99%)';
+  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 40% spread)' : 'discovery (1-99%)';
   console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
   
   // Re-classify markets before filtering
