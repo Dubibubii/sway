@@ -1608,5 +1608,71 @@ export async function registerRoutes(
     }
   });
 
+  // Portfolio AI insight endpoint
+  app.post('/api/ai/portfolio-insight', async (req: Request, res: Response) => {
+    try {
+      const { positions, totalPnL, dailyPnL } = req.body;
+      
+      if (!positions || !Array.isArray(positions) || positions.length === 0) {
+        return res.status(400).json({ error: 'Positions required' });
+      }
+      
+      // Build position summary for the AI
+      const positionSummary = positions.slice(0, 10).map((p: any) => 
+        `${p.direction} on "${p.marketTitle}" (${p.shares} shares, ${p.pnlPercent > 0 ? '+' : ''}${p.pnlPercent.toFixed(0)}%)`
+      ).join('; ');
+      
+      const pnlContext = `Total PnL: ${totalPnL >= 0 ? '+' : ''}$${totalPnL.toFixed(2)}, Today: ${dailyPnL >= 0 ? '+' : ''}$${dailyPnL.toFixed(2)}`;
+      
+      // Use Perplexity API for portfolio analysis
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'sonar',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a friendly portfolio assistant for a prediction markets app. Give brief, helpful observations about the user\'s portfolio. Focus on factual observations about their positions and recent news that might affect them. Be encouraging but honest. No financial advice, just factual context. 2-3 sentences max.'
+            },
+            {
+              role: 'user',
+              content: `Review my prediction market portfolio. ${pnlContext}. Positions: ${positionSummary}. What recent news might affect these positions?`
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.3,
+          search_recency_filter: 'week',
+          stream: false,
+        }),
+      });
+      
+      if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error('[Perplexity Portfolio] API error:', perplexityResponse.status, errorText);
+        throw new Error(`Perplexity API error: ${perplexityResponse.status}`);
+      }
+      
+      const data = await perplexityResponse.json();
+      let insight = data.choices?.[0]?.message?.content || 'No insight available';
+      
+      // Clean up citations and markdown
+      insight = insight
+        .replace(/\[\d+\]/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      res.json({ insight });
+    } catch (error: any) {
+      console.error('[Portfolio Insight] Error:', error);
+      res.status(500).json({ error: 'Failed to generate insight' });
+    }
+  });
+
   return httpServer;
 }

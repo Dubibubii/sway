@@ -3,7 +3,8 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, ChevronRight, HelpCircle, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, ChevronRight, HelpCircle, Info, Sparkles } from 'lucide-react';
+import mascotImage from '@/assets/mascot.png';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -119,6 +120,12 @@ export default function Activity() {
   
   // Sell mode selection state - shows choice before sell confirmation
   const [sellModeStep, setSellModeStep] = useState<'choice' | 'confirm'>('choice');
+  
+  // Portfolio AI insight state
+  const [insightExpanded, setInsightExpanded] = useState(false);
+  const [portfolioInsight, setPortfolioInsight] = useState<string | null>(null);
+  const [isLoadingInsight, setIsLoadingInsight] = useState(false);
+  const [insightFetched, setInsightFetched] = useState(false);
   
   const { toast } = useToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
@@ -299,6 +306,96 @@ export default function Activity() {
     // Always fetch fresh prices when positions change
     fetchCurrentPrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsKey]);
+
+  // Fetch portfolio AI insight
+  const fetchPortfolioInsight = async () => {
+    if (insightFetched || isLoadingInsight || activePositions.length === 0) return;
+    
+    setIsLoadingInsight(true);
+    
+    try {
+      // Build positions data with PnL info
+      const positionsWithPnL = activePositions.map(pos => {
+        const shares = parseFloat(pos.shares);
+        const costBasis = pos.wagerAmount / 100;
+        const livePrice = currentPrices[pos.marketId];
+        const currentPrice = livePrice !== undefined ? livePrice : parseFloat(pos.price);
+        const currentValue = shares * currentPrice;
+        const pnl = currentValue - costBasis;
+        const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+        
+        return {
+          marketTitle: pos.marketTitle,
+          direction: pos.direction,
+          shares: shares.toFixed(0),
+          pnlPercent,
+        };
+      });
+      
+      // Calculate totals
+      const totalPnL = positionsWithPnL.reduce((acc, pos) => {
+        const original = activePositions.find(p => p.marketTitle === pos.marketTitle);
+        if (!original) return acc;
+        const costBasis = original.wagerAmount / 100;
+        return acc + (costBasis * pos.pnlPercent / 100);
+      }, 0);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dailyPnL = activePositions.reduce((acc, pos) => {
+        const posDate = new Date(pos.createdAt);
+        if (posDate >= today) {
+          const shares = parseFloat(pos.shares);
+          const costBasis = pos.wagerAmount / 100;
+          const livePrice = currentPrices[pos.marketId];
+          const currentPrice = livePrice !== undefined ? livePrice : parseFloat(pos.price);
+          return acc + (shares * currentPrice - costBasis);
+        }
+        return acc;
+      }, 0);
+      
+      const response = await fetch('/api/ai/portfolio-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          positions: positionsWithPnL,
+          totalPnL,
+          dailyPnL,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPortfolioInsight(data.insight);
+      } else {
+        setPortfolioInsight('Tap again to get portfolio insights!');
+      }
+    } catch (err) {
+      console.error('[PortfolioInsight] Error:', err);
+      setPortfolioInsight('Could not load insight right now.');
+    } finally {
+      setIsLoadingInsight(false);
+      setInsightFetched(true);
+    }
+  };
+
+  const handleInsightTap = () => {
+    if (!insightExpanded) {
+      setInsightExpanded(true);
+      if (!insightFetched) {
+        fetchPortfolioInsight();
+      }
+    } else {
+      setInsightExpanded(false);
+    }
+  };
+
+  // Reset insight when positions change significantly
+  useEffect(() => {
+    setInsightFetched(false);
+    setPortfolioInsight(null);
+    setInsightExpanded(false);
   }, [positionsKey]);
 
   // Bulk sell handler
@@ -1391,6 +1488,75 @@ export default function Activity() {
             </div>
           );
         })()}
+
+        {/* Portfolio AI Insight Card */}
+        {activePositions.length > 0 && (
+          <motion.div 
+            className="mb-6"
+            initial={false}
+          >
+            <button
+              onClick={handleInsightTap}
+              className={`w-full glass-panel rounded-2xl p-4 transition-all ${
+                insightExpanded ? 'ring-1 ring-[#1ED78B]/30' : ''
+              }`}
+              data-testid="button-portfolio-insight"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1ED78B]/50 bg-black shrink-0">
+                  <img
+                    src={mascotImage}
+                    alt="AI Assistant"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">AI Portfolio Review</span>
+                    {!insightFetched && !insightExpanded && (
+                      <span className="flex items-center gap-1 text-[10px] bg-[#1ED78B]/20 text-[#1ED78B] px-2 py-0.5 rounded-full">
+                        <Sparkles size={10} />
+                        Tap for insights
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {insightExpanded ? 'Tap to minimize' : 'Get AI-powered analysis of your positions'}
+                  </p>
+                </div>
+                <ChevronDown 
+                  size={18} 
+                  className={`text-muted-foreground transition-transform ${insightExpanded ? 'rotate-180' : ''}`}
+                />
+              </div>
+              
+              <AnimatePresence>
+                {insightExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-4 mt-4 border-t border-white/10">
+                      {isLoadingInsight ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Analyzing your portfolio...</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-white/90 leading-relaxed text-left">
+                          {portfolioInsight || 'Tap to get insights about your positions'}
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+          </motion.div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
