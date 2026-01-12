@@ -8,7 +8,47 @@ import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, t
 import { placeKalshiOrder, getKalshiBalance, getKalshiPositions, verifyKalshiCredentials, cancelKalshiOrder } from "./kalshi-trading";
 import { getPondQuote, getMarketTokens, getOrderStatus, checkRedemptionStatus, getAvailableDflowMarkets, getDflowMarketInfo, populateMarketInfoFromCache, SOLANA_TOKENS } from "./pond-trading";
 import { isConfigured as isPrivyWalletAuthConfigured } from "./privy-wallet-auth";
+import { Resend } from 'resend';
 // Note: Using native fetch (Node.js 20+) - no need for node-fetch
+
+// Resend integration for feedback emails
+async function getResendClient() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken || !hostname) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
+      }
+    );
+    const data = await response.json();
+    const connectionSettings = data.items?.[0];
+
+    if (!connectionSettings?.settings?.api_key) {
+      return null;
+    }
+    return {
+      client: new Resend(connectionSettings.settings.api_key),
+      fromEmail: connectionSettings.settings.from_email || 'onboarding@resend.dev'
+    };
+  } catch (error) {
+    console.error('Failed to get Resend client:', error);
+    return null;
+  }
+}
 
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
@@ -1695,6 +1735,48 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('[Portfolio Insight] Error:', error);
       res.status(500).json({ error: 'Failed to generate insight' });
+    }
+  });
+
+  // Feedback email endpoint
+  app.post('/api/feedback', async (req: Request, res: Response) => {
+    try {
+      const { feedback, userWallet } = req.body;
+      
+      if (!feedback || typeof feedback !== 'string' || feedback.trim().length === 0) {
+        return res.status(400).json({ error: 'Feedback is required' });
+      }
+      
+      if (feedback.length > 2000) {
+        return res.status(400).json({ error: 'Feedback is too long (max 2000 characters)' });
+      }
+      
+      const resendData = await getResendClient();
+      if (!resendData) {
+        console.error('[Feedback] Resend not configured');
+        return res.status(500).json({ error: 'Email service not configured' });
+      }
+      
+      const { client, fromEmail } = resendData;
+      
+      await client.emails.send({
+        from: fromEmail,
+        to: 'dubziik@gmail.com',
+        subject: 'SWAY Feedback',
+        html: `
+          <h2>New Feedback from SWAY User</h2>
+          <p><strong>User Wallet:</strong> ${userWallet || 'Not connected'}</p>
+          <p><strong>Submitted:</strong> ${new Date().toISOString()}</p>
+          <hr/>
+          <p>${feedback.replace(/\n/g, '<br/>')}</p>
+        `,
+      });
+      
+      console.log('[Feedback] Email sent successfully');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Feedback] Error sending email:', error);
+      res.status(500).json({ error: 'Failed to send feedback' });
     }
   });
 

@@ -6,7 +6,8 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle, MessageSquare, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -15,7 +16,7 @@ import { useAutoSwap } from '@/hooks/use-auto-swap';
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 
 const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
@@ -31,6 +32,29 @@ function ProfileContent() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [wagerInfoOpen, setWagerInfoOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  
+  const feedbackMutation = useMutation({
+    mutationFn: async (feedback: string) => {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback, userWallet: activeWalletAddress }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to send feedback');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Feedback Sent!', description: 'Thank you for your feedback.' });
+      setFeedbackText('');
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
   
   // Prioritize external wallet when connected (e.g., Phantom) so signing works
   // Only use embedded wallet when no external wallet is connected
@@ -476,6 +500,45 @@ function ProfileContent() {
             </Button>
           </div>
         )}
+
+        {/* Feedback Section */}
+        <Card className="bg-zinc-900 border-zinc-800 mt-8">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-base flex items-center gap-2">
+              <MessageSquare size={18} className="text-primary" />
+              Send Us Feedback
+            </CardTitle>
+            <CardDescription className="text-zinc-500 text-sm">
+              Tell us what you love or what we can improve
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              data-testid="input-feedback"
+              placeholder="Share your thoughts..."
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 min-h-[100px] resize-none"
+              maxLength={2000}
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-500 text-xs">{feedbackText.length}/2000</span>
+              <Button
+                data-testid="button-send-feedback"
+                onClick={() => feedbackMutation.mutate(feedbackText)}
+                disabled={!feedbackText.trim() || feedbackMutation.isPending}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {feedbackMutation.isPending ? (
+                  <Loader2 className="mr-2 animate-spin" size={16} />
+                ) : (
+                  <Send className="mr-2" size={16} />
+                )}
+                Send Feedback
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Wallet Section */}
         <div className="space-y-6 mt-8">
