@@ -1529,12 +1529,12 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
       const hasAsks = yesAsk > 0 && noAsk > 0;
       if (!hasBids || !hasAsks) return false;
       
-      // Check spread - use absolute spread (max 5 cents) to prevent immediate losses
-      // A 5 cent spread means max loss of $0.05 per share on round-trip
+      // Check spread - use absolute spread (max 2 cents) to prevent immediate losses
+      // A 2 cent spread means max loss of $0.02 per share on round-trip
       const yesAbsoluteSpread = yesAsk - yesBid;
       const noAbsoluteSpread = noAsk - noBid;
       const maxAbsoluteSpread = Math.max(yesAbsoluteSpread, noAbsoluteSpread);
-      if (maxAbsoluteSpread > 0.05) return false; // Filter out >5 cent spread
+      if (maxAbsoluteSpread > 0.02) return false; // Filter out >2 cent spread
     }
     
     return true;
