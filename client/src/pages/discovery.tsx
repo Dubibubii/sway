@@ -155,14 +155,57 @@ export default function Discovery() {
     refetchInterval: 30000, // Refresh every 30 seconds for live price updates
   });
 
+  const markets = marketsData?.markets || [];
+
+  // Client-side search for instant results (searches loaded markets)
+  const localSearchResults = useMemo(() => {
+    if (debouncedSearch.length < 2) return [];
+    const searchTerm = debouncedSearch.toLowerCase();
+    return markets.filter(market => {
+      const title = market.title.toLowerCase();
+      const id = market.id.toLowerCase();
+      const yesLabel = (market.yesLabel || '').toLowerCase();
+      const noLabel = (market.noLabel || '').toLowerCase();
+      return title.includes(searchTerm) || 
+             id.includes(searchTerm) ||
+             yesLabel.includes(searchTerm) ||
+             noLabel.includes(searchTerm);
+    }).sort((a, b) => {
+      // Sort by title match first, then by volume
+      const aTitle = a.title.toLowerCase().includes(searchTerm);
+      const bTitle = b.title.toLowerCase().includes(searchTerm);
+      if (aTitle && !bTitle) return -1;
+      if (!aTitle && bTitle) return 1;
+      return (b.volume24h || 0) - (a.volume24h || 0);
+    });
+  }, [markets, debouncedSearch]);
+
+  // Server search always runs in background for comprehensive results
   const { data: searchData, isLoading: isSearching } = useQuery<{ markets: Market[] }>({
     queryKey: ['/api/markets/search', debouncedSearch],
     queryFn: () => searchMarkets(debouncedSearch),
     enabled: debouncedSearch.length >= 2,
+    staleTime: 30000, // Cache server results for 30s
   });
 
-  const markets = marketsData?.markets || [];
-  const searchResults = searchData?.markets || [];
+  // Combine local and server results - show local instantly, merge with server when available
+  const searchResults = useMemo(() => {
+    if (debouncedSearch.length < 2) return [];
+    
+    const serverResults = searchData?.markets || [];
+    
+    // If no local results, use server results
+    if (localSearchResults.length === 0) return serverResults;
+    
+    // If no server results yet, use local results
+    if (serverResults.length === 0) return localSearchResults;
+    
+    // Merge and dedupe - local first for instant display, then add unique server results
+    const seenIds = new Set(localSearchResults.map(m => m.id));
+    const uniqueServerResults = serverResults.filter(m => !seenIds.has(m.id));
+    
+    return [...localSearchResults, ...uniqueServerResults];
+  }, [debouncedSearch, localSearchResults, searchData]);
   
   // Auto-open market when navigated from Activity with pending market ID
   useEffect(() => {
@@ -344,11 +387,11 @@ export default function Discovery() {
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {(isLoading || (isActiveSearch && isSearching)) ? (
+          {(isLoading || (isActiveSearch && isSearching && localSearchResults.length === 0)) ? (
             <div className="flex flex-col items-center justify-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
               <p className="text-muted-foreground">
-                {isActiveSearch ? `Searching all markets for "${debouncedSearch}"...` : 'Loading markets...'}
+                {isActiveSearch ? `Searching for "${debouncedSearch}"...` : 'Loading markets...'}
               </p>
             </div>
           ) : filteredMarkets.length === 0 ? (

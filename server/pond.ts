@@ -636,20 +636,31 @@ export async function getMarketsByCategory(category: string): Promise<Simplified
   );
 }
 
-// Comprehensive search function that caches all markets
+// Comprehensive search function that uses cached markets (non-blocking)
 export async function searchAllMarkets(query: string): Promise<SimplifiedMarket[]> {
   const now = Date.now();
   
-  // Refresh cache if expired or empty
+  // Trigger background refresh if cache is expired, but DON'T wait for it
   if (marketCache.length === 0 || now - cacheTimestamp > CACHE_TTL) {
-    console.log('Refreshing market cache for search...');
-    await refreshMarketCache();
+    if (!cacheRefreshInProgress) {
+      console.log('Triggering background cache refresh for search...');
+      startBackgroundCacheRefresh();
+    }
   }
   
   const searchTerm = query.toLowerCase().trim();
   if (searchTerm.length < 2) return [];
   
-  // Search through cached markets
+  // If cache is completely empty, wait briefly for initial data (max 3 seconds)
+  if (marketCache.length === 0) {
+    console.log('No cache for search, waiting briefly for background refresh...');
+    for (let i = 0; i < 6; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (marketCache.length > 0) break;
+    }
+  }
+  
+  // Search through cached markets (even if stale)
   const results = marketCache.filter(market => {
     const title = market.title.toLowerCase();
     const subtitle = (market.subtitle || '').toLowerCase();
