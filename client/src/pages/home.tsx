@@ -136,6 +136,30 @@ function TradeConfirmToast({
 const BATCH_SIZE = 50;
 const LOW_CARDS_THRESHOLD = 10;
 
+// Fisher-Yates shuffle with session seed for consistent shuffling during session
+function shuffleArray<T>(array: T[], seed: number): T[] {
+  const shuffled = [...array];
+  let m = shuffled.length;
+  
+  // Simple seeded random function
+  const seededRandom = (s: number) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  let seedOffset = 0;
+  while (m) {
+    const i = Math.floor(seededRandom(seed + seedOffset) * m--);
+    seedOffset++;
+    [shuffled[m], shuffled[i]] = [shuffled[i], shuffled[m]];
+  }
+  
+  return shuffled;
+}
+
+// Session seed - changes each time app is opened
+const SESSION_SEED = Date.now();
+
 interface DisplayMarket {
   id: string;
   question: string;
@@ -303,7 +327,9 @@ export default function Home() {
       }
       
       const visibleMarkets = getVisibleCards(allMarkets);
-      setDisplayedMarkets(visibleMarkets);
+      // Shuffle the filtered markets for variety each session
+      const shuffledMarkets = shuffleArray(visibleMarkets, SESSION_SEED);
+      setDisplayedMarkets(shuffledMarkets);
     }
   }, [marketsData, getVisibleCards, ownedMarketIds]);
   
