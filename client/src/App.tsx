@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SettingsProvider, useSettings } from "@/hooks/use-settings";
 import { usePrivySafe } from "@/hooks/use-privy-safe";
+import { GeoRestrictionCheck } from "@/components/geo-restriction-check";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { GasDepositPrompt } from "@/components/gas-deposit-prompt";
 import { useState, useEffect } from "react";
@@ -30,12 +31,22 @@ function Router() {
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { authenticated } = usePrivySafe();
-  const { settings, completeOnboarding, completeGasDeposit } = useSettings();
+  const { settings, completeGeoCheck, completeOnboarding, completeGasDeposit } = useSettings();
+  const [showGeoCheck, setShowGeoCheck] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showGasDeposit, setShowGasDeposit] = useState(false);
 
+  // Show geo check first for new users (before onboarding)
   useEffect(() => {
-    if (authenticated && !settings.onboardingCompleted) {
+    if (authenticated && !settings.geoCheckCompleted) {
+      setShowGeoCheck(true);
+    } else {
+      setShowGeoCheck(false);
+    }
+  }, [authenticated, settings.geoCheckCompleted]);
+
+  useEffect(() => {
+    if (authenticated && settings.geoCheckCompleted && !settings.onboardingCompleted) {
       const timer = setTimeout(() => {
         setShowOnboarding(true);
       }, 500);
@@ -43,15 +54,20 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
     } else {
       setShowOnboarding(false);
     }
-  }, [authenticated, settings.onboardingCompleted]);
+  }, [authenticated, settings.geoCheckCompleted, settings.onboardingCompleted]);
 
   useEffect(() => {
-    if (authenticated && settings.onboardingCompleted && !settings.gasDepositComplete) {
+    if (authenticated && settings.geoCheckCompleted && settings.onboardingCompleted && !settings.gasDepositComplete) {
       setShowGasDeposit(true);
     } else {
       setShowGasDeposit(false);
     }
-  }, [authenticated, settings.onboardingCompleted, settings.gasDepositComplete]);
+  }, [authenticated, settings.geoCheckCompleted, settings.onboardingCompleted, settings.gasDepositComplete]);
+
+  const handleGeoCheckComplete = () => {
+    setShowGeoCheck(false);
+    completeGeoCheck();
+  };
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -69,6 +85,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      {showGeoCheck && <GeoRestrictionCheck onConfirm={handleGeoCheckComplete} />}
       {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
       {showGasDeposit && <GasDepositPrompt onComplete={handleGasDepositComplete} />}
     </>

@@ -9,6 +9,7 @@ interface Settings {
   accessToken: string | null;
   userId: string | null;
   interests: string[];
+  geoCheckCompleted: boolean;
   onboardingCompleted: boolean;
   gasDepositComplete: boolean;
 }
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: Settings = {
   accessToken: null,
   userId: null,
   interests: [],
+  geoCheckCompleted: false,
   onboardingCompleted: false,
   gasDepositComplete: false,
 };
@@ -32,6 +34,7 @@ interface SettingsContextType {
   updateInterests: (interests: string[]) => void;
   connectWallet: (privyId: string, walletAddress: string, accessToken?: string) => Promise<void>;
   disconnectWallet: () => void;
+  completeGeoCheck: () => void;
   completeOnboarding: () => Promise<void>;
   completeGasDeposit: () => void;
   setAuthState: React.Dispatch<React.SetStateAction<{
@@ -41,6 +44,7 @@ interface SettingsContextType {
     accessToken: string | null;
     userId: string | null;
     interests: string[];
+    geoCheckCompleted: boolean;
     onboardingCompleted: boolean;
     gasDepositComplete: boolean;
   }>>;
@@ -69,6 +73,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     accessToken: string | null;
     userId: string | null;
     interests: string[];
+    geoCheckCompleted: boolean;
     onboardingCompleted: boolean;
     gasDepositComplete: boolean;
   }>(() => {
@@ -82,6 +87,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         accessToken: parsed.accessToken || null,
         userId: parsed.userId || null,
         interests: Array.isArray(parsed.interests) ? parsed.interests : [],
+        geoCheckCompleted: parsed.geoCheckCompleted || false,
         onboardingCompleted: parsed.onboardingCompleted || false,
         gasDepositComplete: parsed.gasDepositComplete || false,
       };
@@ -93,6 +99,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         accessToken: null,
         userId: null,
         interests: [],
+        geoCheckCompleted: false,
         onboardingCompleted: false,
         gasDepositComplete: false,
       };
@@ -157,6 +164,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           accessToken: accessToken || null,
           userId: userData.user?.id || userData.id || null,
           interests: mergedInterests,
+          // Preserve geo check since it's a one-time confirmation
+          geoCheckCompleted: prev.geoCheckCompleted,
           // Use server's onboarding status - persisted per wallet in database
           onboardingCompleted: serverOnboardingCompleted,
           // Gas deposit is checked live from balance, not stored in DB
@@ -176,6 +185,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           accessToken: accessToken || null,
           userId: null,
           interests: isDifferentUser ? [] : prev.interests,
+          geoCheckCompleted: prev.geoCheckCompleted,
           // Keep local onboarding state if server fails
           onboardingCompleted: isDifferentUser ? false : prev.onboardingCompleted,
           gasDepositComplete: isDifferentUser ? false : prev.gasDepositComplete,
@@ -213,16 +223,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const disconnectWallet = () => {
     // Reset local session state but NOT onboarding - that's persisted server-side
     // When user reconnects, their onboarding status will be fetched from the database
-    setAuthState({
+    // Preserve geo check since it's a one-time device confirmation
+    setAuthState(prev => ({
       connected: false,
       walletAddress: null,
       privyId: null,
       accessToken: null,
       userId: null,
       interests: [],
+      geoCheckCompleted: prev.geoCheckCompleted, // Preserve geo check
       onboardingCompleted: false, // Will be restored from server on reconnect
       gasDepositComplete: false,
-    });
+    }));
   };
 
   const completeOnboarding = async () => {
@@ -249,6 +261,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const completeGeoCheck = () => {
+    setAuthState(prev => ({ ...prev, geoCheckCompleted: true }));
+  };
+
   const completeGasDeposit = () => {
     setAuthState(prev => ({ ...prev, gasDepositComplete: true }));
   };
@@ -265,6 +281,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       updateInterests,
       connectWallet,
       disconnectWallet,
+      completeGeoCheck,
       completeOnboarding,
       completeGasDeposit,
       setAuthState
