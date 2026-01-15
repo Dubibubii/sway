@@ -150,10 +150,19 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // Rotation based on x position
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   
-  // Scale based on active state (if it's the back card, scale it down)
-  const scale = active ? 1 : 0.95;
-  const opacity = active ? 1 : 0.6; // Fade out the back card slightly
-  const yOffset = active ? 0 : 20; // Move back card down slightly
+  // Use animation controls to smoothly transition between active/inactive states
+  // This prevents the "jump" when the back card becomes the front card
+  useEffect(() => {
+    if (active) {
+      // Animate TO the active state (full size, no offset)
+      controls.start({ 
+        scale: 1, 
+        opacity: 1, 
+        y: 0,
+        transition: { duration: 0.2, ease: "easeOut" }
+      });
+    }
+  }, [active, controls]);
 
   // Opacity of overlays
   const yesOpacity = useTransform(x, [50, 150], [0, 1]);
@@ -201,7 +210,8 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       animate={controls}
-      style={{ x, y, rotate, scale, opacity, top: yOffset }}
+      initial={active ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.95, opacity: 0.6, y: 20 }}
+      style={{ x, rotate }}
       className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40 pointer-events-none'}`}
       whileTap={{ scale: 1.05 }}
       transition={{ duration: 0.3 }}
