@@ -272,6 +272,22 @@ export default function Discovery() {
     return result;
   }, [markets, searchResults, selectedCategory, isActiveSearch, showEndingSoon]);
 
+  // Debug logging to diagnose one-market-showing issue (dev only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Discovery Debug] Markets state:', {
+        marketsCount: markets.length,
+        filteredCount: filteredMarkets.length,
+        searchResultsCount: searchResults.length,
+        isActiveSearch,
+        selectedCategory,
+        showEndingSoon,
+        isLoading,
+        marketsDataExists: !!marketsData,
+      });
+    }
+  }, [markets.length, filteredMarkets.length, searchResults.length, isActiveSearch, selectedCategory, showEndingSoon, isLoading, marketsData]);
+
   return (
     <Layout>
       <div className="flex flex-col h-full pt-20 pb-4 px-4">
@@ -337,13 +353,26 @@ export default function Discovery() {
             </div>
           ) : filteredMarkets.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-              <Search size={48} className="mb-4 opacity-50" />
+              <Clock size={48} className="mb-4 opacity-50" />
               <p className="text-center">No markets found</p>
-              <p className="text-sm text-center opacity-75">
+              <p className="text-sm text-center opacity-75 max-w-xs">
                 {isActiveSearch 
                   ? `No results for "${debouncedSearch}". Try different keywords.`
-                  : 'Try a different search or category'}
+                  : showEndingSoon 
+                    ? 'No markets are ending within the next 24 hours. Turn off the timer filter to see all markets.'
+                    : 'Try a different search or category'}
               </p>
+              {showEndingSoon && (
+                <Button
+                  data-testid="button-show-all-markets"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEndingSoon(false)}
+                  className="mt-4 rounded-full"
+                >
+                  Show all markets
+                </Button>
+              )}
             </div>
           ) : (
             <div key={`grid-${selectedCategory}`} className="grid grid-cols-2 gap-3">
