@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Home, User, Activity, Search } from "lucide-react";
+import { User, Activity, Search } from "lucide-react";
 import { useSettings } from "@/hooks/use-settings";
+import mascotSmiley from "@/assets/mascot-smiley.png";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -16,8 +17,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       
       {/* Top Navigation */}
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-sm glass-panel rounded-full px-4 py-2 flex justify-between items-center z-50">
-        <Link href="/" data-testid="nav-home" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-          <Home size={22} strokeWidth={isActive('/') ? 2.5 : 2} />
+        <Link href="/" data-testid="nav-home" className={`flex flex-col items-center gap-1 transition-all ${isActive('/') ? 'opacity-100 scale-110' : 'opacity-60 hover:opacity-90'}`}>
+          <img src={mascotSmiley} alt="Home" className="w-6 h-6 object-contain" />
         </Link>
         <Link href="/discovery" data-testid="nav-discovery" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/discovery') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
           <Search size={22} strokeWidth={isActive('/discovery') ? 2.5 : 2} />
