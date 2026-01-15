@@ -49,8 +49,11 @@ function getDefaultConfig() {
 export function getRpcUrl(): string {
   const buildTimeKey = import.meta.env.VITE_HELIUS_API_KEY;
   if (buildTimeKey) {
-    return `https://mainnet.helius-rpc.com/?api-key=${buildTimeKey}`;
+    const url = `https://mainnet.helius-rpc.com/?api-key=${buildTimeKey}`;
+    console.log('[RPC-Config] Using Helius RPC with build-time key');
+    return url;
   }
+  console.log('[RPC-Config] No build-time key, using:', cachedRpcConfig?.provider || 'public-fallback');
   return cachedRpcConfig?.rpcUrl || 'https://api.mainnet-beta.solana.com';
 }
 

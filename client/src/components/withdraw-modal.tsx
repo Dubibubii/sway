@@ -207,9 +207,16 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
       onOpenChange(false);
       onSuccess();
     } catch (err: any) {
+      console.error('[Withdraw] Full error object:', err);
+      console.error('[Withdraw] Error message:', err.message);
+      console.error('[Withdraw] Error stack:', err.stack);
+      
       let errorMessage = err.message || 'Withdrawal failed';
       
-      if (errorMessage.includes('insufficient funds') || errorMessage.includes('0x1')) {
+      if (errorMessage.includes('403') || errorMessage.includes('Access forbidden') || errorMessage.includes('Forbidden')) {
+        console.error('[Withdraw] 403 Error detected - likely RPC authentication issue');
+        errorMessage = 'Network connection issue. Please try again in a moment.';
+      } else if (errorMessage.includes('insufficient funds') || errorMessage.includes('0x1')) {
         errorMessage = 'Insufficient balance for this transaction. Make sure you have enough SOL for fees.';
       } else if (errorMessage.includes('blockhash')) {
         errorMessage = 'Network congestion. Please try again.';
