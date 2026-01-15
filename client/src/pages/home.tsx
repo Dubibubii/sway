@@ -309,6 +309,10 @@ export default function Home() {
   const [discoveryMarket, setDiscoveryMarket] = useState<DisplayMarket | null>(null);
   const { settings } = useSettings();
   
+  // Track which markets have been shuffled to maintain stable order
+  const shuffledMarketIdsRef = useRef<Set<string>>(new Set());
+  const displayedMarketsRef = useRef<DisplayMarket[]>([]);
+  
   useEffect(() => {
     if (marketsData?.pages) {
       const allMarkets: DisplayMarket[] = [];
@@ -327,9 +331,38 @@ export default function Home() {
       }
       
       const visibleMarkets = getVisibleCards(allMarkets);
-      // Shuffle the filtered markets for variety each session
-      const shuffledMarkets = shuffleArray(visibleMarkets, SESSION_SEED);
-      setDisplayedMarkets(shuffledMarkets);
+      
+      // Separate already-shuffled markets from new ones
+      const existingMarkets: DisplayMarket[] = [];
+      const newMarkets: DisplayMarket[] = [];
+      
+      for (const market of visibleMarkets) {
+        if (shuffledMarketIdsRef.current.has(market.id)) {
+          existingMarkets.push(market);
+        } else {
+          newMarkets.push(market);
+          shuffledMarketIdsRef.current.add(market.id);
+        }
+      }
+      
+      // Only shuffle new markets, keep existing order stable
+      const shuffledNewMarkets = shuffleArray(newMarkets, SESSION_SEED + shuffledMarketIdsRef.current.size);
+      
+      // Preserve existing displayed order for markets still visible
+      const existingOrder = displayedMarketsRef.current.filter(m => 
+        existingMarkets.some(em => em.id === m.id)
+      );
+      
+      // Update existing markets with fresh data while keeping order
+      const updatedExisting = existingOrder.map(m => {
+        const fresh = existingMarkets.find(em => em.id === m.id);
+        return fresh || m;
+      });
+      
+      // Append new shuffled markets at the end
+      const finalMarkets = [...updatedExisting, ...shuffledNewMarkets];
+      displayedMarketsRef.current = finalMarkets;
+      setDisplayedMarkets(finalMarkets);
     }
   }, [marketsData, getVisibleCards, ownedMarketIds]);
   
