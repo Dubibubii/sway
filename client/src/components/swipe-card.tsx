@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -6,6 +6,8 @@ import { TrendingUp, TrendingDown, Share2, X, Check, Copy, Wifi } from 'lucide-r
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
 import { getBalancedPercentages } from '@/lib/api';
+
+const LONG_PRESS_DURATION = 800; // 800ms for long press
 
 interface MarketData {
   id: string;
@@ -19,17 +21,19 @@ interface MarketData {
   endDate: string;
   imageUrl?: string;
   isLive?: boolean;
+  eventTicker?: string;
 }
 
 interface SwipeCardProps {
   market: MarketData;
   onSwipe: (direction: 'left' | 'right' | 'down') => void;
+  onLongPress?: () => void;
   active: boolean;
   dragX?: MotionValue<number>;
   dragY?: MotionValue<number>;
 }
 
-export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardProps) {
+export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }: SwipeCardProps) {
   const { settings } = useSettings();
   const { toast } = useToast();
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -37,6 +41,11 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
+  
+  // Long press detection
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = useRef(false);
+  const hasDraggedRef = useRef(false);
 
   // Preload the image
   useEffect(() => {
@@ -52,6 +61,44 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
   // Use passed motion values if active, otherwise local (though inactive cards don't drag)
   const x = dragX || localX;
   const y = dragY || localY;
+  
+  const handlePointerDown = useCallback(() => {
+    if (!active || !onLongPress) return;
+    
+    isLongPressRef.current = false;
+    hasDraggedRef.current = false;
+    
+    longPressTimerRef.current = setTimeout(() => {
+      if (!hasDraggedRef.current) {
+        isLongPressRef.current = true;
+        onLongPress();
+      }
+    }, LONG_PRESS_DURATION);
+  }, [active, onLongPress]);
+  
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+  
+  const handleDragStart = useCallback(() => {
+    hasDraggedRef.current = true;
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const getShareUrl = () => {
     const baseUrl = window.location.origin;
@@ -148,7 +195,11 @@ export function SwipeCard({ market, onSwipe, active, dragX, dragY }: SwipeCardPr
     <motion.div
       drag={active ? true : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       animate={controls}
       style={{ x, y, rotate, scale, opacity, top: yOffset }}
       className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40 pointer-events-none'}`}

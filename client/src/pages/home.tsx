@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SwipeCard } from '@/components/swipe-card';
+import { DiscoveryOverlay } from '@/components/discovery-overlay';
 import { Layout } from '@/components/layout';
 import { AIMascot } from '@/components/ai-mascot';
 import { useSettings } from '@/hooks/use-settings';
@@ -151,6 +152,7 @@ interface DisplayMarket {
   endDate: string;
   imageUrl?: string;
   isLive?: boolean;
+  eventTicker?: string;
 }
 
 function formatVolume(volume: number): string {
@@ -193,6 +195,7 @@ function formatMarket(m: Market): DisplayMarket {
     noLabel: m.noLabel || 'No',
     endDate: endDateFormatted,
     imageUrl: m.imageUrl,
+    eventTicker: m.eventTicker,
   };
 }
 
@@ -279,6 +282,7 @@ export default function Home() {
   });
   
   const [displayedMarkets, setDisplayedMarkets] = useState<DisplayMarket[]>([]);
+  const [discoveryMarket, setDiscoveryMarket] = useState<DisplayMarket | null>(null);
   const { settings } = useSettings();
   
   useEffect(() => {
@@ -817,6 +821,7 @@ export default function Home() {
                       market={market} 
                       active={index === arr.length - 1}
                       onSwipe={(dir) => handleSwipe(market.id, dir)}
+                      onLongPress={() => setDiscoveryMarket(market)}
                       dragX={index === arr.length - 1 ? x : undefined}
                       dragY={index === arr.length - 1 ? y : undefined}
                     />
@@ -886,6 +891,43 @@ export default function Home() {
            </motion.div>
         </div>
       </div>
+
+      {/* Discovery Overlay - shown on long press */}
+      <AnimatePresence>
+        {discoveryMarket && (
+          <DiscoveryOverlay
+            market={{
+              id: discoveryMarket.id,
+              title: discoveryMarket.question,
+              subtitle: discoveryMarket.yesLabel !== 'Yes' ? discoveryMarket.yesLabel : undefined,
+              category: discoveryMarket.category,
+              yesPrice: discoveryMarket.yesPrice,
+              noPrice: discoveryMarket.noPrice,
+              yesLabel: discoveryMarket.yesLabel,
+              noLabel: discoveryMarket.noLabel,
+              eventTicker: discoveryMarket.eventTicker,
+              isInitialized: true,
+            }}
+            onClose={() => setDiscoveryMarket(null)}
+            onSelectMarket={(market, direction) => {
+              const displayMarket = {
+                id: market.id,
+                question: market.title,
+                category: market.category || '',
+                volume: '',
+                yesPrice: market.yesPrice,
+                noPrice: market.noPrice,
+                yesLabel: market.yesLabel || 'Yes',
+                noLabel: market.noLabel || 'No',
+                endDate: '',
+                eventTicker: market.eventTicker,
+              };
+              handleSwipe(displayMarket.id, direction === 'yes' ? 'right' : 'left');
+              setDiscoveryMarket(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </Layout>
   );
 }
