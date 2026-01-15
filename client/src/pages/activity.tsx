@@ -1360,42 +1360,28 @@ export default function Activity() {
           </div>
         </div>
 
-        {/* PnL Chart Section */}
+        {/* Cost vs Resolution Chart Section */}
         {(() => {
-          // Calculate total PnL from all active positions
-          const totalPnL = activePositions.reduce((acc, position) => {
-            const shares = parseFloat(position.shares);
-            const costBasis = position.wagerAmount / 100;
-            const livePrice = currentPrices[position.marketId];
-            const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
-            const currentValue = shares * currentPrice;
-            return acc + (currentValue - costBasis);
+          // Calculate total cost (what user spent) and total resolution value (what they'll get if they win)
+          const totalCost = activePositions.reduce((acc, position) => {
+            return acc + (position.wagerAmount / 100);
           }, 0);
           
-          // Calculate daily PnL (positions created today)
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const dailyPnL = activePositions.reduce((acc, position) => {
-            const positionDate = new Date(position.createdAt);
-            if (positionDate >= today) {
-              const shares = parseFloat(position.shares);
-              const costBasis = position.wagerAmount / 100;
-              const livePrice = currentPrices[position.marketId];
-              const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
-              const currentValue = shares * currentPrice;
-              return acc + (currentValue - costBasis);
-            }
-            return acc;
+          const totalResolutionValue = activePositions.reduce((acc, position) => {
+            return acc + parseFloat(position.shares);
           }, 0);
           
-          // Generate 7-day chart data
+          const potentialProfit = totalResolutionValue - totalCost;
+          
+          // Generate 7-day chart data showing cost vs resolution value
           const chartData = Array.from({ length: 7 }, (_, i) => {
             const date = new Date();
             date.setDate(date.getDate() - (6 - i));
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             
-            // Calculate cumulative PnL up to this day
-            let dayPnL = 0;
+            // Calculate cumulative cost and resolution value up to this day
+            let dayCost = 0;
+            let dayResolution = 0;
             activePositions.forEach(position => {
               const positionDate = new Date(position.createdAt);
               positionDate.setHours(0, 0, 0, 0);
@@ -1403,51 +1389,56 @@ export default function Activity() {
               currentDay.setHours(0, 0, 0, 0);
               
               if (positionDate <= currentDay) {
-                const shares = parseFloat(position.shares);
-                const costBasis = position.wagerAmount / 100;
-                const livePrice = currentPrices[position.marketId];
-                const currentPrice = livePrice !== undefined ? livePrice : parseFloat(position.price);
-                const currentValue = shares * currentPrice;
-                dayPnL += (currentValue - costBasis);
+                dayCost += position.wagerAmount / 100;
+                dayResolution += parseFloat(position.shares);
               }
             });
             
             return {
               name: dayNames[date.getDay()],
-              pnl: dayPnL,
+              cost: dayCost,
+              resolution: dayResolution,
             };
           });
           
           const hasPositions = activePositions.length > 0;
-          const isPositive = totalPnL >= 0;
           
           return (
             <div className="mb-6 glass-panel rounded-2xl p-4">
-              {/* PnL Stats Row */}
+              {/* Stats Row - Show Cost vs Resolution */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total PnL</div>
-                  <div className={`text-2xl font-mono font-bold ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
-                    {isPositive ? '+' : ''}{hasPositions ? `$${totalPnL.toFixed(2)}` : '$0.00'}
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Cost</div>
+                  <div className="text-xl font-mono font-bold text-white/70">
+                    ${hasPositions ? totalCost.toFixed(2) : '0.00'}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Today</div>
-                  <div className={`text-lg font-mono font-bold ${dailyPnL >= 0 ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
-                    {dailyPnL >= 0 ? '+' : ''}{hasPositions ? `$${dailyPnL.toFixed(2)}` : '$0.00'}
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If Resolved</div>
+                  <div className="text-2xl font-mono font-bold text-[#1ED78B]">
+                    ${hasPositions ? totalResolutionValue.toFixed(2) : '0.00'}
                   </div>
+                  {hasPositions && potentialProfit > 0 && (
+                    <div className="text-xs text-[#1ED78B]/80 font-medium">
+                      +${potentialProfit.toFixed(2)} profit
+                    </div>
+                  )}
                 </div>
               </div>
               
-              {/* 7-Day Chart */}
+              {/* 7-Day Chart - Two Lines */}
               <div className="h-32">
                 {hasPositions ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <defs>
-                        <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={isPositive ? '#1ED78B' : '#f43f5e'} stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor={isPositive ? '#1ED78B' : '#f43f5e'} stopOpacity={0}/>
+                        <linearGradient id="resolutionGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#1ED78B" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#1ED78B" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#71717a" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#71717a" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <XAxis 
@@ -1456,7 +1447,7 @@ export default function Activity() {
                         tickLine={false} 
                         tick={{ fill: '#71717a', fontSize: 10 }}
                       />
-                      <YAxis hide domain={['dataMin', 'dataMax']} />
+                      <YAxis hide domain={[0, 'dataMax']} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: '#18181b', 
@@ -1464,27 +1455,45 @@ export default function Activity() {
                           borderRadius: '8px',
                           fontSize: '12px'
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'PnL']}
+                        formatter={(value: number, name: string) => [
+                          `$${value.toFixed(2)}`, 
+                          name === 'resolution' ? 'If Resolved' : 'Cost'
+                        ]}
                       />
                       <Area 
                         type="monotone" 
-                        dataKey="pnl" 
-                        stroke={isPositive ? '#1ED78B' : '#f43f5e'} 
+                        dataKey="resolution" 
+                        stroke="#1ED78B" 
                         strokeWidth={2}
-                        fill="url(#pnlGradient)" 
+                        fill="url(#resolutionGradient)" 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="cost" 
+                        stroke="#71717a" 
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
+                        fill="url(#costGradient)" 
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    Place some bets to see your PnL chart
+                    Place some bets to see your portfolio
                   </div>
                 )}
               </div>
               
-              {/* 7-day label */}
-              <div className="text-center mt-2">
-                <span className="text-[10px] text-muted-foreground">Last 7 Days</span>
+              {/* Legend */}
+              <div className="flex justify-center gap-4 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-[#1ED78B] rounded-full"></div>
+                  <span className="text-[10px] text-muted-foreground">Resolution Value</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-zinc-500 rounded-full" style={{ borderStyle: 'dashed' }}></div>
+                  <span className="text-[10px] text-muted-foreground">Cost</span>
+                </div>
               </div>
             </div>
           );
@@ -1632,8 +1641,8 @@ export default function Activity() {
                        >
                          <CardContent className="p-0">
                            <div className="p-4 flex items-center gap-4">
-                             <div className={`w-12 h-12 rounded-xl ${isYes ? 'bg-[#1ED78B]/10 text-[#1ED78B]' : 'bg-rose-500/10 text-rose-500'} flex items-center justify-center`}>
-                                {pnl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                             <div className={`w-12 h-12 rounded-xl bg-[#1ED78B]/10 text-[#1ED78B] flex items-center justify-center`}>
+                                <TrendingUp size={24} />
                              </div>
                              <div className="flex-1 min-w-0">
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
@@ -1644,33 +1653,19 @@ export default function Activity() {
                                   <span className="text-xs text-muted-foreground">{shares.toFixed(0)} shares</span>
                                   <span className="text-[10px] text-muted-foreground/60">• {formatDate(position.createdAt)}</span>
                                 </div>
-                                {/* Show clear cost breakdown */}
+                                {/* Minimal cost/value info */}
                                 <div className="flex items-center gap-3 mt-1.5 text-[10px]">
                                   <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
-                                  <span className="text-muted-foreground flex items-center gap-1">
-                                    Value{!hasLivePrice ? '' : ' (est)'}: 
-                                    <span className={pnl >= 0 ? 'text-[#1ED78B] font-medium' : 'text-red-400 font-medium'}>${currentValue.toFixed(2)}</span>
-                                    {hasLivePrice && (
-                                      <button
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          setShowSpreadExplainer(true); 
-                                        }}
-                                        className="text-muted-foreground/60 hover:text-white transition-colors"
-                                        data-testid={`help-value-${position.id}`}
-                                      >
-                                        <HelpCircle size={10} />
-                                      </button>
-                                    )}
-                                  </span>
+                                  <span className="text-muted-foreground">Now: <span className="text-white/70 font-medium">${currentValue.toFixed(2)}</span></span>
                                 </div>
                              </div>
                              <div className="text-right shrink-0">
-                                <div className={`font-mono font-bold ${pnl >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}`}>
-                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                                {/* Show potential resolution payout (always green/positive) */}
+                                <div className="font-mono font-bold text-[#1ED78B]">
+                                  ${shares.toFixed(2)}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%
+                                <div className="text-[10px] text-muted-foreground">
+                                  if resolved
                                 </div>
                              </div>
                            </div>
