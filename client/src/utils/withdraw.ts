@@ -11,6 +11,15 @@ import { USDC_MINT } from './jupiterSwap';
 import { getRpcUrl } from '@/lib/rpc-config';
 
 export const MIN_SOL_RESERVE = 0.001;
+
+function getWithdrawConnection(): Connection {
+  const rpcUrl = getRpcUrl();
+  console.log('[Withdraw] Using RPC URL:', rpcUrl.includes('helius') ? 'Helius RPC' : rpcUrl);
+  return new Connection(rpcUrl, {
+    commitment: 'confirmed',
+    confirmTransactionInitialTimeout: 60000,
+  });
+}
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
@@ -96,7 +105,7 @@ export async function buildSolWithdrawal(
   amountSol: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = new Connection(getRpcUrl(), 'confirmed');
+    const connection = getWithdrawConnection();
     const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
 
     if (lamports <= 0) {
@@ -121,7 +130,16 @@ export async function buildSolWithdrawal(
 
     return { success: true, transaction };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to build SOL withdrawal' };
+    console.error('[Withdraw] SOL withdrawal error:', error);
+    let errorMessage = error.message || 'Failed to build SOL withdrawal';
+    
+    if (errorMessage.includes('403') || errorMessage.includes('Access forbidden')) {
+      errorMessage = 'Network error: Unable to connect to Solana network. Please try again.';
+    } else if (errorMessage.includes('blockhash')) {
+      errorMessage = 'Network congestion. Please try again in a moment.';
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -131,7 +149,7 @@ export async function buildUsdcWithdrawal(
   amountUsdc: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = new Connection(getRpcUrl(), 'confirmed');
+    const connection = getWithdrawConnection();
     const usdcMint = new PublicKey(USDC_MINT);
     
     const usdcAmount = BigInt(Math.floor(amountUsdc * 1_000_000));
@@ -145,8 +163,16 @@ export async function buildUsdcWithdrawal(
 
     const instructions: TransactionInstruction[] = [];
 
-    const destinationAccount = await connection.getAccountInfo(destinationAta);
-    if (!destinationAccount) {
+    let needsCreateAta = false;
+    try {
+      const destinationAccount = await connection.getAccountInfo(destinationAta);
+      needsCreateAta = !destinationAccount;
+    } catch (rpcError: any) {
+      console.log('[Withdraw] Could not check destination account, will include create ATA instruction:', rpcError.message);
+      needsCreateAta = true;
+    }
+    
+    if (needsCreateAta) {
       instructions.push(
         createAssociatedTokenAccountInstruction(
           fromPubkey,
@@ -178,7 +204,16 @@ export async function buildUsdcWithdrawal(
 
     return { success: true, transaction };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to build USDC withdrawal' };
+    console.error('[Withdraw] USDC withdrawal error:', error);
+    let errorMessage = error.message || 'Failed to build USDC withdrawal';
+    
+    if (errorMessage.includes('403') || errorMessage.includes('Access forbidden')) {
+      errorMessage = 'Network error: Unable to connect to Solana network. Please try again.';
+    } else if (errorMessage.includes('blockhash')) {
+      errorMessage = 'Network congestion. Please try again in a moment.';
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -204,7 +239,7 @@ export async function buildWithdrawalTransaction(
 
 export async function confirmTransaction(signature: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const connection = new Connection(getRpcUrl(), 'confirmed');
+    const connection = getWithdrawConnection();
     
     const result = await connection.getSignatureStatus(signature, {
       searchTransactionHistory: true,
