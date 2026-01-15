@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, memo, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { usePrivySafe } from "@/hooks/use-privy-safe";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { calculateTradeFeesForBuy } from "@/utils/dflowFees";
+import { AIMascot } from "@/components/ai-mascot";
+import { useLocation } from "wouter";
 
 const CATEGORIES = ["All", "Crypto", "AI", "Politics", "Sports", "Economics", "Tech", "Weather", "General"];
 
@@ -28,13 +30,26 @@ export default function Discovery() {
   const { authenticated, embeddedWallet } = usePrivySafe();
   const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
   const { placeTrade: placePondTrade, isTrading } = usePondTrading();
+  const [location, setLocation] = useLocation();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
   const [showEndingSoon, setShowEndingSoon] = useState(false);
+  const [pendingMarketId, setPendingMarketId] = useState<string | null>(null);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+  
+  // Handle URL query param for opening specific market (from Activity page navigation)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const marketId = params.get('market');
+    if (marketId) {
+      setPendingMarketId(marketId);
+      // Clear the URL param
+      setLocation('/discovery', { replace: true });
+    }
+  }, [setLocation]);
   
   // Handle trade execution from discovery modal - optimistic UI
   const handleTrade = async (
@@ -148,6 +163,28 @@ export default function Discovery() {
 
   const markets = marketsData?.markets || [];
   const searchResults = searchData?.markets || [];
+  
+  // Auto-open market when navigated from Activity with pending market ID
+  useEffect(() => {
+    if (pendingMarketId && markets.length > 0) {
+      // Search in all available markets (main list and search results)
+      const allMarkets = [...markets, ...searchResults];
+      const market = allMarkets.find(m => m.id === pendingMarketId);
+      if (market) {
+        setSelectedMarket(market);
+        trackMarketView(market.id, market.title);
+        setPendingMarketId(null);
+      } else if (!isLoading) {
+        // Market not found in any list - show toast and clear pending
+        toast({ 
+          title: 'Market not found', 
+          description: 'This market may no longer be available',
+          variant: 'destructive'
+        });
+        setPendingMarketId(null);
+      }
+    }
+  }, [pendingMarketId, markets, searchResults, isLoading, trackMarketView, toast]);
   
   const isActiveSearch = debouncedSearch.length >= 2;
 
@@ -617,6 +654,16 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
           >
             <X size={20} />
           </button>
+          
+          <div className="absolute top-4 right-4 z-10" data-testid="ai-mascot-container">
+            <AIMascot 
+              marketTitle={market.title}
+              category={market.category}
+              yesPrice={market.yesPrice}
+              noPrice={market.noPrice}
+              className="!absolute !top-0 !left-0"
+            />
+          </div>
 
           <div className="h-52 bg-zinc-900">
             {isLoadingHistory ? (

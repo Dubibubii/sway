@@ -3,9 +3,10 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, ChevronRight, HelpCircle, Info, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, X, Loader2, Filter, ChevronDown, ChevronRight, HelpCircle, Info, Sparkles, ExternalLink } from 'lucide-react';
 import mascotImage from '@/assets/mascot.png';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { useSolanaTransaction } from '@/hooks/use-solana-transaction';
@@ -76,7 +77,7 @@ function calculateRawMarketPrice(costBasis: number, platformFee: number, shares:
 }
 
 export default function Activity() {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [, navigate] = useLocation();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Trade | null>(null);
@@ -194,8 +195,10 @@ export default function Activity() {
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const handleCardClick = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+  // Navigate to Discovery page with the market ID to show market details
+  const handleCardClick = (marketId: string | undefined) => {
+    if (!marketId) return;
+    navigate(`/discovery?market=${encodeURIComponent(marketId)}`);
   };
 
   // Calculate total portfolio value using live prices when available
@@ -1635,12 +1638,12 @@ export default function Activity() {
                      return (
                        <Card 
                           key={position.id} 
-                          className={`glass-panel border-0 transition-all duration-200 cursor-pointer overflow-hidden ${expandedId === position.id ? 'ring-1 ring-white/20 bg-white/5' : 'hover:bg-white/5'}`}
-                          onClick={() => handleCardClick(position.id)}
+                          className="glass-panel border-0 transition-all duration-200 cursor-pointer overflow-hidden hover:bg-white/5 relative"
+                          onClick={() => handleCardClick(position.marketId)}
                           data-testid={`card-position-${position.id}`}
                        >
                          <CardContent className="p-0">
-                           <div className="p-4 flex items-center gap-4">
+                           <div className="p-4 pr-10 flex items-center gap-4">
                              <div className={`w-12 h-12 rounded-xl bg-[#1ED78B]/10 text-[#1ED78B] flex items-center justify-center`}>
                                 <TrendingUp size={24} />
                              </div>
@@ -1670,38 +1673,10 @@ export default function Activity() {
                              </div>
                            </div>
 
-                           <AnimatePresence>
-                             {expandedId === position.id && (
-                               <motion.div
-                                 initial={{ height: 0, opacity: 0 }}
-                                 animate={{ height: 'auto', opacity: 1 }}
-                                 exit={{ height: 0, opacity: 0 }}
-                                 transition={{ duration: 0.2 }}
-                                 className="border-t border-white/5 bg-black/20"
-                               >
-                                 <div className="flex p-2 gap-2">
-                                   <Button 
-                                     className="flex-1 h-9 bg-[#1ED78B]/10 hover:bg-[#1ED78B]/20 text-[#1ED78B] border border-[#1ED78B]/20" 
-                                     variant="outline" 
-                                     size="sm" 
-                                     data-testid={`button-add-${position.id}`}
-                                     onClick={(e) => handleAddClick(e, position)}
-                                   >
-                                     <Plus size={16} className="mr-2" /> Add
-                                   </Button>
-                                   <Button 
-                                     className="flex-1 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20" 
-                                     variant="outline" 
-                                     size="sm" 
-                                     data-testid={`button-sell-${position.id}`}
-                                     onClick={(e) => handleCloseClick(e, position)}
-                                   >
-                                     <X size={16} className="mr-2" /> Sell
-                                   </Button>
-                                 </div>
-                               </motion.div>
-                             )}
-                           </AnimatePresence>
+                           {/* Navigate indicator */}
+                           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40">
+                             <ExternalLink size={16} />
+                           </div>
                          </CardContent>
                        </Card>
                      );
