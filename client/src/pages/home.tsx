@@ -962,27 +962,92 @@ export default function Home() {
               category: discoveryMarket.category,
               yesPrice: discoveryMarket.yesPrice,
               noPrice: discoveryMarket.noPrice,
+              yesAsk: discoveryMarket.yesAsk,
+              yesBid: discoveryMarket.yesBid,
+              noAsk: discoveryMarket.noAsk,
+              noBid: discoveryMarket.noBid,
               yesLabel: discoveryMarket.yesLabel,
               noLabel: discoveryMarket.noLabel,
+              volume: parseInt(discoveryMarket.volume.replace(/[^0-9]/g, '')) || 0,
+              endDate: discoveryMarket.endDate || '',
+              status: 'active',
               eventTicker: discoveryMarket.eventTicker,
               isInitialized: true,
             }}
             onClose={() => setDiscoveryMarket(null)}
-            onSelectMarket={(market, direction) => {
-              const displayMarket = {
-                id: market.id,
-                question: market.title,
-                category: market.category || '',
-                volume: '',
-                yesPrice: market.yesPrice,
-                noPrice: market.noPrice,
-                yesLabel: market.yesLabel || 'Yes',
-                noLabel: market.noLabel || 'No',
-                endDate: '',
-                eventTicker: market.eventTicker,
-              };
-              handleSwipe(displayMarket.id, direction === 'yes' ? 'right' : 'left');
+            userWalletAddress={embeddedAddress || undefined}
+            onSelectMarket={async (market, direction, betAmount) => {
               setDiscoveryMarket(null);
+              
+              const amount = betAmount || settings.yesWager;
+              const executionPrice = direction === 'yes' 
+                ? (market.yesAsk ?? market.yesPrice)
+                : (market.noAsk ?? market.noPrice);
+              
+              if (settings.connected && embeddedAddress) {
+                const result = await placePondTrade(market.id, direction, amount, usdcBalance, embeddedAddress, 'overlay', solBalance);
+                
+                if (result.success) {
+                  setTimeout(() => refetchBalance(), 2000);
+                  tradeMutation.mutate({ 
+                    market: {
+                      id: market.id,
+                      question: market.title,
+                      category: market.category || '',
+                      volume: '',
+                      yesPrice: market.yesPrice,
+                      noPrice: market.noPrice,
+                      yesLabel: market.yesLabel || 'Yes',
+                      noLabel: market.noLabel || 'No',
+                      endDate: '',
+                      eventTicker: market.eventTicker,
+                    }, 
+                    direction: direction.toUpperCase() as 'YES' | 'NO', 
+                    wagerAmount: amount,
+                    actualShares: result.actualShares || Math.floor(amount / executionPrice),
+                    signature: result.signature,
+                    executionMode: result.executionMode,
+                  });
+                  trackBet(market.id, market.title, amount);
+                  
+                  const confirmedShares = result.actualShares || Math.floor(amount / executionPrice);
+                  
+                  toast({
+                    title: (
+                      <div className="flex items-center gap-2">
+                        <div className={`${direction === 'yes' ? 'bg-[#1ED78B]/20' : 'bg-rose-500/20'} p-1.5 rounded-full`}>
+                          <Check size={14} className={direction === 'yes' ? 'text-[#1ED78B]' : 'text-rose-400'} />
+                        </div>
+                        <span className={`${direction === 'yes' ? 'text-[#1ED78B]' : 'text-rose-400'} font-bold uppercase tracking-wider text-xs`}>Trade Placed</span>
+                      </div>
+                    ),
+                    description: (
+                      <TradeConfirmToast
+                        side={direction.toUpperCase() as 'YES' | 'NO'}
+                        shares={confirmedShares}
+                        spent={amount}
+                        wager={amount}
+                        leftover={0}
+                        buyPrice={Math.round(executionPrice * 100)}
+                        isAsync={result.executionMode === 'async'}
+                      />
+                    ),
+                    className: `bg-zinc-950/95 ${direction === 'yes' ? 'border-[#1ED78B]/20' : 'border-rose-500/20'} text-white backdrop-blur-xl shadow-xl p-3`
+                  });
+                } else {
+                  toast({
+                    title: "Trade Failed",
+                    description: result.error || "Could not execute trade",
+                    variant: "destructive",
+                  });
+                }
+              } else {
+                toast({
+                  title: "Connect Wallet",
+                  description: "Please connect your wallet to place trades",
+                  action: <ToastAction altText="Connect" onClick={() => window.location.href = '/profile'} className="bg-primary text-black hover:bg-primary/90 border-0">Connect</ToastAction>,
+                });
+              }
             }}
           />
         )}
