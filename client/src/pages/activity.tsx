@@ -122,6 +122,10 @@ export default function Activity() {
   // Sell mode selection state - shows choice before sell confirmation
   const [sellModeStep, setSellModeStep] = useState<'choice' | 'confirm'>('choice');
   
+  // Position action modal state - shows Sell/More options when clicking a position
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [actionPosition, setActionPosition] = useState<Trade | null>(null);
+  
   // Portfolio AI insight state
   const [insightExpanded, setInsightExpanded] = useState(false);
   const [portfolioInsight, setPortfolioInsight] = useState<string | null>(null);
@@ -199,6 +203,30 @@ export default function Activity() {
   const handleCardClick = (marketId: string | undefined) => {
     if (!marketId) return;
     navigate(`/discovery?market=${encodeURIComponent(marketId)}`);
+  };
+  
+  // Show action modal when clicking a position (Sell or More options)
+  const handlePositionClick = (position: Trade) => {
+    setActionPosition(position);
+    setActionModalOpen(true);
+  };
+  
+  // Handle "Sell" from action modal - reuses existing sell flow
+  const handleActionSell = () => {
+    if (actionPosition) {
+      // Create a synthetic event and call the existing handler
+      const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
+      handleCloseClick(syntheticEvent, actionPosition);
+    }
+    setActionModalOpen(false);
+  };
+  
+  // Handle "More" from action modal - navigates to Discovery
+  const handleActionMore = () => {
+    if (actionPosition?.marketId) {
+      handleCardClick(actionPosition.marketId);
+    }
+    setActionModalOpen(false);
   };
 
   // Calculate total portfolio value using live prices when available
@@ -946,6 +974,44 @@ export default function Activity() {
         onClose={() => setShowSpreadExplainer(false)}
       />
       
+      {/* Position Action Modal - Sell or More options */}
+      <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-center">
+              {actionPosition?.marketTitle}
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                actionPosition?.direction === 'YES' 
+                  ? 'bg-[#1ED78B]/20 text-[#1ED78B]' 
+                  : 'bg-rose-500/20 text-rose-400'
+              }`}>
+                {actionPosition?.direction}: {actionPosition?.shares} shares
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-3 mt-4">
+            <Button
+              data-testid="button-action-sell"
+              onClick={handleActionSell}
+              className="w-full py-6 text-lg font-semibold rounded-xl bg-rose-500 hover:bg-rose-600 text-white"
+            >
+              Sell
+            </Button>
+            <Button
+              data-testid="button-action-more"
+              onClick={handleActionMore}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold rounded-xl border-white/20 hover:bg-white/10"
+            >
+              More Details
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
           <DialogHeader>
@@ -1639,7 +1705,7 @@ export default function Activity() {
                        <Card 
                           key={position.id} 
                           className="glass-panel border-0 transition-all duration-200 cursor-pointer overflow-hidden hover:bg-white/5 relative"
-                          onClick={() => handleCardClick(position.marketId)}
+                          onClick={() => handlePositionClick(position)}
                           data-testid={`card-position-${position.id}`}
                        >
                          <CardContent className="p-0">
