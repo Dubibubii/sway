@@ -160,32 +160,36 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   
   // Smoothly transition the back card to become the front card
   useEffect(() => {
-    // Reset local motion values to 0 whenever component mounts or active state changes
+    // Always reset local motion values to ensure clean state
     localX.set(0);
     localY.set(0);
     
     if (active) {
-      // Animate to active state with spring physics
+      // When becoming active, spring from slightly scaled down to full size
+      // This creates a "pop from center" effect
       controls.start({ 
         scale: 1, 
         opacity: 1, 
+        x: 0,
         y: 0,
-        transition: { type: "spring", stiffness: 400, damping: 30 }
+        transition: { type: "spring", stiffness: 350, damping: 28 }
       });
     } else {
-      // Back card stays in background position
+      // Back card stays in background position - smaller and slightly offset
       controls.start({
-        scale: 0.95,
-        opacity: 0.7,
-        y: 15,
-        transition: { type: "spring", stiffness: 400, damping: 30 }
+        scale: 0.92,
+        opacity: 0.6,
+        x: 0,
+        y: 20,
+        transition: { type: "spring", stiffness: 350, damping: 28 }
       });
     }
   }, [active, controls, localX, localY]);
 
-  // Opacity of overlays - only show the dominant direction
-  // This prevents showing both SKIP and YES/NO when swiping diagonally
+  // Opacity of overlays - only show on ACTIVE card and only the dominant direction
+  // Inactive cards never show overlays to prevent bleed-through from previous swipes
   const yesOpacity = useTransform(() => {
+    if (!active) return 0; // Never show overlay on inactive cards
     const xVal = x.get();
     const yVal = y.get();
     // Only show YES if horizontal movement is dominant
@@ -195,6 +199,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     return 0;
   });
   const noOpacity = useTransform(() => {
+    if (!active) return 0; // Never show overlay on inactive cards
     const xVal = x.get();
     const yVal = y.get();
     // Only show NO if horizontal movement is dominant
@@ -204,6 +209,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     return 0;
   });
   const skipOpacity = useTransform(() => {
+    if (!active) return 0; // Never show overlay on inactive cards
     const xVal = x.get();
     const yVal = y.get();
     // Only show SKIP if vertical movement is dominant
@@ -273,7 +279,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       animate={controls}
-      initial={active ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.95, opacity: 0.7, y: 15 }}
+      initial={active ? { scale: 1, opacity: 1, x: 0, y: 0 } : { scale: 0.92, opacity: 0.6, x: 0, y: 20 }}
       exit={getExitAnimation()}
       style={active ? { x, y, rotate } : { x: localX, y: localY, rotate: 0 }}
       className={`absolute top-0 left-0 w-full h-full will-change-transform ${active ? 'z-[100] cursor-grab active:cursor-grabbing' : 'z-[50] pointer-events-none'}`}
