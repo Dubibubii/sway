@@ -180,21 +180,24 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const skipOpacity = useTransform(y, [50, 150], [0, 1]);
 
   const handleDragEnd = async (event: any, info: PanInfo) => {
-    const offset = info.offset;
     const velocity = info.velocity;
+    // Use current position (where thumb is NOW) not offset (total distance traveled)
+    // This way if user drags down then back to center, it won't trigger skip
+    const currentX = x.get();
+    const currentY = y.get();
 
-    // Swipe Right (YES)
-    if (offset.x > 100 || velocity.x > 500) {
+    // Swipe Right (YES) - must be at position >100 OR have high velocity in that direction
+    if (currentX > 100 || (velocity.x > 500 && currentX > 50)) {
       await controls.start({ x: 500, opacity: 0 });
       onSwipe('right');
     } 
     // Swipe Left (NO)
-    else if (offset.x < -100 || velocity.x < -500) {
+    else if (currentX < -100 || (velocity.x < -500 && currentX < -50)) {
       await controls.start({ x: -500, opacity: 0 });
       onSwipe('left');
     }
     // Swipe Down (SKIP)
-    else if (offset.y > 100 || velocity.y > 500) {
+    else if (currentY > 100 || (velocity.y > 500 && currentY > 50)) {
       await controls.start({ y: 500, opacity: 0 });
       onSwipe('down');
     }
