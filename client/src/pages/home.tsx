@@ -323,7 +323,6 @@ export default function Home() {
   }, [positionsData]);
   
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [cacheVersion, setCacheVersion] = useState(0);
   
   const fetchedMarketIdsRef = useRef<Set<string>>(new Set());
   
@@ -335,7 +334,7 @@ export default function Home() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['markets', ownedMarketIds, cacheVersion],
+    queryKey: ['markets', ownedMarketIds],
     queryFn: async ({ pageParam = 0 }) => {
       // Combine swiped IDs and owned position IDs to exclude both
       const swipedIds = getSwipedIds();
@@ -348,13 +347,9 @@ export default function Home() {
       });
       
       if (response.cacheTimestamp) {
-        const wasReset = updateCacheTimestamp(response.cacheTimestamp);
-        if (wasReset) {
-          fetchedMarketIdsRef.current.clear();
-          // Force refetch with new filters by incrementing cache version
-          console.log('[Cache] Server cache changed, refetching with new filters');
-          setCacheVersion(v => v + 1);
-        }
+        // Just update the timestamp for tracking, but don't force refetch
+        // This prevents infinite refetch loops when cache updates
+        updateCacheTimestamp(response.cacheTimestamp);
       }
       
       return response;
