@@ -53,6 +53,8 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const [isRippling, setIsRippling] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const motionWrapperRef = useRef<HTMLDivElement>(null);
+  const rippleDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const RIPPLE_DELAY = 200; // ms before ripple starts showing
 
   // Preload the image - only reset if URL actually changed
   useEffect(() => {
@@ -81,19 +83,25 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     isLongPressRef.current = false;
     hasDraggedRef.current = false;
     
-    // Get touch position relative to the motion wrapper (accounts for transforms)
-    // Use the wrapper element that receives the event for accurate positioning
+    // Store touch position for delayed ripple
+    let storedPosition: { x: number; y: number } | null = null;
     if (motionWrapperRef.current) {
       const rect = motionWrapperRef.current.getBoundingClientRect();
-      // Calculate position relative to the element, accounting for any scale transforms
       const scaleX = rect.width / motionWrapperRef.current.offsetWidth;
       const scaleY = rect.height / motionWrapperRef.current.offsetHeight;
-      setRipplePosition({
+      storedPosition = {
         x: (e.clientX - rect.left) / scaleX,
         y: (e.clientY - rect.top) / scaleY
-      });
-      setIsRippling(true);
+      };
     }
+    
+    // Delay ripple so quick swipes don't trigger it
+    rippleDelayTimerRef.current = setTimeout(() => {
+      if (!hasDraggedRef.current && storedPosition) {
+        setRipplePosition(storedPosition);
+        setIsRippling(true);
+      }
+    }, RIPPLE_DELAY);
     
     longPressTimerRef.current = setTimeout(() => {
       if (!hasDraggedRef.current) {
@@ -110,6 +118,10 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    if (rippleDelayTimerRef.current) {
+      clearTimeout(rippleDelayTimerRef.current);
+      rippleDelayTimerRef.current = null;
+    }
     setIsRippling(false);
     setRipplePosition(null);
   }, []);
@@ -120,6 +132,10 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    if (rippleDelayTimerRef.current) {
+      clearTimeout(rippleDelayTimerRef.current);
+      rippleDelayTimerRef.current = null;
+    }
     setIsRippling(false);
     setRipplePosition(null);
   }, []);
@@ -129,6 +145,9 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     return () => {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
+      }
+      if (rippleDelayTimerRef.current) {
+        clearTimeout(rippleDelayTimerRef.current);
       }
     };
   }, []);
