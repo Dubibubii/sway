@@ -183,10 +183,10 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     }
   }, [active, controls, localX, localY]);
 
-  // Opacity of overlays
-  const yesOpacity = useTransform(x, [50, 150], [0, 1]);
-  const noOpacity = useTransform(x, [-50, -150], [0, 1]);
-  const skipOpacity = useTransform(y, [50, 150], [0, 1]);
+  // Opacity of overlays - matches swipe thresholds
+  const yesOpacity = useTransform(x, [60, 160], [0, 1]);
+  const noOpacity = useTransform(x, [-60, -160], [0, 1]);
+  const skipOpacity = useTransform(y, [60, 160], [0, 1]);
 
   const handleDragEnd = async (event: any, info: PanInfo) => {
     const velocity = info.velocity;
@@ -195,17 +195,21 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     const currentX = x.get();
     const currentY = y.get();
 
-    // Swipe Right (YES) - must be at position >100 OR have high velocity in that direction
-    if (currentX > 100 || (velocity.x > 500 && currentX > 50)) {
-      // Immediately call onSwipe FIRST to remove from list, animation happens via exit
+    // Higher thresholds to prevent accidental swipes
+    const SWIPE_THRESHOLD = 130; // Increased from 100
+    const VELOCITY_THRESHOLD = 800; // Increased from 500
+    const MIN_POSITION_FOR_VELOCITY = 70; // Increased from 50
+
+    // Swipe Right (YES) - must be at position >threshold OR have high velocity in that direction
+    if (currentX > SWIPE_THRESHOLD || (velocity.x > VELOCITY_THRESHOLD && currentX > MIN_POSITION_FOR_VELOCITY)) {
       onSwipe('right');
     } 
     // Swipe Left (NO)
-    else if (currentX < -100 || (velocity.x < -500 && currentX < -50)) {
+    else if (currentX < -SWIPE_THRESHOLD || (velocity.x < -VELOCITY_THRESHOLD && currentX < -MIN_POSITION_FOR_VELOCITY)) {
       onSwipe('left');
     }
     // Swipe Down (SKIP)
-    else if (currentY > 100 || (velocity.y > 500 && currentY > 50)) {
+    else if (currentY > SWIPE_THRESHOLD || (velocity.y > VELOCITY_THRESHOLD && currentY > MIN_POSITION_FOR_VELOCITY)) {
       onSwipe('down');
     }
     // Reset - snap back to center

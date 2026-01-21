@@ -558,7 +558,17 @@ export default function Home() {
   const skipColor = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0.2)", "rgba(59, 130, 246, 1)"]);
   const skipBorder = useTransform(y, [0, 150], ["rgba(59, 130, 246, 0)", "rgba(59, 130, 246, 1)"]);
 
+  // Cooldown to prevent double swipes
+  const swipeInProgressRef = useRef(false);
+  
   const handleSwipe = async (id: string, direction: 'left' | 'right' | 'down') => {
+    // Prevent double swipes with cooldown
+    if (swipeInProgressRef.current) {
+      console.log('[Swipe] BLOCKED - swipe already in progress');
+      return;
+    }
+    swipeInProgressRef.current = true;
+    
     const market = displayedMarkets.find(m => m.id === id);
     
     console.log('[Swipe] ========== SWIPE START ==========');
@@ -572,11 +582,14 @@ export default function Home() {
     // Immediately remove card and reset motion values
     // AnimatePresence handles exit animation smoothly
     setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
-    // Reset motion values for the next card
-    requestAnimationFrame(() => {
+    // Reset motion values for the next card after a short delay
+    // This allows the exit animation to complete first
+    setTimeout(() => {
       x.set(0);
       y.set(0);
-    });
+      // Release swipe lock after card transition completes
+      swipeInProgressRef.current = false;
+    }, 300);
 
     if (!market) return;
 
