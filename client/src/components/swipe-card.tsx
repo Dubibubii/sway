@@ -47,14 +47,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressRef = useRef(false);
   const hasDraggedRef = useRef(false);
-  
-  // Ripple animation state
-  const [ripplePosition, setRipplePosition] = useState<{ x: number; y: number } | null>(null);
-  const [isRippling, setIsRippling] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const motionWrapperRef = useRef<HTMLDivElement>(null);
-  const rippleDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const RIPPLE_DELAY = 200; // ms before ripple starts showing
 
   // Preload the image - only reset if URL actually changed
   useEffect(() => {
@@ -77,37 +69,15 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const x = dragX || localX;
   const y = dragY || localY;
   
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+  const handlePointerDown = useCallback(() => {
     if (!active || !onLongPress) return;
     
     isLongPressRef.current = false;
     hasDraggedRef.current = false;
     
-    // Store touch position for delayed ripple
-    let storedPosition: { x: number; y: number } | null = null;
-    if (motionWrapperRef.current) {
-      const rect = motionWrapperRef.current.getBoundingClientRect();
-      const scaleX = rect.width / motionWrapperRef.current.offsetWidth;
-      const scaleY = rect.height / motionWrapperRef.current.offsetHeight;
-      storedPosition = {
-        x: (e.clientX - rect.left) / scaleX,
-        y: (e.clientY - rect.top) / scaleY
-      };
-    }
-    
-    // Delay ripple so quick swipes don't trigger it
-    rippleDelayTimerRef.current = setTimeout(() => {
-      if (!hasDraggedRef.current && storedPosition) {
-        setRipplePosition(storedPosition);
-        setIsRippling(true);
-      }
-    }, RIPPLE_DELAY);
-    
     longPressTimerRef.current = setTimeout(() => {
       if (!hasDraggedRef.current) {
         isLongPressRef.current = true;
-        setIsRippling(false);
-        setRipplePosition(null);
         onLongPress();
       }
     }, LONG_PRESS_DURATION);
@@ -118,12 +88,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    if (rippleDelayTimerRef.current) {
-      clearTimeout(rippleDelayTimerRef.current);
-      rippleDelayTimerRef.current = null;
-    }
-    setIsRippling(false);
-    setRipplePosition(null);
   }, []);
   
   const handleDragStart = useCallback(() => {
@@ -132,12 +96,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    if (rippleDelayTimerRef.current) {
-      clearTimeout(rippleDelayTimerRef.current);
-      rippleDelayTimerRef.current = null;
-    }
-    setIsRippling(false);
-    setRipplePosition(null);
   }, []);
   
   // Cleanup on unmount
@@ -145,9 +103,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     return () => {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
-      }
-      if (rippleDelayTimerRef.current) {
-        clearTimeout(rippleDelayTimerRef.current);
       }
     };
   }, []);
@@ -260,7 +215,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   
   return (
     <motion.div
-      ref={motionWrapperRef}
       drag={active ? true : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragStart={handleDragStart}
@@ -275,7 +229,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       whileTap={{ scale: 1.05 }}
       transition={{ duration: 0.3 }}
     >
-      <Card ref={cardRef} className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
+      <Card className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
         
         {/* Image Background */}
         <div className="absolute inset-0 z-0">
@@ -291,59 +245,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
               }}
             />
           )}
-          
-          {/* Long Press Ripple Animation - on image layer */}
-          {isRippling && ripplePosition && (
-            <motion.div
-              className="absolute z-15 pointer-events-none"
-              style={{
-                left: ripplePosition.x,
-                top: ripplePosition.y,
-                transform: 'translate(-50%, -50%)',
-              }}
-              initial={{ scale: 0, opacity: 0.8 }}
-              animate={{ 
-                scale: [0, 1.5, 3],
-                opacity: [0.8, 0.5, 0],
-              }}
-              transition={{ 
-                duration: LONG_PRESS_DURATION / 1000,
-                ease: "easeOut",
-              }}
-            >
-              <div className="w-32 h-32 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white/50" />
-            </motion.div>
-          )}
-          
-          {/* Pulsing ring indicator - on image layer */}
-          {isRippling && ripplePosition && (
-            <motion.div
-              className="absolute z-15 pointer-events-none"
-              style={{
-                left: ripplePosition.x,
-                top: ripplePosition.y,
-                transform: 'translate(-50%, -50%)',
-              }}
-              initial={{ scale: 0.5, opacity: 1 }}
-              animate={{ 
-                scale: [0.5, 1.2],
-                opacity: [1, 0.6],
-              }}
-              transition={{ 
-                duration: LONG_PRESS_DURATION / 1000,
-                ease: "easeInOut",
-              }}
-            >
-              <div className="w-16 h-16 rounded-full border-4 border-white/70 flex items-center justify-center">
-                <motion.div 
-                  className="w-8 h-8 rounded-full bg-white/40"
-                  animate={{ scale: [0.8, 1, 0.8] }}
-                  transition={{ duration: 0.4, repeat: Infinity }}
-                />
-              </div>
-            </motion.div>
-          )}
-          
           <div className="absolute inset-0 bg-black/30 z-20" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-30" />
         </div>

@@ -211,15 +211,10 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
       />
       
       <motion.div
-        initial={{ opacity: 0, y: "100%", scale: 0.95 }}
-        animate={{ opacity: 1, y: "5%", scale: 1 }}
-        exit={{ opacity: 0, y: "100%", scale: 0.95 }}
-        transition={{ 
-          type: "spring", 
-          damping: 20, 
-          stiffness: 300,
-          mass: 0.8,
-        }}
+        initial={{ opacity: 0, y: "100%" }}
+        animate={{ opacity: 1, y: "5%" }}
+        exit={{ opacity: 0, y: "100%" }}
+        transition={{ type: "spring", damping: 35, stiffness: 500 }}
         className="fixed inset-x-0 bottom-0 z-50 h-[90%] bg-gradient-to-b from-zinc-900 to-black rounded-t-3xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
