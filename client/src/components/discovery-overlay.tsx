@@ -173,12 +173,7 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
   const handleTrade = () => {
     const targetMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
     
-    // Show warning for uninitialized markets before proceeding
-    if (targetMarket.isInitialized === false && !showNewMarketWarning) {
-      setShowNewMarketWarning(true);
-      return;
-    }
-    
+    // Markets are now all tradeable - DFlow handles initialization automatically
     console.log('[DiscoveryOverlay] Trade initiated:', { 
       marketId: targetMarket.id, 
       direction: betDirection, 
