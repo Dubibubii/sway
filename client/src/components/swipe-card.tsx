@@ -38,6 +38,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const { toast } = useToast();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const loadedImageUrlRef = useRef<string | null>(null);
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
@@ -47,14 +48,20 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const isLongPressRef = useRef(false);
   const hasDraggedRef = useRef(false);
 
-  // Preload the image
+  // Preload the image - only reset if URL actually changed
   useEffect(() => {
     if (market.imageUrl) {
-      setImageLoaded(false);
-      const img = new Image();
-      img.onload = () => setImageLoaded(true);
-      img.onerror = () => setImageLoaded(false);
-      img.src = market.imageUrl;
+      // Only reset if the URL is different from what we already loaded
+      if (loadedImageUrlRef.current !== market.imageUrl) {
+        setImageLoaded(false);
+        const img = new Image();
+        img.onload = () => {
+          loadedImageUrlRef.current = market.imageUrl || null;
+          setImageLoaded(true);
+        };
+        img.onerror = () => setImageLoaded(false);
+        img.src = market.imageUrl;
+      }
     }
   }, [market.imageUrl]);
 
