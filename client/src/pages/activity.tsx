@@ -1406,9 +1406,9 @@ export default function Activity() {
                   <div className="text-2xl font-mono font-bold text-[#1ED78B]">
                     ${hasPositions ? totalResolutionValue.toFixed(2) : '0.00'}
                   </div>
-                  {hasPositions && potentialProfit > 0 && (
-                    <div className="text-xs text-[#1ED78B]/80 font-medium">
-                      +${potentialProfit.toFixed(2)} profit
+                  {hasPositions && (
+                    <div className={`text-xs font-medium ${potentialProfit >= 0 ? 'text-[#1ED78B]/80' : 'text-rose-400/80'}`}>
+                      {potentialProfit >= 0 ? '+' : ''}{potentialProfit >= 0 ? '$' : '-$'}{Math.abs(potentialProfit).toFixed(2)}
                     </div>
                   )}
                 </div>
