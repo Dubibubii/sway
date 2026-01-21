@@ -1638,41 +1638,41 @@ export default function Activity() {
                           data-testid={`card-position-${position.id}`}
                        >
                          <CardContent className="p-0">
-                           <div className="p-4 pr-10 flex items-center gap-4">
-                             <div className={`w-12 h-12 rounded-xl bg-[#1ED78B]/10 text-[#1ED78B] flex items-center justify-center`}>
-                                <TrendingUp size={24} />
+                           <div className="p-3 sm:p-4 pr-8 sm:pr-10 flex items-start sm:items-center gap-3 sm:gap-4">
+                             <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#1ED78B]/10 text-[#1ED78B] flex items-center justify-center shrink-0`}>
+                                <TrendingUp size={20} />
                              </div>
-                             <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
+                             <div className="flex-1 min-w-0 overflow-hidden">
+                                <h3 className="font-bold text-xs sm:text-sm leading-tight line-clamp-2">{position.marketTitle}</h3>
                                 {/* Badge on its own row */}
                                 <div className="mt-1">
-                                  <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5 max-w-[160px] truncate`}>
+                                  <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[9px] sm:text-[10px] h-4 sm:h-5 max-w-full truncate`}>
                                     {position.direction}{position.optionLabel ? `: ${position.optionLabel}` : ''}
                                   </Badge>
                                 </div>
                                 {/* Shares, Cost, Now on same row with wrapping */}
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-[10px]">
+                                <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 mt-1.5 text-[9px] sm:text-[10px]">
                                   <span className="text-muted-foreground">{shares.toFixed(0)} shares</span>
                                   <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
                                   <span className="text-muted-foreground">Now: <span className="text-white/70 font-medium">${currentValue.toFixed(2)}</span></span>
                                 </div>
                                 {/* Date on separate row */}
-                                <div className="text-[10px] text-muted-foreground/60 mt-0.5">{formatDate(position.createdAt)}</div>
+                                <div className="text-[9px] sm:text-[10px] text-muted-foreground/60 mt-0.5">{formatDate(position.createdAt)}</div>
                              </div>
                              <div className="text-right shrink-0">
                                 {/* Show potential resolution payout (always green/positive) */}
-                                <div className="font-mono font-bold text-[#1ED78B]">
+                                <div className="font-mono font-bold text-[#1ED78B] text-sm sm:text-base">
                                   ${shares.toFixed(2)}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">
+                                <div className="text-[9px] sm:text-[10px] text-muted-foreground">
                                   if resolved
                                 </div>
                              </div>
                            </div>
 
                            {/* Navigate indicator */}
-                           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40">
-                             <ExternalLink size={16} />
+                           <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40">
+                             <ExternalLink size={14} />
                            </div>
                          </CardContent>
                        </Card>
