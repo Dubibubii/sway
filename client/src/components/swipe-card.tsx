@@ -52,6 +52,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const [ripplePosition, setRipplePosition] = useState<{ x: number; y: number } | null>(null);
   const [isRippling, setIsRippling] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const motionWrapperRef = useRef<HTMLDivElement>(null);
 
   // Preload the image - only reset if URL actually changed
   useEffect(() => {
@@ -80,12 +81,16 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     isLongPressRef.current = false;
     hasDraggedRef.current = false;
     
-    // Get touch position relative to card for ripple
-    if (cardRef.current) {
-      const rect = cardRef.current.getBoundingClientRect();
+    // Get touch position relative to the motion wrapper (accounts for transforms)
+    // Use the wrapper element that receives the event for accurate positioning
+    if (motionWrapperRef.current) {
+      const rect = motionWrapperRef.current.getBoundingClientRect();
+      // Calculate position relative to the element, accounting for any scale transforms
+      const scaleX = rect.width / motionWrapperRef.current.offsetWidth;
+      const scaleY = rect.height / motionWrapperRef.current.offsetHeight;
       setRipplePosition({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: (e.clientX - rect.left) / scaleX,
+        y: (e.clientY - rect.top) / scaleY
       });
       setIsRippling(true);
     }
@@ -236,6 +241,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   
   return (
     <motion.div
+      ref={motionWrapperRef}
       drag={active ? true : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragStart={handleDragStart}
