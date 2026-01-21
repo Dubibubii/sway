@@ -779,16 +779,6 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
             <X size={20} />
           </button>
           
-          <div className="absolute top-4 right-4 z-10" data-testid="ai-mascot-container">
-            <AIMascot 
-              marketTitle={market.title}
-              category={market.category}
-              yesPrice={market.yesPrice}
-              noPrice={market.noPrice}
-              className="!absolute !top-0 !left-0"
-            />
-          </div>
-
           <div className="h-52 bg-zinc-900">
             {isLoadingHistory ? (
               <div className="w-full h-full flex items-center justify-center">
@@ -800,7 +790,22 @@ function MarketDetailModal({ market, onClose, onTrade, isTrading, userWalletAddr
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="relative pt-4">
+            {/* AI Mascot - positioned below graph, above title */}
+            <div className="flex items-center gap-3 pt-3 pb-2" data-testid="ai-mascot-container">
+              <div className="relative">
+                <AIMascot 
+                  marketTitle={market.title}
+                  category={market.category}
+                  yesPrice={market.yesPrice}
+                  noPrice={market.noPrice}
+                  className="!static !top-auto !left-auto"
+                  alignRight={false}
+                />
+              </div>
+              <span className="text-xs text-white/50">Tap for AI insights</span>
+            </div>
+            
+            <div className="relative">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="inline-block text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">
                   {market.category}
