@@ -405,9 +405,12 @@ function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
     ? `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`
     : undefined;
   
-  // Check if market has any initialized accounts
+  // Check if USDC account specifically is initialized (that's what we trade with)
+  // USDC mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
   const accounts = market.accounts || {};
-  const isInitialized = Object.values(accounts).some((acc: any) => acc?.isInitialized === true);
+  const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  const usdcAccount = accounts[USDC_MINT] as { isInitialized?: boolean } | undefined;
+  const isInitialized = usdcAccount?.isInitialized === true;
   
   return {
     id: market.ticker,
@@ -1519,8 +1522,9 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     : (yesPercent: number) => yesPercent > 1 && yesPercent < 99;
   
   const activeMarkets = markets.filter(m => {
-    // Only include initialized markets in strict mode (swipe tab)
-    if (strictMode && m.isInitialized === false) return false;
+    // Only include USDC-initialized markets in strict mode (swipe tab)
+    // Must be explicitly true - undefined or false markets will fail trades
+    if (strictMode && m.isInitialized !== true) return false;
     
     const yesPercent = m.yesPrice * 100;
     if (!probabilityFilter(yesPercent)) return false;

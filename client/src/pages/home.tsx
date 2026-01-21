@@ -322,8 +322,9 @@ export default function Home() {
       
       for (const page of marketsData.pages) {
         for (const market of page.markets) {
+          // Only show USDC-initialized markets (required for trading)
           // Skip markets user already owns positions in
-          if (market.isInitialized !== false && !seenIds.has(market.id) && !ownedSet.has(market.id)) {
+          if (market.isInitialized === true && !seenIds.has(market.id) && !ownedSet.has(market.id)) {
             seenIds.add(market.id);
             fetchedMarketIdsRef.current.add(market.id);
             allMarkets.push(formatMarket(market));
