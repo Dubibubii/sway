@@ -217,7 +217,7 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
               category={market.category}
               yesPrice={market.yesPrice}
               noPrice={market.noPrice}
-              className="!absolute !top-0 !left-0"
+              alignRight={true}
             />
           </div>
 
@@ -229,6 +229,13 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
             ) : (
               <PriceChart data={historyData?.history || []} currentPrice={market.yesPrice} />
             )}
+          </div>
+          
+          {/* Volume indicator below chart */}
+          <div className="px-4 py-1 bg-zinc-900/50">
+            <span className="text-xs text-muted-foreground">
+              Volume: ${market.volume?.toLocaleString() || 0}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">

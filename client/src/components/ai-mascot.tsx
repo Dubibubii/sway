@@ -9,9 +9,10 @@ interface AIMascotProps {
   yesPrice: number;
   noPrice: number;
   className?: string;
+  alignRight?: boolean; // When true, popup opens to the left
 }
 
-export function AIMascot({ marketTitle, category, yesPrice, noPrice, className = '' }: AIMascotProps) {
+export function AIMascot({ marketTitle, category, yesPrice, noPrice, className = '', alignRight = false }: AIMascotProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,9 +108,9 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            className="absolute top-12 left-0 w-64 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10"
+            className={`absolute top-12 w-64 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10 ${alignRight ? 'right-0' : 'left-0'}`}
           >
-            <div className="absolute -top-2 left-4 w-4 h-4 bg-zinc-900/95 border-l border-t border-white/10 rotate-45" />
+            <div className={`absolute -top-2 w-4 h-4 bg-zinc-900/95 border-l border-t border-white/10 rotate-45 ${alignRight ? 'right-4' : 'left-4'}`} />
             
             <button
               onClick={() => setIsExpanded(false)}
