@@ -355,12 +355,11 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-500">If No:</span>
-                <span className="text-zinc-400">${settings.noWager}</span>
+                <span className="text-zinc-400">${settings.noWager < 10 ? settings.noWager.toFixed(2) : settings.noWager}</span>
                 <span className="text-zinc-500">→</span>
                 <span className="text-rose-400 font-semibold">${(() => {
                   const returnVal = settings.noWager / market.noPrice;
-                  const multiplier = 1 / market.noPrice;
-                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
+                  return returnVal < 10 ? returnVal.toFixed(2) : returnVal.toFixed(0);
                 })()}</span>
               </div>
             </div>
@@ -372,12 +371,11 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-zinc-500">If Yes:</span>
-                <span className="text-zinc-400">${settings.yesWager}</span>
+                <span className="text-zinc-400">${settings.yesWager < 10 ? settings.yesWager.toFixed(2) : settings.yesWager}</span>
                 <span className="text-zinc-500">→</span>
                 <span className="text-[#1ED78B] font-semibold">${(() => {
                   const returnVal = settings.yesWager / market.yesPrice;
-                  const multiplier = 1 / market.yesPrice;
-                  return multiplier < 1.5 ? returnVal.toFixed(2) : returnVal.toFixed(0);
+                  return returnVal < 10 ? returnVal.toFixed(2) : returnVal.toFixed(0);
                 })()}</span>
               </div>
             </div>
