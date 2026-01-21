@@ -159,29 +159,27 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   
   // Smoothly transition the back card to become the front card
+  // The back card springs from center (scaled down) to full size - "zoom in" effect
   useEffect(() => {
     // Always reset local motion values to ensure clean state
     localX.set(0);
     localY.set(0);
     
     if (active) {
-      // When becoming active, spring from slightly scaled down to full size
-      // This creates a "pop from center" effect
+      // Immediate reset of position, then animate scale for "pop from center" effect
+      controls.set({ x: 0, y: 0 }); // Immediately set position to center
       controls.start({ 
         scale: 1, 
-        opacity: 1, 
-        x: 0,
-        y: 0,
-        transition: { type: "spring", stiffness: 350, damping: 28 }
+        opacity: 1,
+        transition: { type: "spring", stiffness: 300, damping: 25, duration: 0.3 }
       });
     } else {
-      // Back card stays in background position - smaller and slightly offset
+      // Back card: centered but smaller (ready to "pop" when it becomes active)
+      controls.set({ x: 0, y: 0 }); // Always centered
       controls.start({
-        scale: 0.92,
-        opacity: 0.6,
-        x: 0,
-        y: 20,
-        transition: { type: "spring", stiffness: 350, damping: 28 }
+        scale: 0.9,
+        opacity: 0.5,
+        transition: { duration: 0.1 }
       });
     }
   }, [active, controls, localX, localY]);
@@ -279,11 +277,10 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       animate={controls}
-      initial={active ? { scale: 1, opacity: 1, x: 0, y: 0 } : { scale: 0.92, opacity: 0.6, x: 0, y: 20 }}
+      initial={active ? { scale: 1, opacity: 1, x: 0, y: 0 } : { scale: 0.9, opacity: 0.5, x: 0, y: 0 }}
       exit={getExitAnimation()}
-      style={active ? { x, y, rotate } : { x: localX, y: localY, rotate: 0 }}
+      style={active ? { x, y, rotate } : { rotate: 0 }}
       className={`absolute top-0 left-0 w-full h-full will-change-transform ${active ? 'z-[100] cursor-grab active:cursor-grabbing' : 'z-[50] pointer-events-none'}`}
-      whileTap={active ? { scale: 1.02 } : undefined}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
     >
       <Card className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
