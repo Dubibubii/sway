@@ -101,6 +101,7 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
   const [customAmountText, setCustomAmountText] = useState('');
   const [showResolutionInfo, setShowResolutionInfo] = useState(false);
   const [showAllOptions, setShowAllOptions] = useState(false);
+  const [showNewMarketWarning, setShowNewMarketWarning] = useState(false);
   
   const debouncedBetAmount = useDebounce(betAmount, 500);
 
@@ -171,13 +172,33 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
 
   const handleTrade = () => {
     const targetMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
+    
+    // Show warning for uninitialized markets before proceeding
+    if (targetMarket.isInitialized === false && !showNewMarketWarning) {
+      setShowNewMarketWarning(true);
+      return;
+    }
+    
     console.log('[DiscoveryOverlay] Trade initiated:', { 
       marketId: targetMarket.id, 
       direction: betDirection, 
       betAmount, 
       yesPrice: targetMarket.yesPrice, 
       noPrice: targetMarket.noPrice,
-      userWallet: userWalletAddress?.slice(0, 8) + '...'
+      userWallet: userWalletAddress?.slice(0, 8) + '...',
+      isInitialized: targetMarket.isInitialized
+    });
+    onSelectMarket(targetMarket, betDirection.toLowerCase() as 'yes' | 'no', betAmount);
+    onClose();
+  };
+  
+  const handleConfirmNewMarketTrade = () => {
+    setShowNewMarketWarning(false);
+    const targetMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
+    console.log('[DiscoveryOverlay] New market trade confirmed:', { 
+      marketId: targetMarket.id, 
+      direction: betDirection, 
+      betAmount
     });
     onSelectMarket(targetMarket, betDirection.toLowerCase() as 'yes' | 'no', betAmount);
     onClose();
@@ -517,6 +538,78 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
           </div>
         </div>
       </motion.div>
+      
+      {/* New Market Warning Dialog */}
+      <AnimatePresence>
+        {showNewMarketWarning && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-[60]"
+              onClick={() => setShowNewMarketWarning(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[60] bg-zinc-900 rounded-2xl p-6 border border-amber-500/30 max-w-md mx-auto"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <Info className="w-5 h-5 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">New Market</h3>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <p className="text-sm text-white/80">
+                  This market hasn't been traded on DFlow yet. Here's what to expect:
+                </p>
+                <ul className="text-sm text-white/70 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>A small initialization fee (~$0.01) will be charged to set up the market</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>If no one is selling the opposite side, your trade may fail - but you won't be charged</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>You're helping create liquidity for other traders!</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowNewMarketWarning(false)}
+                  className="flex-1 py-5"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmNewMarketTrade}
+                  disabled={isTrading}
+                  className="flex-1 py-5 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                >
+                  {isTrading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Trading...
+                    </span>
+                  ) : (
+                    'Proceed Anyway'
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
