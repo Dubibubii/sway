@@ -2051,6 +2051,18 @@ export async function registerRoutes(
     }
   });
 
+  // Leaderboard endpoint - top traders by profit
+  app.get('/api/leaderboard', async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 100);
+      const leaderboard = await storage.getLeaderboard(limit);
+      res.json({ leaderboard });
+    } catch (error: any) {
+      console.error('[Leaderboard] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    }
+  });
+
   // Feedback email endpoint
   app.post('/api/feedback', async (req: Request, res: Response) => {
     try {

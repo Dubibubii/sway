@@ -14,6 +14,14 @@ export interface AnalyticsSummary {
   popularMarkets: { marketId: string; marketTitle: string; views: number; bets: number }[];
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  walletAddress: string;
+  totalProfit: number;
+  winRate: number;
+  totalTrades: number;
+}
+
 export interface IStorage {
   getUserByPrivyId(privyId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -30,6 +38,7 @@ export interface IStorage {
   
   logAnalyticsEvent(event: InsertAnalyticsEvent): Promise<void>;
   getAnalyticsSummary(): Promise<AnalyticsSummary>;
+  getLeaderboard(limit?: number): Promise<LeaderboardEntry[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -229,6 +238,30 @@ export class DatabaseStorage implements IStorage {
       pageUsage,
       popularMarkets
     };
+  }
+
+  async getLeaderboard(limit: number = 50): Promise<LeaderboardEntry[]> {
+    const result = await db
+      .select({
+        walletAddress: users.walletAddress,
+        totalProfit: sql<number>`COALESCE(SUM(CAST(${trades.pnl} AS NUMERIC)), 0)`,
+        winCount: sql<number>`COUNT(CASE WHEN CAST(${trades.pnl} AS NUMERIC) > 0 THEN 1 END)`,
+        totalTrades: sql<number>`COUNT(${trades.id})`,
+      })
+      .from(users)
+      .leftJoin(trades, and(eq(trades.userId, users.id), eq(trades.isClosed, true)))
+      .groupBy(users.id, users.walletAddress)
+      .having(sql`COUNT(${trades.id}) > 0`)
+      .orderBy(sql`COALESCE(SUM(CAST(${trades.pnl} AS NUMERIC)), 0) DESC`)
+      .limit(limit);
+
+    return result.map((row, index) => ({
+      rank: index + 1,
+      walletAddress: row.walletAddress || 'Anonymous',
+      totalProfit: Number(row.totalProfit) / 100,
+      winRate: row.totalTrades > 0 ? (Number(row.winCount) / Number(row.totalTrades)) * 100 : 0,
+      totalTrades: Number(row.totalTrades),
+    }));
   }
 }
 

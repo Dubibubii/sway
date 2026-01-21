@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle, MessageSquare, Send } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle, MessageSquare, Send, Trophy, Medal } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -21,6 +21,14 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, Dr
 
 const DEV_WALLET = '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY';
 
+interface LeaderboardEntry {
+  rank: number;
+  walletAddress: string;
+  totalProfit: number;
+  winRate: number;
+  totalTrades: number;
+}
+
 function ProfileContent() {
   usePageView('profile');
   
@@ -33,6 +41,18 @@ function ProfileContent() {
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [wagerInfoOpen, setWagerInfoOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
+  const [activeTab, setActiveTab] = useState<'profile' | 'leaderboard'>('profile');
+  
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery({
+    queryKey: ['leaderboard'],
+    queryFn: async () => {
+      const res = await fetch('/api/leaderboard?limit=50');
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      return res.json() as Promise<{ leaderboard: LeaderboardEntry[] }>;
+    },
+    enabled: activeTab === 'leaderboard',
+    staleTime: 60000,
+  });
   
   const feedbackMutation = useMutation({
     mutationFn: async (feedback: string) => {
@@ -203,6 +223,113 @@ function ProfileContent() {
   return (
     <Layout>
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
+        {/* Centered Toggle */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex bg-zinc-900 rounded-full p-1 border border-zinc-800">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-[#1ED78B] text-black'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              data-testid="button-toggle-profile"
+            >
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('leaderboard')}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'leaderboard'
+                  ? 'bg-[#1ED78B] text-black'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              data-testid="button-toggle-leaderboard"
+            >
+              <Trophy size={14} />
+              Leaderboard
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'leaderboard' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Trophy className="text-[#1ED78B]" size={24} />
+              <h1 className="text-2xl font-display font-bold">Top Traders</h1>
+            </div>
+            
+            {leaderboardLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="animate-spin text-[#1ED78B]" size={32} />
+              </div>
+            ) : leaderboardData?.leaderboard && leaderboardData.leaderboard.length > 0 ? (
+              <div className="space-y-3">
+                {leaderboardData.leaderboard.map((entry) => (
+                  <div
+                    key={entry.rank}
+                    className={`relative rounded-2xl p-4 border ${
+                      entry.rank === 1
+                        ? 'bg-gradient-to-r from-[#1ED78B]/20 to-transparent border-[#1ED78B]/50'
+                        : entry.rank === 2
+                        ? 'bg-gradient-to-r from-zinc-600/20 to-transparent border-zinc-600/50'
+                        : entry.rank === 3
+                        ? 'bg-gradient-to-r from-amber-600/20 to-transparent border-amber-600/50'
+                        : 'bg-zinc-900/50 border-zinc-800'
+                    }`}
+                    data-testid={`leaderboard-entry-${entry.rank}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Rank */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                        entry.rank === 1
+                          ? 'bg-[#1ED78B] text-black'
+                          : entry.rank === 2
+                          ? 'bg-zinc-500 text-white'
+                          : entry.rank === 3
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-zinc-800 text-zinc-400'
+                      }`}>
+                        {entry.rank <= 3 ? (
+                          <Medal size={18} />
+                        ) : (
+                          entry.rank
+                        )}
+                      </div>
+                      
+                      {/* Wallet Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm text-white truncate">
+                          {entry.walletAddress === 'Anonymous' 
+                            ? 'Anonymous'
+                            : `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`
+                          }
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                          {entry.totalTrades} trades · {entry.winRate.toFixed(0)}% win rate
+                        </div>
+                      </div>
+                      
+                      {/* Profit */}
+                      <div className={`text-right font-bold ${
+                        entry.totalProfit >= 0 ? 'text-[#1ED78B]' : 'text-red-500'
+                      }`}>
+                        {entry.totalProfit >= 0 ? '+' : ''}${entry.totalProfit.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Trophy className="mx-auto text-zinc-700 mb-4" size={48} />
+                <p className="text-zinc-500 text-lg mb-2">No traders yet</p>
+                <p className="text-zinc-600 text-sm">Be the first to complete trades and claim the top spot!</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold">Profile</h1>
           <Button 
@@ -566,6 +693,8 @@ function ProfileContent() {
              </Button>
            )}
         </div>
+        </>
+        )}
       </div>
       
       <WithdrawModal
@@ -663,7 +792,6 @@ function ProfileContent() {
           </div>
         </DrawerContent>
       </Drawer>
-      
     </Layout>
   );
 }
