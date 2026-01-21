@@ -1514,49 +1514,105 @@ function reclassifyMarket(market: SimplifiedMarket): SimplifiedMarket {
 }
 
 // Strict filtering for swipe tab - only tradeable markets with good liquidity
+// MINIMUM_MARKETS: Ensure at least 500 tradeable markets are available across categories
+const MINIMUM_MARKETS = 500;
+
 export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boolean = true): SimplifiedMarket[] {
-  // Strict mode for swipe tab: filter to markets with balanced odds (10-90%) for better liquidity
-  // Relaxed mode for discovery: only filter extreme (99%+ or 1%-)
-  const probabilityFilter = strictMode 
-    ? (yesPercent: number) => yesPercent >= 10 && yesPercent <= 90
-    : (yesPercent: number) => yesPercent > 1 && yesPercent < 99;
+  // Strict mode for swipe tab: filter to markets with balanced odds for better liquidity
+  // Relaxed mode for discovery: only filter extreme probabilities
   
-  const activeMarkets = markets.filter(m => {
-    // Only include USDC-initialized markets in strict mode (swipe tab)
-    // Must be explicitly true - undefined or false markets will fail trades
-    if (strictMode && m.isInitialized !== true) return false;
-    
-    const yesPercent = m.yesPrice * 100;
-    if (!probabilityFilter(yesPercent)) return false;
-    
-    // In strict mode, require minimum volume for liquidity ($100k+ for reliable orderbooks)
-    if (strictMode && (m.volume || 0) < 100000) return false;
-    
-    // In strict mode, require actual bid/ask prices (not zero) to ensure orderbook has liquidity
-    // Markets with 0 bids/asks will fail with "no liquidity" errors at trade time
-    if (strictMode) {
-      const yesBid = m.yesBid ?? 0;
-      const yesAsk = m.yesAsk ?? 0;
-      const noBid = m.noBid ?? 0;
-      const noAsk = m.noAsk ?? 0;
+  // Helper to filter with configurable thresholds
+  const filterWithThresholds = (
+    minProb: number, 
+    maxProb: number, 
+    minVolume: number, 
+    maxSpread: number
+  ): SimplifiedMarket[] => {
+    return markets.filter(m => {
+      // Only include USDC-initialized markets in strict mode
+      if (strictMode && m.isInitialized !== true) return false;
       
-      const hasBids = yesBid > 0 && noBid > 0;
-      const hasAsks = yesAsk > 0 && noAsk > 0;
-      if (!hasBids || !hasAsks) return false;
+      const yesPercent = m.yesPrice * 100;
+      if (yesPercent < minProb || yesPercent > maxProb) return false;
       
-      // Check spread - use absolute spread (max 2 cents) to prevent immediate losses
-      // A 2 cent spread means max loss of $0.02 per share on round-trip
-      const yesAbsoluteSpread = yesAsk - yesBid;
-      const noAbsoluteSpread = noAsk - noBid;
-      const maxAbsoluteSpread = Math.max(yesAbsoluteSpread, noAbsoluteSpread);
-      if (maxAbsoluteSpread > 0.02) return false; // Filter out >2 cent spread
+      // Volume filter
+      if (strictMode && (m.volume || 0) < minVolume) return false;
+      
+      // Bid/ask and spread filter in strict mode
+      if (strictMode) {
+        const yesBid = m.yesBid ?? 0;
+        const yesAsk = m.yesAsk ?? 0;
+        const noBid = m.noBid ?? 0;
+        const noAsk = m.noAsk ?? 0;
+        
+        const hasBids = yesBid > 0 && noBid > 0;
+        const hasAsks = yesAsk > 0 && noAsk > 0;
+        if (!hasBids || !hasAsks) return false;
+        
+        const yesAbsoluteSpread = yesAsk - yesBid;
+        const noAbsoluteSpread = noAsk - noBid;
+        const maxAbsoluteSpread = Math.max(yesAbsoluteSpread, noAbsoluteSpread);
+        if (maxAbsoluteSpread > maxSpread) return false;
+      }
+      
+      return true;
+    });
+  };
+  
+  let activeMarkets: SimplifiedMarket[];
+  
+  if (strictMode) {
+    // Try progressively relaxed filters to ensure minimum 500 markets
+    // Tier 1: Strict - high quality (volume > $100k, 10-90%, 2¢ spread)
+    activeMarkets = filterWithThresholds(10, 90, 100000, 0.02);
+    console.log(`Tier 1 (strict): ${activeMarkets.length} markets`);
+    
+    // Tier 2: Medium - good quality (volume > $25k, 5-95%, 3¢ spread)  
+    if (activeMarkets.length < MINIMUM_MARKETS) {
+      activeMarkets = filterWithThresholds(5, 95, 25000, 0.03);
+      console.log(`Tier 2 (medium): ${activeMarkets.length} markets`);
     }
     
-    return true;
-  });
+    // Tier 3: Relaxed - acceptable quality (volume > $10k, 3-97%, 5¢ spread)
+    if (activeMarkets.length < MINIMUM_MARKETS) {
+      activeMarkets = filterWithThresholds(3, 97, 10000, 0.05);
+      console.log(`Tier 3 (relaxed): ${activeMarkets.length} markets`);
+    }
+    
+    // Tier 4: Minimum - any initialized market with valid prices (volume > $1k, 2-98%, 10¢ spread)
+    if (activeMarkets.length < MINIMUM_MARKETS) {
+      activeMarkets = filterWithThresholds(2, 98, 1000, 0.10);
+      console.log(`Tier 4 (minimum): ${activeMarkets.length} markets`);
+    }
+    // Tier 5: Absolute minimum - any initialized market with valid prices (no volume requirement)
+    if (activeMarkets.length < MINIMUM_MARKETS) {
+      activeMarkets = filterWithThresholds(1, 99, 0, 0.15);
+      console.log(`Tier 5 (absolute minimum): ${activeMarkets.length} markets`);
+    }
+  } else {
+    // Discovery mode - very relaxed filtering
+    activeMarkets = filterWithThresholds(1, 99, 0, 1.0);
+  }
   
-  const filterType = strictMode ? 'swipe (10-90%, initialized, min volume, has bids/asks, max 2¢ spread)' : 'discovery (1-99%)';
-  console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterType})`);
+  // Determine which tier was used for logging
+  let filterTier = 'discovery';
+  if (strictMode) {
+    const tier1Count = filterWithThresholds(10, 90, 100000, 0.02).length;
+    const tier2Count = filterWithThresholds(5, 95, 25000, 0.03).length;
+    const tier3Count = filterWithThresholds(3, 97, 10000, 0.05).length;
+    const tier4Count = filterWithThresholds(2, 98, 1000, 0.10).length;
+    
+    if (tier1Count >= MINIMUM_MARKETS) filterTier = 'Tier 1 (strict: $100k+, 10-90%, 2¢)';
+    else if (tier2Count >= MINIMUM_MARKETS) filterTier = 'Tier 2 (medium: $25k+, 5-95%, 3¢)';
+    else if (tier3Count >= MINIMUM_MARKETS) filterTier = 'Tier 3 (relaxed: $10k+, 3-97%, 5¢)';
+    else if (tier4Count >= MINIMUM_MARKETS) filterTier = 'Tier 4 (minimum: $1k+, 2-98%, 10¢)';
+    else filterTier = 'Tier 5 (fallback: any initialized, 1-99%, 15¢)';
+  }
+  console.log(`Filtered markets: ${markets.length} -> ${activeMarkets.length} (${filterTier})`);
+  
+  if (activeMarkets.length < MINIMUM_MARKETS) {
+    console.warn(`WARNING: Only ${activeMarkets.length} markets available (minimum target: ${MINIMUM_MARKETS}). Limited by initialized market count.`);
+  };
   
   // Re-classify markets before filtering
   const reclassifiedMarkets = activeMarkets.map(reclassifyMarket);

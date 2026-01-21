@@ -156,6 +156,68 @@ export async function registerRoutes(
       timestamp: new Date().toISOString()
     });
   });
+  
+  // Diagnostic endpoint to see category distribution
+  app.get('/api/markets/stats', async (_req: Request, res: Response) => {
+    try {
+      const allMarkets = await getEvents(10000);
+      const marketInfo = await getDflowMarketInfo();
+      
+      // Guard against empty cache - stats may be incomplete
+      const cacheReady = marketInfo.size > 0;
+      
+      const ALL_CATEGORIES = ['Entertainment', 'Tech', 'AI', 'Crypto', 'Economics', 'Weather', 'Politics', 'Sports', 'General'];
+      
+      // Count raw markets by category
+      const categoryStats: Record<string, { total: number, initialized: number }> = {};
+      ALL_CATEGORIES.forEach(cat => {
+        categoryStats[cat] = { total: 0, initialized: 0 };
+      });
+      
+      allMarkets.forEach(m => {
+        const cat = categoryStats[m.category] ? m.category : 'General';
+        categoryStats[cat].total++;
+        if (marketInfo.get(m.id) === true) {
+          categoryStats[cat].initialized++;
+        }
+      });
+      
+      // Get diversified feed - this includes filtering + round-robin
+      const diversified = diversifyMarketFeed(allMarkets.map(m => ({
+        ...m,
+        isInitialized: marketInfo.get(m.id) ?? false
+      })), true);
+      
+      // Count diversified output by category (this is what users actually see)
+      const diversifiedByCategory: Record<string, number> = {};
+      ALL_CATEGORIES.forEach(cat => { diversifiedByCategory[cat] = 0; });
+      diversified.forEach(m => {
+        diversifiedByCategory[m.category] = (diversifiedByCategory[m.category] || 0) + 1;
+      });
+      
+      // First 40 cards distribution (what matters for swipe experience)
+      const first40Distribution: Record<string, number> = {};
+      ALL_CATEGORIES.forEach(cat => { first40Distribution[cat] = 0; });
+      diversified.slice(0, 40).forEach(m => {
+        first40Distribution[m.category] = (first40Distribution[m.category] || 0) + 1;
+      });
+      
+      res.json({
+        totalMarkets: allMarkets.length,
+        initializedMarkets: Array.from(marketInfo.values()).filter(v => v).length,
+        diversifiedFeedSize: diversified.length,
+        categoryStats,
+        diversifiedByCategory,
+        first40Distribution,
+        meetsMinimum: diversified.length >= 500,
+        cacheReady,
+        cacheTimestamp: getCacheTimestamp()
+      });
+    } catch (error) {
+      console.error('Error getting market stats:', error);
+      res.status(500).json({ error: 'Failed to get market stats' });
+    }
+  });
 
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {
