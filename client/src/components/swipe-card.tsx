@@ -183,33 +183,61 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     }
   }, [active, controls, localX, localY]);
 
-  // Opacity of overlays - matches swipe thresholds
-  const yesOpacity = useTransform(x, [60, 160], [0, 1]);
-  const noOpacity = useTransform(x, [-60, -160], [0, 1]);
-  const skipOpacity = useTransform(y, [60, 160], [0, 1]);
+  // Opacity of overlays - only show the dominant direction
+  // This prevents showing both SKIP and YES/NO when swiping diagonally
+  const yesOpacity = useTransform(() => {
+    const xVal = x.get();
+    const yVal = y.get();
+    // Only show YES if horizontal movement is dominant
+    if (xVal > 0 && Math.abs(xVal) > Math.abs(yVal)) {
+      return Math.min(1, Math.max(0, (xVal - 60) / 100));
+    }
+    return 0;
+  });
+  const noOpacity = useTransform(() => {
+    const xVal = x.get();
+    const yVal = y.get();
+    // Only show NO if horizontal movement is dominant
+    if (xVal < 0 && Math.abs(xVal) > Math.abs(yVal)) {
+      return Math.min(1, Math.max(0, (-xVal - 60) / 100));
+    }
+    return 0;
+  });
+  const skipOpacity = useTransform(() => {
+    const xVal = x.get();
+    const yVal = y.get();
+    // Only show SKIP if vertical movement is dominant
+    if (yVal > 0 && Math.abs(yVal) > Math.abs(xVal)) {
+      return Math.min(1, Math.max(0, (yVal - 60) / 100));
+    }
+    return 0;
+  });
 
   const handleDragEnd = async (event: any, info: PanInfo) => {
     const velocity = info.velocity;
     // Use current position (where thumb is NOW) not offset (total distance traveled)
-    // This way if user drags down then back to center, it won't trigger skip
     const currentX = x.get();
     const currentY = y.get();
 
     // Higher thresholds to prevent accidental swipes
-    const SWIPE_THRESHOLD = 130; // Increased from 100
-    const VELOCITY_THRESHOLD = 800; // Increased from 500
-    const MIN_POSITION_FOR_VELOCITY = 70; // Increased from 50
+    const SWIPE_THRESHOLD = 130;
+    const VELOCITY_THRESHOLD = 800;
+    const MIN_POSITION_FOR_VELOCITY = 70;
 
-    // Swipe Right (YES) - must be at position >threshold OR have high velocity in that direction
-    if (currentX > SWIPE_THRESHOLD || (velocity.x > VELOCITY_THRESHOLD && currentX > MIN_POSITION_FOR_VELOCITY)) {
+    // Determine dominant direction - horizontal vs vertical
+    const isHorizontalDominant = Math.abs(currentX) > Math.abs(currentY);
+    const horizontalVelocityDominant = Math.abs(velocity.x) > Math.abs(velocity.y);
+
+    // Swipe Right (YES) - horizontal dominant AND positive X
+    if (isHorizontalDominant && (currentX > SWIPE_THRESHOLD || (velocity.x > VELOCITY_THRESHOLD && horizontalVelocityDominant && currentX > MIN_POSITION_FOR_VELOCITY))) {
       onSwipe('right');
     } 
-    // Swipe Left (NO)
-    else if (currentX < -SWIPE_THRESHOLD || (velocity.x < -VELOCITY_THRESHOLD && currentX < -MIN_POSITION_FOR_VELOCITY)) {
+    // Swipe Left (NO) - horizontal dominant AND negative X
+    else if (isHorizontalDominant && (currentX < -SWIPE_THRESHOLD || (velocity.x < -VELOCITY_THRESHOLD && horizontalVelocityDominant && currentX < -MIN_POSITION_FOR_VELOCITY))) {
       onSwipe('left');
     }
-    // Swipe Down (SKIP)
-    else if (currentY > SWIPE_THRESHOLD || (velocity.y > VELOCITY_THRESHOLD && currentY > MIN_POSITION_FOR_VELOCITY)) {
+    // Swipe Down (SKIP) - vertical dominant AND positive Y
+    else if (!isHorizontalDominant && (currentY > SWIPE_THRESHOLD || (velocity.y > VELOCITY_THRESHOLD && !horizontalVelocityDominant && currentY > MIN_POSITION_FOR_VELOCITY))) {
       onSwipe('down');
     }
     // Reset - snap back to center
