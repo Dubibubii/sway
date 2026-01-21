@@ -1517,7 +1517,27 @@ function reclassifyMarket(market: SimplifiedMarket): SimplifiedMarket {
 // MINIMUM_MARKETS: Ensure at least 500 tradeable markets are available across categories
 const MINIMUM_MARKETS = 500;
 
-export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boolean = true): SimplifiedMarket[] {
+// Seeded random shuffle - deterministic for same seed, different results for different seeds
+function seededShuffle<T>(array: T[], seed: number): T[] {
+  const result = [...array];
+  // Simple seeded random using mulberry32 algorithm
+  let s = seed;
+  const random = () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  
+  // Fisher-Yates shuffle with seeded random
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boolean = true, shuffleSeed?: number): SimplifiedMarket[] {
   // Strict mode for swipe tab: filter to markets with balanced odds for better liquidity
   // Relaxed mode for discovery: only filter extreme probabilities
   
@@ -1663,6 +1683,17 @@ export function diversifyMarketFeed(markets: SimplifiedMarket[], strictMode: boo
     queueSizes[cat] = queue.length;
   }
   console.log('Category queue sizes:', queueSizes);
+  
+  // Apply session-based shuffle to each category queue if a seed is provided
+  // This ensures variety each session while keeping category diversity
+  if (shuffleSeed !== undefined) {
+    for (const cat of ALL_CATEGORIES) {
+      // Use a unique seed per category (combine base seed with category hash)
+      const catHash = cat.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+      categoryQueues[cat] = seededShuffle(categoryQueues[cat], shuffleSeed + catHash);
+    }
+    console.log(`Applied shuffle with seed ${shuffleSeed}`);
+  }
   
   // TRUE ROUND-ROBIN: Cycle through categories, picking the best available market from each
   const result: SimplifiedMarket[] = [];

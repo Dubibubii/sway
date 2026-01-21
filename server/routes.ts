@@ -335,7 +335,15 @@ export async function registerRoutes(
       // Apply strict diversification for swipe tab (removes extreme probabilities, uninitialized markets, low volume)
       // This ensures users only see markets that can actually be traded without errors
       // DO NOT re-sort after this - diversification already produces the optimal display order
-      markets = diversifyMarketFeed(markets, true); // strictMode = true for swipe tab
+      
+      // Session-based shuffle: Use hour-based seed for variety each hour
+      // The seed changes each hour so users see different markets when they return
+      // Format: YYYYMMDDHH (e.g., 2026012122 for Jan 21, 2026 at 10pm)
+      const shuffleSeedParam = req.query.shuffleSeed as string;
+      const shuffleSeed = shuffleSeedParam ? parseInt(shuffleSeedParam, 10) : 
+        Math.floor(Date.now() / (1000 * 60 * 60)); // Default: changes every hour
+      
+      markets = diversifyMarketFeed(markets, true, shuffleSeed); // strictMode = true, with shuffle
       
       // All markets returned are already initialized and tradeable after strict filtering
       const total = markets.length;
