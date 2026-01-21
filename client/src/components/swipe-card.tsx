@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, useMotionValue, useTransform, useAnimation, PanInfo, MotionValue } from 'framer-motion';
+import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Share2, X, Check, Copy, Wifi } from 'lucide-react';
@@ -29,18 +29,18 @@ interface SwipeCardProps {
   onSwipe: (direction: 'left' | 'right' | 'down') => void;
   onLongPress?: () => void;
   active: boolean;
-  dragX?: MotionValue<number>;
-  dragY?: MotionValue<number>;
 }
 
-export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }: SwipeCardProps) {
+export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardProps) {
   const { settings } = useSettings();
   const { toast } = useToast();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const loadedImageUrlRef = useRef<string | null>(null);
-  const localX = useMotionValue(0);
-  const localY = useMotionValue(0);
+  
+  // Each card has its own completely isolated motion values
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const controls = useAnimation();
   const exitDirectionRef = useRef<'left' | 'right' | 'down' | null>(null);
   
@@ -65,11 +65,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       }
     }
   }, [market.imageUrl]);
-
-  // Active card uses parent's motion values for shared drag state
-  // Inactive cards always use local values to avoid inheriting exit positions
-  const x = active && dragX ? dragX : localX;
-  const y = active && dragY ? dragY : localY;
   
   const handlePointerDown = useCallback(() => {
     if (!active || !onLongPress) return;
@@ -162,9 +157,9 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // Smoothly transition the back card to become the front card
   // The back card springs from center (scaled down) to full size - "zoom in" effect
   useEffect(() => {
-    // Always reset local motion values to ensure clean state
-    localX.set(0);
-    localY.set(0);
+    // Always reset motion values to ensure clean state
+    x.set(0);
+    y.set(0);
     
     if (active) {
       // Immediate reset of position, then animate scale for "pop from center" effect
@@ -183,7 +178,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
         transition: { duration: 0.1 }
       });
     }
-  }, [active, controls, localX, localY]);
+  }, [active, controls, x, y]);
 
   // Opacity of overlays - only show on ACTIVE card and only the dominant direction
   // Inactive cards never show overlays to prevent bleed-through from previous swipes

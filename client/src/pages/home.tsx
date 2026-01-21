@@ -969,8 +969,6 @@ export default function Home() {
                       active={index === arr.length - 1}
                       onSwipe={(dir) => handleSwipe(market.id, dir)}
                       onLongPress={() => setDiscoveryMarket(market)}
-                      dragX={index === arr.length - 1 ? x : undefined}
-                      dragY={index === arr.length - 1 ? y : undefined}
                     />
                 ))}
               </AnimatePresence>
