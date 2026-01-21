@@ -387,12 +387,20 @@ export default function Discovery() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
-          {/* Short-term Filter - daily crypto and markets ending soon */}
+          {/* Short-term - acts as exclusive category (daily crypto, markets ending soon) */}
           <Button
             data-testid="filter-ending-soon"
             variant={showEndingSoon ? "default" : "outline"}
             size="sm"
-            onClick={() => setShowEndingSoon(!showEndingSoon)}
+            onClick={() => {
+              // Short-term is mutually exclusive with other categories
+              if (!showEndingSoon) {
+                setShowEndingSoon(true);
+                setSelectedCategory("All"); // Deselect any category when entering short-term
+              } else {
+                setShowEndingSoon(false); // Toggle off
+              }
+            }}
             className={`rounded-full whitespace-nowrap text-xs flex items-center gap-1 ${
               showEndingSoon 
                 ? "bg-amber-500 text-white hover:bg-amber-600" 
@@ -407,11 +415,15 @@ export default function Discovery() {
             <Button
               key={category}
               data-testid={`filter-category-${category.toLowerCase()}`}
-              variant={selectedCategory === category ? "default" : "outline"}
+              variant={(selectedCategory === category && !showEndingSoon) ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => {
+                // Clicking any category exits short-term mode
+                setShowEndingSoon(false);
+                setSelectedCategory(category);
+              }}
               className={`rounded-full whitespace-nowrap text-xs ${
-                selectedCategory === category 
+                (selectedCategory === category && !showEndingSoon)
                   ? "bg-primary text-primary-foreground" 
                   : "bg-white/5 border-white/10 hover:bg-white/10"
               }`}
@@ -422,7 +434,7 @@ export default function Discovery() {
         </div>
         {(selectedCategory !== "All" || showEndingSoon) && (
           <p className="text-xs text-muted-foreground mb-2">
-            Showing {filteredMarkets.length} {showEndingSoon ? 'short-term' : ''} {selectedCategory !== "All" ? selectedCategory : ''} markets
+            Showing {filteredMarkets.length} {showEndingSoon ? 'Short-term' : selectedCategory} markets
           </p>
         )}
 
