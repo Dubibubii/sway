@@ -162,20 +162,25 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
     y.set(0);
     
     if (active) {
-      // Immediate reset of position, then animate scale for "pop from center" effect
-      controls.set({ x: 0, y: 0 }); // Immediately set position to center
+      // Immediate reset of position, then animate scale for bouncy "pop" effect
+      controls.set({ x: 0, y: 0, scale: 0.85 }); // Start smaller for more dramatic pop
       controls.start({ 
         scale: 1, 
         opacity: 1,
-        transition: { type: "spring", stiffness: 300, damping: 25, duration: 0.3 }
+        transition: { 
+          type: "spring", 
+          stiffness: 400,  // Higher = faster initial movement
+          damping: 15,     // Lower = more bounce
+          mass: 0.8,       // Lower = snappier response
+        }
       });
     } else {
       // Back card: centered but smaller (ready to "pop" when it becomes active)
       controls.set({ x: 0, y: 0 }); // Always centered
       controls.start({
-        scale: 0.9,
-        opacity: 0.5,
-        transition: { duration: 0.1 }
+        scale: 0.88,
+        opacity: 0.6,
+        transition: { duration: 0.15 }
       });
     }
   }, [active, controls, x, y]);
