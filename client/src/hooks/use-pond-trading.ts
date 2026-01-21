@@ -542,27 +542,41 @@ export function usePondTrading() {
 
       const token = await getAccessToken();
 
-      // Call the sell endpoint
-      const sellResponse = await fetch('/api/pond/sell', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          marketId,
-          side,
-          shares,
-          userPublicKey,
-          slippageBps: 300, // Higher slippage for selling
-        }),
-      });
+      // Helper function to call sell endpoint with retry for transient 500 errors
+      const callSellEndpoint = async (attempt: number = 1): Promise<Response> => {
+        console.log(`[PondTrading] Sell attempt ${attempt}...`);
+        const response = await fetch('/api/pond/sell', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            marketId,
+            side,
+            shares,
+            userPublicKey,
+            slippageBps: 300, // Higher slippage for selling
+          }),
+        });
+
+        // Retry on 500/502/503/504 errors (transient server issues)
+        if (response.status >= 500 && response.status <= 504 && attempt < 3) {
+          console.warn(`[PondTrading] Server error ${response.status}, retrying in ${attempt * 1000}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          return callSellEndpoint(attempt + 1);
+        }
+        return response;
+      };
+
+      const sellResponse = await callSellEndpoint();
 
       console.log('[PondTrading] Sell response status:', sellResponse.status);
 
       if (!sellResponse.ok) {
         const errorText = await sellResponse.text();
         console.error('[PondTrading] Sell failed:', errorText);
+        console.error('[PondTrading] Sell context:', { marketId, side, shares, userPublicKey: userPublicKey.slice(0, 8) + '...' });
         let errorData;
         try {
           errorData = JSON.parse(errorText);

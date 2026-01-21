@@ -1380,7 +1380,15 @@ export async function registerRoutes(
         },
       });
     } catch (error: any) {
-      console.error('Error getting Pond sell order:', error);
+      // Enhanced error logging for debugging sell failures
+      const { marketId, side, shares, userPublicKey, channel } = req.body;
+      console.error('[Pond Sell] ========== SELL ERROR ==========');
+      console.error('[Pond Sell] User wallet:', userPublicKey);
+      console.error('[Pond Sell] Market:', marketId, 'Side:', side, 'Shares:', shares, 'Channel:', channel);
+      console.error('[Pond Sell] Error type:', error?.constructor?.name || typeof error);
+      console.error('[Pond Sell] Error message:', error?.message || String(error));
+      console.error('[Pond Sell] Error stack:', error?.stack?.slice(0, 500));
+      console.error('[Pond Sell] ================================');
       res.status(500).json({ error: error.message || 'Failed to get sell order' });
     }
   });
