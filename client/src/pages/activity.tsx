@@ -1359,7 +1359,17 @@ export default function Activity() {
             return acc + parseFloat(position.shares);
           }, 0);
           
-          const potentialProfit = totalResolutionValue - totalCost;
+          // Calculate current portfolio value using live prices
+          const currentPortfolioValue = activePositions.reduce((acc, position) => {
+            const shares = parseFloat(position.shares);
+            const livePrice = currentPrices[position.marketId];
+            const storedPrice = parseFloat(position.price);
+            const price = livePrice !== undefined ? livePrice : storedPrice;
+            return acc + (shares * price);
+          }, 0);
+          
+          // Show actual PnL based on current market value, not theoretical resolution
+          const actualPnL = currentPortfolioValue - totalCost;
           
           // Generate 7-day chart data showing cost vs resolution value
           const chartData = Array.from({ length: 7 }, (_, i) => {
@@ -1407,8 +1417,8 @@ export default function Activity() {
                     ${hasPositions ? totalResolutionValue.toFixed(2) : '0.00'}
                   </div>
                   {hasPositions && (
-                    <div className={`text-xs font-medium ${potentialProfit >= 0 ? 'text-[#1ED78B]/80' : 'text-rose-400/80'}`}>
-                      {potentialProfit >= 0 ? '+' : ''}{potentialProfit >= 0 ? '$' : '-$'}{Math.abs(potentialProfit).toFixed(2)}
+                    <div className={`text-xs font-medium ${actualPnL >= 0 ? 'text-[#1ED78B]/80' : 'text-rose-400/80'}`}>
+                      {actualPnL >= 0 ? '+$' : '-$'}{Math.abs(actualPnL).toFixed(2)}
                     </div>
                   )}
                 </div>
