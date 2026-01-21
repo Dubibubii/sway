@@ -43,40 +43,6 @@ interface Trade {
   createdAt: string;
 }
 
-// Back-calculate raw market price from cost basis and fees
-// Using quadratic formula since DFlow fee = scale * p * (1-p) * contracts
-function calculateRawMarketPrice(costBasis: number, platformFee: number, shares: number): number {
-  if (shares < 0.001) return 0; // Epsilon check for near-zero shares
-  
-  const DFLOW_SCALE = 0.09; // Frost tier taker fee
-  const netCost = costBasis - platformFee;
-  
-  // Solve: netCost = shares * p + DFLOW_SCALE * p * (1-p) * shares
-  // => netCost = shares * p * (1 + DFLOW_SCALE - DFLOW_SCALE * p)
-  // => DFLOW_SCALE * shares * p^2 - shares * (1 + DFLOW_SCALE) * p + netCost = 0
-  // Using quadratic formula: p = (b ± sqrt(b² - 4ac)) / 2a
-  const a = DFLOW_SCALE * shares;
-  const b = -shares * (1 + DFLOW_SCALE);
-  const c = netCost;
-  
-  const discriminant = b * b - 4 * a * c;
-  if (discriminant < 0) {
-    // Fallback to simple approximation
-    return netCost / shares;
-  }
-  
-  const sqrtD = Math.sqrt(discriminant);
-  const p1 = (-b + sqrtD) / (2 * a);
-  const p2 = (-b - sqrtD) / (2 * a);
-  
-  // Choose the valid price (0 < p < 1)
-  if (p2 > 0 && p2 < 1) return p2;
-  if (p1 > 0 && p1 < 1) return p1;
-  
-  // Fallback
-  return netCost / shares;
-}
-
 export default function Activity() {
   const [, navigate] = useLocation();
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -1164,148 +1130,74 @@ export default function Activity() {
               const fractionalShares = totalShares - wholeShares;
               const hasFractional = fractionalShares > 0.01;
               const isYes = selectedPosition.direction.toUpperCase() === 'YES';
-              const costBasis = selectedPosition.wagerAmount / 100;
-              const storedEntryFee = parseFloat(selectedPosition.entryFee || '0');
-              // Use swipe flat fee ($0.05) if no entry fee stored, or stored fee is suspiciously small
-              const platformFee = storedEntryFee >= 0.01 ? storedEntryFee : 0.05;
-              // Calculate raw market price using TOTAL shares (not floored) to match stored cost basis
-              const rawMarketPrice = calculateRawMarketPrice(costBasis, platformFee, totalShares);
-              // Keep entryPrice for compatibility (cost per share including fees)
-              const entryPrice = parseFloat(selectedPosition.price);
               
-              // Get current prices - prefer quote pricePerShare, then orderbook, then live data
+              // Get current sell price - prefer quote, then orderbook, then live data
               const ob = sellQuote?.orderbook;
               const quoteSellPrice = sellQuote?.pricePerShare ?? null;
               const orderbookSellPrice = ob ? (isYes ? ob.yesBid : ob.noBid) : null;
               const liveSellPrice = selectedMarketLivePrice ? (isYes ? selectedMarketLivePrice.yesBid : selectedMarketLivePrice.noBid) : null;
               const sellPrice = quoteSellPrice ?? orderbookSellPrice ?? liveSellPrice ?? null;
-              const buyPrice = ob ? (isYes ? ob.yesAsk : ob.noAsk) : (selectedMarketLivePrice ? (isYes ? selectedMarketLivePrice.yesAsk : selectedMarketLivePrice.noAsk) : null);
               const hasPrices = sellPrice !== null && sellPrice > 0;
               
-              // Fee and proceeds calculation - use quote values when available
+              // Calculate proceeds
               const fb = sellQuote?.feeBreakdown;
               const hasQuote = sellQuote && sellQuote.expectedUSDC !== undefined;
               const grossValue = fb?.grossValue ?? (hasPrices ? wholeShares * sellPrice : 0);
               const totalFees = fb?.totalFees ?? 0;
-              // Use nullish coalescing so 0 is preserved (async fills)
               const netAmount = hasQuote && sellQuote.expectedUSDC > 0 
                 ? sellQuote.expectedUSDC 
                 : (grossValue - totalFees);
-              const pnlFromSale = netAmount - costBasis;
               const isAsyncFill = hasQuote && sellQuote.expectedUSDC === 0;
               
               return (
               <>
-                {/* SECTION 1: Current Prices Block - Make sell price obvious */}
-                <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700">
-                  <div className="text-xs text-muted-foreground mb-2 font-medium">Current {isYes ? 'YES' : 'NO'} Prices</div>
-                  
+                {/* Main Total - The key number users care about */}
+                <div className="bg-zinc-800/80 rounded-xl p-5 border border-zinc-700 text-center">
                   {isLoadingSellQuote ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading prices...</span>
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Calculating...</span>
                     </div>
                   ) : hasPrices ? (
-                    <div className="space-y-2">
-                      {/* Sell Price - BIG and prominent */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Sell price (you receive)</span>
-                        <span className="text-2xl font-bold text-[#1ED78B]">{(sellPrice * 100).toFixed(0)}¢</span>
-                      </div>
-                      {/* Spread explainer */}
-                      {sellPrice < entryPrice && (
-                        <button 
-                          onClick={() => setShowSpreadExplainer(true)}
-                          className="flex items-center gap-2 w-full text-xs bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 px-3 py-2 rounded-lg transition-all mt-3"
-                        >
-                          <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-                            <Info size={12} className="text-amber-400" />
-                          </div>
-                          <span>Why is the sell price lower than my entry?</span>
-                          <ChevronRight size={14} className="ml-auto text-amber-400/60" />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-amber-400">Price unavailable</div>
-                  )}
-                </div>
-                
-                {/* SECTION 2: Position Details (demoted entry price) */}
-                <div className="bg-zinc-800/50 rounded-lg p-3 space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Shares to sell</span>
-                    <span className="font-medium">{wholeShares}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">You bought at</span>
-                    <span>{(rawMarketPrice * 100).toFixed(0)}¢</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Cost basis</span>
-                    <span>${costBasis.toFixed(2)}</span>
-                  </div>
-                  {hasPrices && sellPrice < entryPrice && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Price change</span>
-                      <span className="text-red-400">-{((entryPrice - sellPrice) * 100).toFixed(0)}¢</span>
-                    </div>
-                  )}
-                  {hasFractional && (
-                    <div className="text-xs text-amber-400 mt-1">
-                      {fractionalShares.toFixed(2)} fractional shares can't be sold
-                    </div>
-                  )}
-                </div>
-                
-                {/* SECTION 3: Proceeds Breakdown - clear math */}
-                <div className="bg-zinc-800 rounded-lg p-4 space-y-2">
-                  <div className="text-xs text-muted-foreground font-medium mb-2">
-                    {isAsyncFill ? 'Estimated proceeds' : 'What you\'ll receive'}
-                  </div>
-                  
-                  {hasPrices ? (
                     <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{wholeShares} shares × {(sellPrice * 100).toFixed(0)}¢</span>
-                        <span>${grossValue.toFixed(2)}</span>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        {isAsyncFill ? 'Estimated proceeds' : 'You\'ll receive'}
                       </div>
-                      {totalFees > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Trading fees</span>
-                          <span className="text-amber-400">-${totalFees.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-zinc-600 pt-2 mt-2 flex justify-between">
-                        <span className="font-bold">{isAsyncFill ? 'Est. proceeds' : 'You\'ll receive'}</span>
-                        <span className="text-xl font-bold text-[#1ED78B]">${netAmount.toFixed(2)}</span>
+                      <div className="text-4xl font-bold text-[#1ED78B]">
+                        ${netAmount.toFixed(2)}
                       </div>
-                      {!isAsyncFill && (
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Your P&L</span>
-                          <span className={pnlFromSale >= 0 ? 'text-[#1ED78B]' : 'text-red-400'}>
-                            {pnlFromSale >= 0 ? '+' : ''}${pnlFromSale.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                      {sellQuote?.priceImpactPct && sellQuote.priceImpactPct > 1 && (
-                        <div className="text-xs text-amber-400 mt-1">
-                          Note: {sellQuote.priceImpactPct.toFixed(1)}% price impact due to trade size
+                      {hasFractional && (
+                        <div className="text-xs text-amber-400 mt-2">
+                          {fractionalShares.toFixed(2)} fractional shares can't be sold
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="text-sm text-amber-400">
-                      Unable to calculate. Try again in a moment.
-                    </div>
+                    <div className="text-amber-400 py-4">Price unavailable - try again</div>
                   )}
                 </div>
                 
-                {/* Async fill / market conditions notice */}
+                {/* Simple breakdown - just the calculation */}
+                {hasPrices && (
+                  <div className="bg-zinc-800/50 rounded-lg p-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{wholeShares} shares × {(sellPrice * 100).toFixed(0)}¢</span>
+                      <span>${grossValue.toFixed(2)}</span>
+                    </div>
+                    {totalFees > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Fees</span>
+                        <span className="text-amber-400">-${totalFees.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Footer note */}
                 <div className="text-xs text-muted-foreground text-center">
                   {isAsyncFill 
-                    ? 'Final amount updates after fill completes'
-                    : 'Final amount may vary slightly based on market conditions'}
+                    ? 'Final amount updates after fill'
+                    : 'Amount may vary slightly'}
                 </div>
               </>
             );})()}
