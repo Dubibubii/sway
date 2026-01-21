@@ -498,6 +498,12 @@ export default function Home() {
   const handleSwipe = async (id: string, direction: 'left' | 'right' | 'down') => {
     const market = displayedMarkets.find(m => m.id === id);
     
+    console.log('[Swipe] ========== SWIPE START ==========');
+    console.log('[Swipe] Direction:', direction, 'Market:', id);
+    console.log('[Swipe] Market found:', !!market, market ? { title: market.question?.slice(0, 50), yesPrice: market.yesPrice, noPrice: market.noPrice } : null);
+    console.log('[Swipe] Wallet connected:', settings.connected, 'Embedded address:', embeddedAddress?.slice(0, 8) + '...');
+    console.log('[Swipe] Balances - USDC:', usdcBalance, 'SOL:', solBalance);
+    
     recordSwipe(id);
 
     setTimeout(() => {
@@ -531,7 +537,9 @@ export default function Home() {
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use actualSpend (adjusted for whole shares) instead of raw wager
+        console.log('[Swipe] YES trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
         const result = await placePondTrade(market.id, 'yes', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        console.log('[Swipe] YES trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -603,6 +611,7 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
+          console.error('[Swipe] YES trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: actualSpend });
           showErrorWithReport("Trade Failed", errorMsg, "YES Trade");
         }
       } else {
@@ -651,7 +660,9 @@ export default function Home() {
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use actualSpend (adjusted for whole shares) instead of raw wager
+        console.log('[Swipe] NO trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
         const result = await placePondTrade(market.id, 'no', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        console.log('[Swipe] NO trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
           // Refresh balance after successful trade
@@ -724,9 +735,11 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
+          console.error('[Swipe] NO trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: actualSpend });
           showErrorWithReport("Trade Failed", errorMsg, "NO Trade");
         }
       } else {
+        console.log('[Swipe] Demo mode - wallet not connected');
         toast({
           title: (
             <div className="flex items-center gap-2">
@@ -974,13 +987,22 @@ export default function Home() {
             onSelectMarket={async (market, direction, betAmount) => {
               setDiscoveryMarket(null);
               
+              console.log('[Overlay] ========== OVERLAY TRADE START ==========');
+              console.log('[Overlay] Market:', market.id, 'Direction:', direction, 'BetAmount:', betAmount);
+              console.log('[Overlay] Wallet connected:', settings.connected, 'Embedded:', embeddedAddress?.slice(0, 8) + '...');
+              console.log('[Overlay] Balances - USDC:', usdcBalance, 'SOL:', solBalance);
+              
               const amount = betAmount || settings.yesWager;
               const executionPrice = direction === 'yes' 
                 ? (market.yesAsk ?? market.yesPrice)
                 : (market.noAsk ?? market.noPrice);
               
+              console.log('[Overlay] Calculated - amount:', amount, 'executionPrice:', executionPrice);
+              
               if (settings.connected && embeddedAddress) {
+                console.log('[Overlay] Executing trade via Pond...');
                 const result = await placePondTrade(market.id, direction, amount, usdcBalance, embeddedAddress, 'overlay', solBalance);
+                console.log('[Overlay] Trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
                 
                 if (result.success) {
                   setTimeout(() => refetchBalance(), 2000);
@@ -1030,9 +1052,11 @@ export default function Home() {
                     className: `bg-zinc-950/95 ${direction === 'yes' ? 'border-[#1ED78B]/20' : 'border-rose-500/20'} text-white backdrop-blur-xl shadow-xl p-3`
                   });
                 } else {
+                  console.error('[Overlay] Trade error:', { rawError: result.error, marketId: market.id, amount });
                   showErrorWithReport("Trade Failed", result.error || "Could not execute trade", "Overlay Trade");
                 }
               } else {
+                console.log('[Overlay] Wallet not connected - showing connect prompt');
                 toast({
                   title: "Connect Wallet",
                   description: "Please connect your wallet to place trades",

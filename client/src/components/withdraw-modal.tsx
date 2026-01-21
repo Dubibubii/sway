@@ -96,6 +96,12 @@ export function WithdrawModal({ open, onOpenChange, solBalance, usdcBalance, wal
   const handleWithdraw = async () => {
     if (!canSubmit) return;
 
+    console.log('[Withdraw] ========== WITHDRAW START ==========');
+    console.log('[Withdraw] Token:', token, 'Amount:', numAmount);
+    console.log('[Withdraw] Recipient:', recipient?.slice(0, 8) + '...');
+    console.log('[Withdraw] Available balance:', availableBalance);
+    console.log('[Withdraw] SOL for fees:', solBalance, 'Has enough:', hasEnoughSolForFees);
+    
     setIsWithdrawing(true);
     setError(null);
 

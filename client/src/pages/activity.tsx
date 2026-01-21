@@ -603,8 +603,15 @@ export default function Activity() {
   const handleAddPosition = async () => {
     if (!selectedPosition) return;
     
+    console.log('[Activity] ========== ADD POSITION START ==========');
+    console.log('[Activity] Position:', { id: selectedPosition.id, marketId: selectedPosition.marketId, direction: selectedPosition.direction });
+    console.log('[Activity] Add amount:', addAmount);
+    console.log('[Activity] Balances - USDC:', usdcBalance, 'SOL:', solBalance);
+    console.log('[Activity] Embedded wallet:', embeddedWallet?.address?.slice(0, 8) + '...');
+    
     const amount = parseFloat(addAmount);
     if (isNaN(amount) || amount <= 0) {
+      console.log('[Activity] Invalid amount:', addAmount);
       toast({ title: 'Invalid Amount', description: 'Please enter a valid amount', variant: 'destructive' });
       return;
     }
@@ -653,7 +660,7 @@ export default function Activity() {
       
       if (!result.success) {
         const errorMsg = result.error || 'Trade failed';
-        console.error('[Activity] Trade error:', errorMsg);
+        console.error('[Activity] Trade error:', { rawError: result.error, marketId: selectedPosition.marketId, amount: actualSpend });
         
         // Provide user-friendly error message for common DFlow errors
         if (errorMsg.startsWith('INSUFFICIENT_GAS:')) {
@@ -730,6 +737,11 @@ export default function Activity() {
 
   const handleClosePosition = async (overrideShares?: number, outcomeMint?: string) => {
     if (!selectedPosition) return;
+    
+    console.log('[Activity] ========== CLOSE POSITION START ==========');
+    console.log('[Activity] Position:', { id: selectedPosition.id, marketId: selectedPosition.marketId, direction: selectedPosition.direction, shares: selectedPosition.shares });
+    console.log('[Activity] Override shares:', overrideShares, 'Outcome mint:', outcomeMint?.slice(0, 8) + '...');
+    console.log('[Activity] Embedded wallet:', embeddedWallet?.address?.slice(0, 8) + '...');
     
     setIsProcessing(true);
     try {
@@ -812,7 +824,7 @@ export default function Activity() {
       
       if (!result.success) {
         const errorMsg = result.error || 'Close failed';
-        console.error('[Activity] Close error:', errorMsg);
+        console.error('[Activity] Close error:', { rawError: result.error, marketId: selectedPosition.marketId, shares, isRedemption });
         
         // Check if this is a partial fill situation where we can sell available tokens
         if (errorMsg.includes('only have') && errorMsg.includes('tokens available')) {

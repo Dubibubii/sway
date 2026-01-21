@@ -171,6 +171,14 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
 
   const handleTrade = () => {
     const targetMarket = displayMarkets.find(m => m.id === selectedMarketId) || market;
+    console.log('[DiscoveryOverlay] Trade initiated:', { 
+      marketId: targetMarket.id, 
+      direction: betDirection, 
+      betAmount, 
+      yesPrice: targetMarket.yesPrice, 
+      noPrice: targetMarket.noPrice,
+      userWallet: userWalletAddress?.slice(0, 8) + '...'
+    });
     onSelectMarket(targetMarket, betDirection.toLowerCase() as 'yes' | 'no', betAmount);
     onClose();
   };
