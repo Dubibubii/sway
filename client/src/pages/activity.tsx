@@ -1152,6 +1152,13 @@ export default function Activity() {
               return (
               <>
                 {/* Main Total - The key number users care about */}
+                {(() => {
+                  const costBasis = selectedPosition.wagerAmount / 100;
+                  const pnl = netAmount - costBasis;
+                  const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+                  const isPositive = pnl >= 0;
+                  
+                  return (
                 <div className="bg-zinc-800/80 rounded-xl p-5 border border-zinc-700 text-center">
                   {isLoadingSellQuote ? (
                     <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
@@ -1166,6 +1173,13 @@ export default function Activity() {
                       <div className="text-4xl font-bold text-[#1ED78B]">
                         ${netAmount.toFixed(2)}
                       </div>
+                      {/* PnL display */}
+                      <div className={`text-sm mt-2 font-medium ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
+                        {isPositive ? '+' : ''}{pnl >= 0 ? '$' : '-$'}{Math.abs(pnl).toFixed(2)} ({isPositive ? '+' : ''}{pnlPercent.toFixed(0)}%)
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Cost: ${costBasis.toFixed(2)}
+                      </div>
                       {hasFractional && (
                         <div className="text-xs text-amber-400 mt-2">
                           {fractionalShares.toFixed(2)} fractional shares can't be sold
@@ -1176,20 +1190,19 @@ export default function Activity() {
                     <div className="text-amber-400 py-4">Price unavailable - try again</div>
                   )}
                 </div>
+                  );
+                })()}
                 
-                {/* Simple breakdown - just the calculation */}
+                {/* Simple breakdown - fees baked in */}
                 {hasPrices && (
                   <div className="bg-zinc-800/50 rounded-lg p-3 space-y-1.5 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                       <span>{wholeShares} shares × {(sellPrice * 100).toFixed(0)}¢</span>
-                      <span>${grossValue.toFixed(2)}</span>
+                      <span>${netAmount.toFixed(2)}</span>
                     </div>
-                    {totalFees > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Fees</span>
-                        <span className="text-amber-400">-${totalFees.toFixed(2)}</span>
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground/60 text-right">
+                      (includes fees)
+                    </div>
                   </div>
                 )}
                 
