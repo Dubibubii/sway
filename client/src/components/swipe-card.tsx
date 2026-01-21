@@ -221,7 +221,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       onPointerCancel={handlePointerUp}
       animate={controls}
       initial={active ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.95, opacity: 0.6, y: 20 }}
-      style={{ x, rotate }}
+      style={{ x, y, rotate }}
       className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40 pointer-events-none'}`}
       whileTap={{ scale: 1.05 }}
       transition={{ duration: 0.3 }}
