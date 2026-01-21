@@ -252,10 +252,10 @@ export function usePondTrading() {
         throw new Error('This market is not yet available for on-chain trading. Try a different market.');
       }
 
-      // Check if market is initialized on-chain
+      // Note: DFlow now handles market initialization automatically when we pass predictionMarketInitPayer
+      // If market is not initialized, the user pays a small initialization fee (included in transaction)
       if (!marketTokens.isInitialized) {
-        console.error('[PondTrading] Market not initialized on-chain:', marketId);
-        throw new Error('This market is not yet set up for trading. Please try another market.');
+        console.log('[PondTrading] Market not initialized on-chain - will be initialized with trade:', marketId);
       }
 
       const outputMint = side === 'yes' ? marketTokens.yesMint : marketTokens.noMint;
@@ -294,7 +294,7 @@ export function usePondTrading() {
         // Provide user-friendly error messages for common DFlow errors
         const errorMsg = errorData.error || '';
         if (errorMsg.includes('route_not_found') || errorMsg.includes('Route not found')) {
-          throw new Error('This market is not yet available for trading on Solana. It may be a new market that will be available soon. Please try again in a few minutes.');
+          throw new Error('Unable to route this trade. The market may not have active liquidity providers. Try a different market or try again later.');
         }
         if (errorMsg.includes('insufficient_liquidity') || errorMsg.includes('Insufficient liquidity')) {
           throw new Error('Not enough liquidity to complete this trade at the current price. Try a smaller amount or wait for more liquidity.');

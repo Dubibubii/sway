@@ -35,6 +35,9 @@ export interface PondOrderResponse {
   quote: PondQuote;
   transaction: string;
   executionMode: 'sync' | 'async';
+  // Market initialization fields (for uninitialized prediction markets)
+  initPredictionMarketCost?: number;        // Cost in lamports to initialize the market
+  predictionMarketInitPayerMustSign?: boolean;  // Whether init payer must sign
 }
 
 export interface PondMarketToken {
@@ -73,6 +76,12 @@ export async function getPondQuote(
   // Per DFlow docs: predictionMarketSlippageBps allows higher slippage for async PM trades
   // Using 500 bps (5%) to give more room for prediction market orders to fill
   queryParams.append('predictionMarketSlippageBps', '500');
+  
+  // Enable automatic market initialization for uninitialized markets
+  // Per DFlow docs: predictionMarketInitPayer tells the API who pays for market tokenization
+  // This allows users to trade on markets that haven't been initialized yet on Solana
+  // The user will pay a small initialization fee (included in initPredictionMarketCost response)
+  queryParams.append('predictionMarketInitPayer', userPublicKey);
   
   // Add platform fee parameters if provided
   // For async prediction market trades, use platformFeeScale (not platformFeeBps)
@@ -158,6 +167,13 @@ export async function getPondQuote(
   const data = await response.json();
   console.log('[Pond] DFlow API response keys:', Object.keys(data));
   console.log('[Pond] DFlow API response (truncated):', JSON.stringify(data).slice(0, 500));
+  
+  // Log market initialization cost if present (for uninitialized markets)
+  if (data.initPredictionMarketCost) {
+    const initCostSOL = data.initPredictionMarketCost / 1_000_000_000;
+    console.log('[Pond] Market initialization cost:', initCostSOL.toFixed(6), 'SOL');
+  }
+  
   return data;
 }
 
