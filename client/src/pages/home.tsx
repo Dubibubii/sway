@@ -443,6 +443,13 @@ export default function Home() {
       const { actualShares, actualUSDCSpent, expectedUSDC, isPartialFill } = lastFillConfirmation;
       const leftover = (expectedUSDC || 0) - actualUSDCSpent;
       
+      const sideLabel = lastFillConfirmation.side === 'yes' ? 'YES' : lastFillConfirmation.side === 'no' ? 'NO' : '';
+      const shortMarketName = lastFillConfirmation.marketName 
+        ? (lastFillConfirmation.marketName.length > 40 
+            ? lastFillConfirmation.marketName.slice(0, 40) + '...' 
+            : lastFillConfirmation.marketName)
+        : '';
+      
       toast({
         title: (
           <div className="flex items-center gap-2">
@@ -454,7 +461,10 @@ export default function Home() {
         ),
         description: (
           <div className="text-sm text-zinc-400">
-            <div>Bought <span className="text-white font-medium">{actualShares}</span> share{actualShares !== 1 ? 's' : ''}</div>
+            {shortMarketName && (
+              <div className="text-zinc-300 text-xs mb-1 line-clamp-1">{shortMarketName}</div>
+            )}
+            <div>Bought <span className="text-white font-medium">{actualShares}</span> {sideLabel && <span className={sideLabel === 'YES' ? 'text-emerald-400' : 'text-rose-400'}>{sideLabel}</span>} share{actualShares !== 1 ? 's' : ''}</div>
             <div>Cost: <span className="text-white font-medium">${actualUSDCSpent.toFixed(2)}</span></div>
             {isPartialFill && leftover > 0.01 && (
               <div className="text-zinc-500 text-xs mt-1">${leftover.toFixed(2)} returned to balance</div>
@@ -618,7 +628,7 @@ export default function Home() {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use actualSpend (adjusted for whole shares) instead of raw wager
         console.log('[Swipe] YES trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
-        const result = await placePondTrade(market.id, 'yes', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        const result = await placePondTrade(market.id, 'yes', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
         console.log('[Swipe] YES trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
@@ -741,7 +751,7 @@ export default function Home() {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
         // Use actualSpend (adjusted for whole shares) instead of raw wager
         console.log('[Swipe] NO trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
-        const result = await placePondTrade(market.id, 'no', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance);
+        const result = await placePondTrade(market.id, 'no', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
         console.log('[Swipe] NO trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
@@ -1079,7 +1089,7 @@ export default function Home() {
               
               if (settings.connected && embeddedAddress) {
                 console.log('[Overlay] Executing trade via Pond...');
-                const result = await placePondTrade(market.id, direction, amount, usdcBalance, embeddedAddress, 'overlay', solBalance);
+                const result = await placePondTrade(market.id, direction, amount, usdcBalance, embeddedAddress, 'overlay', solBalance, market.title);
                 console.log('[Overlay] Trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
                 
                 if (result.success) {

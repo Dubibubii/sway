@@ -45,6 +45,8 @@ export interface FillConfirmation {
   expectedUSDC?: number;
   actualUSDCSpent: number;
   isPartialFill: boolean;
+  marketName?: string;
+  side?: 'yes' | 'no';
 }
 
 interface OrderStatusFill {
@@ -172,7 +174,8 @@ export function usePondTrading() {
     usdcBalance?: number,
     embeddedWalletAddress?: string,
     channel: 'swipe' | 'discovery' | 'positions' = 'swipe',
-    solBalance?: number
+    solBalance?: number,
+    marketName?: string
   ): Promise<PondTradeResult> => {
     setIsTrading(true);
     setError(null);
@@ -443,6 +446,8 @@ export function usePondTrading() {
               expectedUSDC,
               actualUSDCSpent: orderResult.actualUSDCSpent,
               isPartialFill,
+              marketName,
+              side,
             });
           } else if (orderResult && orderResult.status === 'failed') {
             // Trade explicitly failed
