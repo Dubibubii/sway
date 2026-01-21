@@ -250,15 +250,29 @@ export default function Discovery() {
     return regex.test(text);
   };
 
+  // Helper to identify short-term/daily markets by ID pattern
+  const isShortTermMarket = (marketId: string): boolean => {
+    const id = marketId.toUpperCase();
+    // Daily crypto markets: BTCD, ETHD, SOLD (daily price)
+    if (/^KX(BTC|ETH|SOL)D-/.test(id)) return true;
+    // 15-min or hourly markets
+    if (/15MIN|5MIN|1H|HOURLY/i.test(id)) return true;
+    // Same-day resolution markets (date pattern matches today or tomorrow)
+    return false;
+  };
+
   // Filter markets based on selected category and ending soon toggle
   const filteredMarkets = useMemo(() => {
     let sourceMarkets = isActiveSearch ? searchResults : markets;
     
-    // Apply "<24 hours" filter if enabled
+    // Apply "Short-term" filter if enabled - shows markets ending within 72 hours OR daily crypto markets
     if (showEndingSoon) {
       const now = new Date();
-      const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const in72Hours = new Date(now.getTime() + 72 * 60 * 60 * 1000); // Expanded to 72 hours
       sourceMarkets = sourceMarkets.filter((market) => {
+        // First check if it's a known short-term market pattern
+        if (isShortTermMarket(market.id)) return true;
+        
         // endDate can be either:
         // 1. ISO date string (from API): "2026-01-21T23:59:59Z"
         // 2. Unix timestamp in seconds (number or string)
@@ -275,7 +289,8 @@ export default function Discovery() {
           // It's a Unix timestamp number
           endDate = new Date(market.endDate * 1000);
         }
-        return !isNaN(endDate.getTime()) && endDate > now && endDate <= in24Hours;
+        // Widened to 72 hours for better discovery of short-term markets
+        return !isNaN(endDate.getTime()) && endDate > now && endDate <= in72Hours;
       });
     }
     
@@ -361,7 +376,7 @@ export default function Discovery() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
-          {/* Ending Soon Filter */}
+          {/* Short-term Filter - daily crypto and markets ending soon */}
           <Button
             data-testid="filter-ending-soon"
             variant={showEndingSoon ? "default" : "outline"}
@@ -374,7 +389,7 @@ export default function Discovery() {
             }`}
           >
             <Clock size={12} />
-            &lt;24h
+            Short-term
           </Button>
           
           {CATEGORIES.map((category) => (
@@ -416,7 +431,7 @@ export default function Discovery() {
                 {isActiveSearch 
                   ? `No results for "${debouncedSearch}". Try different keywords.`
                   : showEndingSoon 
-                    ? 'No markets are ending within the next 24 hours. Turn off the timer filter to see all markets.'
+                    ? 'No short-term markets available right now. Daily crypto markets resolve at 6pm ET each day.'
                     : 'Try a different search or category'}
               </p>
               {showEndingSoon && (
