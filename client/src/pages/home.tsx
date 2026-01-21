@@ -310,7 +310,7 @@ export default function Home() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) return { positions: [] };
-      return res.json() as Promise<{ positions: { marketId: string }[] }>;
+      return res.json() as Promise<{ positions: { marketId: string; eventTicker?: string | null }[] }>;
     },
     enabled: authenticated,
     staleTime: 30000, // Refetch every 30 seconds
@@ -320,6 +320,20 @@ export default function Home() {
   const ownedMarketIds = useMemo(() => {
     if (!positionsData?.positions) return [];
     return positionsData.positions.map(p => p.marketId);
+  }, [positionsData]);
+  
+  // Get event tickers for owned positions (from the positions API)
+  // This allows filtering out all markets from the same event (e.g., other Fed Chair candidates)
+  const ownedEventTickers = useMemo(() => {
+    const eventTickers = new Set<string>();
+    if (positionsData?.positions) {
+      for (const position of positionsData.positions) {
+        if (position.eventTicker) {
+          eventTickers.add(position.eventTicker);
+        }
+      }
+    }
+    return eventTickers;
   }, [positionsData]);
   
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -380,12 +394,15 @@ export default function Home() {
       for (const page of marketsData.pages) {
         for (const market of page.markets) {
           // Skip markets user already owns positions in
-          // Markets are now tradeable regardless of initialization state - DFlow handles initialization automatically
-          if (!seenIds.has(market.id) && !ownedSet.has(market.id)) {
-            seenIds.add(market.id);
-            fetchedMarketIdsRef.current.add(market.id);
-            allMarkets.push(formatMarket(market));
-          }
+          if (seenIds.has(market.id) || ownedSet.has(market.id)) continue;
+          
+          // Skip markets from the same event as owned positions
+          // This prevents showing different options (e.g., other Fed Chair candidates) when user already bet on one
+          if (market.eventTicker && ownedEventTickers.has(market.eventTicker)) continue;
+          
+          seenIds.add(market.id);
+          fetchedMarketIdsRef.current.add(market.id);
+          allMarkets.push(formatMarket(market));
         }
       }
       
@@ -423,7 +440,7 @@ export default function Home() {
       displayedMarketsRef.current = finalMarkets;
       setDisplayedMarkets(finalMarkets);
     }
-  }, [marketsData, getVisibleCards, ownedMarketIds]);
+  }, [marketsData, getVisibleCards, ownedMarketIds, ownedEventTickers]);
   
   useEffect(() => {
     if (displayedMarkets.length < LOW_CARDS_THRESHOLD && hasNextPage && !isFetchingNextPage && !isLoadingMore) {

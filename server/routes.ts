@@ -787,7 +787,30 @@ export async function registerRoutes(
       }
 
       const positions = await storage.getOpenPositions(req.userId);
-      res.json({ positions });
+      
+      // Enhance positions with event tickers from market cache
+      const marketCache = getMarketCache();
+      const marketMap = new Map(marketCache.map(m => [m.id, m]));
+      const enhancedPositions = positions.map(position => {
+        const cachedMarket = marketMap.get(position.marketId);
+        
+        // Primary: use eventTicker from cache
+        // Fallback: derive from market ID by removing last segment (option)
+        let eventTicker = cachedMarket?.eventTicker || null;
+        if (!eventTicker && position.marketId) {
+          const parts = position.marketId.split('-');
+          if (parts.length >= 2) {
+            eventTicker = parts.slice(0, -1).join('-');
+          }
+        }
+        
+        return {
+          ...position,
+          eventTicker,
+        };
+      });
+      
+      res.json({ positions: enhancedPositions });
     } catch (error) {
       console.error('Error fetching positions:', error);
       res.status(500).json({ error: 'Failed to fetch positions' });
