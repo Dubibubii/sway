@@ -1621,18 +1621,20 @@ export default function Activity() {
                              </div>
                              <div className="flex-1 min-w-0">
                                 <h3 className="font-bold text-sm leading-tight">{position.marketTitle}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5 max-w-[140px] truncate shrink-0`}>
+                                {/* Badge on its own row */}
+                                <div className="mt-1">
+                                  <Badge variant="secondary" className={`${isYes ? 'bg-[#1ED78B]/20 text-[#1ED78B]' : 'bg-rose-500/20 text-rose-500'} hover:bg-opacity-20 text-[10px] h-5 max-w-[160px] truncate`}>
                                     {position.direction}{position.optionLabel ? `: ${position.optionLabel}` : ''}
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground whitespace-nowrap">{shares.toFixed(0)} shares</span>
                                 </div>
-                                {/* Cost/value info with date */}
-                                <div className="flex items-center gap-3 mt-1.5 text-[10px]">
+                                {/* Shares, Cost, Now on same row with wrapping */}
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-[10px]">
+                                  <span className="text-muted-foreground">{shares.toFixed(0)} shares</span>
                                   <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
                                   <span className="text-muted-foreground">Now: <span className="text-white/70 font-medium">${currentValue.toFixed(2)}</span></span>
-                                  <span className="text-muted-foreground/60">{formatDate(position.createdAt)}</span>
                                 </div>
+                                {/* Date on separate row */}
+                                <div className="text-[10px] text-muted-foreground/60 mt-0.5">{formatDate(position.createdAt)}</div>
                              </div>
                              <div className="text-right shrink-0">
                                 {/* Show potential resolution payout (always green/positive) */}
