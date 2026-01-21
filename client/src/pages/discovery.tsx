@@ -65,10 +65,9 @@ export default function Discovery() {
       return;
     }
     
-    // Calculate whole shares and actual spend using discovery channel
+    // Calculate whole shares using discovery channel
     const feeBreakdown = calculateTradeFeesForBuy(amount, price, 'discovery');
     const shares = feeBreakdown.netShares;
-    const actualSpend = feeBreakdown.actualSpend;
     
     // Check if wager is too small for even 1 whole share
     if (shares < 1) {
@@ -80,9 +79,9 @@ export default function Discovery() {
       return;
     }
     
-    // Check balance (use actualSpend, not raw amount)
-    if (usdcBalance !== undefined && usdcBalance < actualSpend) {
-      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${actualSpend.toFixed(2)}`, variant: 'destructive' });
+    // Check balance (use full amount to maximize shares)
+    if (usdcBalance !== undefined && usdcBalance < amount) {
+      toast({ title: 'Insufficient Balance', description: `You have $${usdcBalance.toFixed(2)} but need $${amount.toFixed(2)}`, variant: 'destructive' });
       return;
     }
     
@@ -92,14 +91,15 @@ export default function Discovery() {
     // Show processing toast
     toast({ 
       title: 'Placing bet...', 
-      description: `$${actualSpend.toFixed(2)} on ${side.toUpperCase()}`,
+      description: `$${amount.toFixed(2)} on ${side.toUpperCase()}`,
     });
     
     // Execute trade in background using unified platform fee
-    const result = await placePondTrade(marketId, side, actualSpend, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
+    // Send FULL wager to DFlow to maximize shares purchased - DFlow handles flooring internally
+    const result = await placePondTrade(marketId, side, amount, usdcBalance, embeddedWallet?.address, 'discovery', solBalance);
     
     if (result.success) {
-      // Record trade in database with adjusted spend
+      // Record trade in database with actual spent amount from DFlow
       if (settings.privyId) {
         try {
           await createTrade(settings.privyId, {
@@ -107,7 +107,7 @@ export default function Discovery() {
             marketTitle,
             marketCategory: marketCategory || null,
             direction: side.toUpperCase() as 'YES' | 'NO',
-            wagerAmount: actualSpend,
+            wagerAmount: result.actualUSDCSpent || amount, // Use actual spend from DFlow if available
             price,
             actualShares: result.actualShares || shares,
             signature: result.signature,
@@ -118,8 +118,9 @@ export default function Discovery() {
         }
       }
       
-      // Track analytics with actual spend
-      trackBet(marketId, marketTitle, actualSpend);
+      // Track analytics with actual spend from DFlow
+      const actualSpent = result.actualUSDCSpent || amount;
+      trackBet(marketId, marketTitle, actualSpent);
       
       // Refresh data
       setTimeout(() => {
@@ -132,7 +133,7 @@ export default function Discovery() {
       const confirmedShares = result.actualShares || shares;
       toast({
         title: 'Trade Executed!',
-        description: `Bought ${confirmedShares} shares on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢ for $${actualSpend.toFixed(2)}`,
+        description: `Bought ${confirmedShares} shares on ${side.toUpperCase()} @ ${(price * 100).toFixed(0)}¢ for $${actualSpent.toFixed(2)}`,
       });
     } else {
       // Handle errors via toast - modal already closed

@@ -611,7 +611,6 @@ export default function Home() {
       const executionPrice = market.yesAsk ?? market.yesPrice;
       const feeBreakdown = calculateTradeFeesForBuy(settings.yesWager, executionPrice, 'swipe');
       const shares = feeBreakdown.netShares; // Already floored to whole contracts
-      const actualSpend = feeBreakdown.actualSpend; // Adjusted for whole shares
       const payout = shares.toFixed(0); // Whole shares = whole payout
       
       // Check if wager is too small for even 1 whole share
@@ -626,30 +625,34 @@ export default function Home() {
       
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        // Use actualSpend (adjusted for whole shares) instead of raw wager
-        console.log('[Swipe] YES trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
-        const result = await placePondTrade(market.id, 'yes', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
+        // Send FULL wager to DFlow to maximize shares purchased - DFlow handles flooring internally
+        // This ensures user gets maximum whole shares their wager can afford at current prices
+        console.log('[Swipe] YES trade params:', { marketId: market.id, wager: settings.yesWager, expectedShares: shares, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
+        const result = await placePondTrade(market.id, 'yes', settings.yesWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
         console.log('[Swipe] YES trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
           // Refresh balance after successful trade
           setTimeout(() => refetchBalance(), 2000);
+          
+          // Use actual spent from DFlow result or estimate from wager
+          const actualSpent = result.actualUSDCSpent || settings.yesWager;
+          const confirmedShares = result.actualShares || shares;
+          
           tradeMutation.mutate({ 
             market, 
             direction: 'YES', 
-            wagerAmount: actualSpend, // Use adjusted spend for whole shares
-            actualShares: result.actualShares || shares,
+            wagerAmount: actualSpent,
+            actualShares: confirmedShares,
             signature: result.signature,
             executionMode: result.executionMode,
           });
-          trackBet(market.id, market.question, actualSpend);
+          trackBet(market.id, market.question, actualSpent);
           
-          // Use the pre-calculated whole shares (from fee breakdown)
-          const confirmedShares = result.actualShares || shares;
           const isAsync = result.executionMode === 'async';
           
           // Calculate leftover from original wager
-          const leftover = settings.yesWager - actualSpend;
+          const leftover = settings.yesWager - actualSpent;
           const buyPriceCents = Math.round((market.yesAsk ?? market.yesPrice) * 100);
           
           toast({
@@ -665,7 +668,7 @@ export default function Home() {
               <TradeConfirmToast
                 side="YES"
                 shares={confirmedShares}
-                spent={actualSpend}
+                spent={actualSpent}
                 wager={settings.yesWager}
                 leftover={leftover}
                 buyPrice={buyPriceCents}
@@ -701,7 +704,7 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
-          console.error('[Swipe] YES trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: actualSpend });
+          console.error('[Swipe] YES trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: settings.yesWager });
           showErrorWithReport("Trade Failed", errorMsg, "YES Trade");
         }
       } else {
@@ -734,7 +737,6 @@ export default function Home() {
       const executionPrice = market.noAsk ?? market.noPrice;
       const feeBreakdown = calculateTradeFeesForBuy(settings.noWager, executionPrice, 'swipe');
       const shares = feeBreakdown.netShares; // Already floored to whole contracts
-      const actualSpend = feeBreakdown.actualSpend; // Adjusted for whole shares
       const payout = shares.toFixed(0); // Whole shares = whole payout
       
       // Check if wager is too small for even 1 whole share
@@ -749,30 +751,34 @@ export default function Home() {
 
       if (settings.connected) {
         // Execute REAL on-chain trade via Pond/DFlow (embedded wallet only)
-        // Use actualSpend (adjusted for whole shares) instead of raw wager
-        console.log('[Swipe] NO trade params:', { marketId: market.id, actualSpend, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
-        const result = await placePondTrade(market.id, 'no', actualSpend, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
+        // Send FULL wager to DFlow to maximize shares purchased - DFlow handles flooring internally
+        // This ensures user gets maximum whole shares their wager can afford at current prices
+        console.log('[Swipe] NO trade params:', { marketId: market.id, wager: settings.noWager, expectedShares: shares, usdcBalance, embeddedAddress: embeddedAddress?.slice(0, 8), solBalance });
+        const result = await placePondTrade(market.id, 'no', settings.noWager, usdcBalance, embeddedAddress || undefined, 'swipe', solBalance, market.question);
         console.log('[Swipe] NO trade result:', { success: result.success, error: result.error, signature: result.signature?.slice(0, 20), executionMode: result.executionMode });
         
         if (result.success) {
           // Refresh balance after successful trade
           setTimeout(() => refetchBalance(), 2000);
+          
+          // Use actual spent from DFlow result or estimate from wager
+          const actualSpent = result.actualUSDCSpent || settings.noWager;
+          const confirmedShares = result.actualShares || shares;
+          
           tradeMutation.mutate({ 
             market, 
             direction: 'NO', 
-            wagerAmount: actualSpend, // Use adjusted spend for whole shares
-            actualShares: result.actualShares || shares,
+            wagerAmount: actualSpent,
+            actualShares: confirmedShares,
             signature: result.signature,
             executionMode: result.executionMode,
           });
-          trackBet(market.id, market.question, actualSpend);
+          trackBet(market.id, market.question, actualSpent);
           
-          // Use the pre-calculated whole shares (from fee breakdown)
-          const confirmedShares = result.actualShares || shares;
           const isAsync = result.executionMode === 'async';
           
           // Calculate leftover from original wager
-          const leftover = settings.noWager - actualSpend;
+          const leftover = settings.noWager - actualSpent;
           const buyPriceCents = Math.round((market.noAsk ?? market.noPrice) * 100);
           
           toast({
@@ -788,7 +794,7 @@ export default function Home() {
               <TradeConfirmToast
                 side="NO"
                 shares={confirmedShares}
-                spent={actualSpend}
+                spent={actualSpent}
                 wager={settings.noWager}
                 leftover={leftover}
                 buyPrice={buyPriceCents}
@@ -825,7 +831,7 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
-          console.error('[Swipe] NO trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: actualSpend });
+          console.error('[Swipe] NO trade error:', { rawError: result.error, displayError: errorMsg, marketId: market.id, amount: settings.noWager });
           showErrorWithReport("Trade Failed", errorMsg, "NO Trade");
         }
       } else {
