@@ -113,10 +113,14 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
             <div className={`absolute -top-2 w-4 h-4 bg-zinc-900 border-l border-t border-zinc-700 rotate-45 ${alignRight ? 'right-4' : 'left-4'}`} />
             
             <button
-              onClick={() => setIsExpanded(false)}
-              className="absolute top-2 right-2 p-1 rounded-full hover:bg-zinc-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(false);
+              }}
+              className="absolute top-2 right-2 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 z-10"
+              data-testid="button-close-ai-insight"
             >
-              <X size={14} className="text-zinc-400" />
+              <X size={16} className="text-white" />
             </button>
             
             <div className="pr-6">
