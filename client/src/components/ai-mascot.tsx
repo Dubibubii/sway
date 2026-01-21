@@ -108,25 +108,25 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            className={`absolute top-12 w-64 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10 ${alignRight ? 'right-0' : 'left-0'}`}
+            className={`absolute top-12 w-64 bg-zinc-900 rounded-2xl p-4 shadow-2xl border border-zinc-700 z-[300] ${alignRight ? 'right-0' : 'left-0'}`}
           >
-            <div className={`absolute -top-2 w-4 h-4 bg-zinc-900/95 border-l border-t border-white/10 rotate-45 ${alignRight ? 'right-4' : 'left-4'}`} />
+            <div className={`absolute -top-2 w-4 h-4 bg-zinc-900 border-l border-t border-zinc-700 rotate-45 ${alignRight ? 'right-4' : 'left-4'}`} />
             
             <button
               onClick={() => setIsExpanded(false)}
-              className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10"
+              className="absolute top-2 right-2 p-1 rounded-full hover:bg-zinc-800"
             >
-              <X size={14} className="text-white/50" />
+              <X size={14} className="text-zinc-400" />
             </button>
             
             <div className="pr-6">
               {isLoading ? (
-                <div className="flex items-center gap-2 text-sm text-white/70">
+                <div className="flex items-center gap-2 text-sm text-zinc-300">
                   <Loader2 size={14} className="animate-spin" />
                   <span>Thinking...</span>
                 </div>
               ) : (
-                <p className="text-sm text-white/90 leading-relaxed">
+                <p className="text-sm text-white leading-relaxed">
                   {insight || 'Tap to get AI insights!'}
                 </p>
               )}
