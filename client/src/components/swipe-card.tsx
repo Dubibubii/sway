@@ -258,58 +258,6 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     >
       <Card ref={cardRef} className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
         
-        {/* Long Press Ripple Animation */}
-        {isRippling && ripplePosition && (
-          <motion.div
-            className="absolute z-50 pointer-events-none"
-            style={{
-              left: ripplePosition.x,
-              top: ripplePosition.y,
-              transform: 'translate(-50%, -50%)',
-            }}
-            initial={{ scale: 0, opacity: 0.8 }}
-            animate={{ 
-              scale: [0, 1.5, 3],
-              opacity: [0.8, 0.5, 0],
-            }}
-            transition={{ 
-              duration: LONG_PRESS_DURATION / 1000,
-              ease: "easeOut",
-            }}
-          >
-            <div className="w-32 h-32 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white/50" />
-          </motion.div>
-        )}
-        
-        {/* Pulsing ring indicator */}
-        {isRippling && ripplePosition && (
-          <motion.div
-            className="absolute z-50 pointer-events-none"
-            style={{
-              left: ripplePosition.x,
-              top: ripplePosition.y,
-              transform: 'translate(-50%, -50%)',
-            }}
-            initial={{ scale: 0.5, opacity: 1 }}
-            animate={{ 
-              scale: [0.5, 1.2],
-              opacity: [1, 0.6],
-            }}
-            transition={{ 
-              duration: LONG_PRESS_DURATION / 1000,
-              ease: "easeInOut",
-            }}
-          >
-            <div className="w-16 h-16 rounded-full border-4 border-white/70 flex items-center justify-center">
-              <motion.div 
-                className="w-8 h-8 rounded-full bg-white/40"
-                animate={{ scale: [0.8, 1, 0.8] }}
-                transition={{ duration: 0.4, repeat: Infinity }}
-              />
-            </div>
-          </motion.div>
-        )}
-        
         {/* Image Background */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-black z-0" />
@@ -324,6 +272,59 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
               }}
             />
           )}
+          
+          {/* Long Press Ripple Animation - on image layer */}
+          {isRippling && ripplePosition && (
+            <motion.div
+              className="absolute z-15 pointer-events-none"
+              style={{
+                left: ripplePosition.x,
+                top: ripplePosition.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+              initial={{ scale: 0, opacity: 0.8 }}
+              animate={{ 
+                scale: [0, 1.5, 3],
+                opacity: [0.8, 0.5, 0],
+              }}
+              transition={{ 
+                duration: LONG_PRESS_DURATION / 1000,
+                ease: "easeOut",
+              }}
+            >
+              <div className="w-32 h-32 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white/50" />
+            </motion.div>
+          )}
+          
+          {/* Pulsing ring indicator - on image layer */}
+          {isRippling && ripplePosition && (
+            <motion.div
+              className="absolute z-15 pointer-events-none"
+              style={{
+                left: ripplePosition.x,
+                top: ripplePosition.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+              initial={{ scale: 0.5, opacity: 1 }}
+              animate={{ 
+                scale: [0.5, 1.2],
+                opacity: [1, 0.6],
+              }}
+              transition={{ 
+                duration: LONG_PRESS_DURATION / 1000,
+                ease: "easeInOut",
+              }}
+            >
+              <div className="w-16 h-16 rounded-full border-4 border-white/70 flex items-center justify-center">
+                <motion.div 
+                  className="w-8 h-8 rounded-full bg-white/40"
+                  animate={{ scale: [0.8, 1, 0.8] }}
+                  transition={{ duration: 0.4, repeat: Infinity }}
+                />
+              </div>
+            </motion.div>
+          )}
+          
           <div className="absolute inset-0 bg-black/30 z-20" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-30" />
         </div>
