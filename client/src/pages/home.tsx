@@ -569,11 +569,14 @@ export default function Home() {
     
     recordSwipe(id);
 
-    setTimeout(() => {
-      setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
+    // Immediately remove card and reset motion values
+    // AnimatePresence handles exit animation smoothly
+    setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
+    // Reset motion values for the next card
+    requestAnimationFrame(() => {
       x.set(0);
       y.set(0);
-    }, 200);
+    });
 
     if (!market) return;
 
@@ -944,8 +947,8 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <AnimatePresence>
-                {marketsWithLivePrices.slice(0, 2).reverse().map((market, index, arr) => (
+              <AnimatePresence mode="popLayout">
+                {marketsWithLivePrices.slice(0, 3).reverse().map((market, index, arr) => (
                     <SwipeCard 
                       key={market.id} 
                       market={market} 

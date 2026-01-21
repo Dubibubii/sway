@@ -157,19 +157,26 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // Rotation based on x position
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   
-  // Use animation controls to smoothly transition between active/inactive states
-  // This prevents the "jump" when the back card becomes the front card
+  // Smoothly transition the back card to become the front card
   useEffect(() => {
     if (active) {
-      // Reset motion values to clear any leftover overlay state from previous card
+      // Reset motion values for fresh drag state
       x.set(0);
       y.set(0);
-      // Animate TO the active state (full size, no offset)
+      // Animate to active state with spring physics
       controls.start({ 
         scale: 1, 
         opacity: 1, 
         y: 0,
-        transition: { duration: 0.2, ease: "easeOut" }
+        transition: { type: "spring", stiffness: 400, damping: 30 }
+      });
+    } else {
+      // Back card stays in background position
+      controls.start({
+        scale: 0.95,
+        opacity: 0.7,
+        y: 15,
+        transition: { type: "spring", stiffness: 400, damping: 30 }
       });
     }
   }, [active, controls, x, y]);
@@ -188,24 +195,22 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
 
     // Swipe Right (YES) - must be at position >100 OR have high velocity in that direction
     if (currentX > 100 || (velocity.x > 500 && currentX > 50)) {
-      await controls.start({ x: 500, opacity: 0 });
+      // Immediately call onSwipe FIRST to remove from list, animation happens via exit
       onSwipe('right');
     } 
     // Swipe Left (NO)
     else if (currentX < -100 || (velocity.x < -500 && currentX < -50)) {
-      await controls.start({ x: -500, opacity: 0 });
       onSwipe('left');
     }
     // Swipe Down (SKIP)
     else if (currentY > 100 || (velocity.y > 500 && currentY > 50)) {
-      await controls.start({ y: 500, opacity: 0 });
       onSwipe('down');
     }
-    // Reset - also reset the motion values to sync with controls
+    // Reset - snap back to center
     else {
-      controls.start({ x: 0, y: 0 });
       x.set(0);
       y.set(0);
+      controls.start({ x: 0, y: 0, scale: 1, opacity: 1 });
     }
   };
 
@@ -213,21 +218,33 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // When dragging ends, controls takes over for the exit animation
   // This avoids conflicts between motion values and controls
   
+  // Determine exit direction based on current position
+  const getExitAnimation = () => {
+    const currentX = x.get();
+    const currentY = y.get();
+    if (currentY > 50) return { y: 600, opacity: 0 };
+    if (currentX > 50) return { x: 600, opacity: 0 };
+    if (currentX < -50) return { x: -600, opacity: 0 };
+    return { opacity: 0, scale: 0.8 };
+  };
+
   return (
     <motion.div
-      drag={active ? true : false}
+      drag={active}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.7}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       animate={controls}
-      initial={active ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.95, opacity: 0.6, y: 20 }}
+      initial={active ? { scale: 1, opacity: 1 } : { scale: 0.95, opacity: 0.7, y: 15 }}
+      exit={getExitAnimation()}
       style={{ x, y, rotate }}
-      className={`absolute top-0 left-0 w-full h-full ${active ? 'z-50 cursor-grab active:cursor-grabbing' : 'z-40 pointer-events-none'}`}
-      whileTap={{ scale: 1.05 }}
-      transition={{ duration: 0.3 }}
+      className={`absolute top-0 left-0 w-full h-full will-change-transform ${active ? 'z-[100] cursor-grab active:cursor-grabbing' : 'z-[50] pointer-events-none'}`}
+      whileTap={active ? { scale: 1.02 } : undefined}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
     >
       <Card className="w-full h-full overflow-hidden relative rounded-3xl border-0 shadow-2xl bg-card text-card-foreground select-none">
         
