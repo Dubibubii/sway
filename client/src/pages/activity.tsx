@@ -85,6 +85,7 @@ export default function Activity() {
   
   // Spread explainer state (educational modal)
   const [showSpreadExplainer, setShowSpreadExplainer] = useState(false);
+  const [spreadExplainerPrices, setSpreadExplainerPrices] = useState<{ buyPrice: number; sellPrice: number; direction: 'YES' | 'NO' } | null>(null);
   
   // Sell mode selection state - shows choice before sell confirmation
   const [sellModeStep, setSellModeStep] = useState<'choice' | 'confirm'>('choice');
@@ -951,7 +952,13 @@ export default function Activity() {
     <Layout>
       <SpreadExplainerSheet
         open={showSpreadExplainer}
-        onClose={() => setShowSpreadExplainer(false)}
+        onClose={() => {
+          setShowSpreadExplainer(false);
+          setSpreadExplainerPrices(null);
+        }}
+        buyPrice={spreadExplainerPrices?.buyPrice}
+        sellPrice={spreadExplainerPrices?.sellPrice}
+        direction={spreadExplainerPrices?.direction}
       />
       
       {/* Position Action Modal - Sell or More options */}
@@ -1139,6 +1146,11 @@ export default function Activity() {
               const sellPrice = quoteSellPrice ?? orderbookSellPrice ?? liveSellPrice ?? null;
               const hasPrices = sellPrice !== null && sellPrice > 0;
               
+              // Get buy price (ask) for spread explainer
+              const orderbookBuyPrice = ob ? (isYes ? ob.yesAsk : ob.noAsk) : null;
+              const liveBuyPrice = selectedMarketLivePrice ? (isYes ? selectedMarketLivePrice.yesAsk : selectedMarketLivePrice.noAsk) : null;
+              const buyPrice = orderbookBuyPrice ?? liveBuyPrice ?? (sellPrice ? sellPrice + 0.02 : null);
+              
               // Calculate proceeds
               const fb = sellQuote?.feeBreakdown;
               const hasQuote = sellQuote && sellQuote.expectedUSDC !== undefined;
@@ -1173,9 +1185,27 @@ export default function Activity() {
                       <div className="text-4xl font-bold text-[#1ED78B]">
                         ${netAmount.toFixed(2)}
                       </div>
-                      {/* PnL display */}
-                      <div className={`text-sm mt-2 font-medium ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
-                        {isPositive ? '+' : ''}{pnl >= 0 ? '$' : '-$'}{Math.abs(pnl).toFixed(2)} ({isPositive ? '+' : ''}{pnlPercent.toFixed(0)}%)
+                      {/* PnL display with spread explainer for losses */}
+                      <div className={`text-sm mt-2 font-medium flex items-center justify-center gap-1.5 ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
+                        <span>
+                          {isPositive ? '+' : ''}{pnl >= 0 ? '$' : '-$'}{Math.abs(pnl).toFixed(2)} ({isPositive ? '+' : ''}{pnlPercent.toFixed(0)}%)
+                        </span>
+                        {!isPositive && buyPrice && sellPrice && (
+                          <button
+                            onClick={() => {
+                              setSpreadExplainerPrices({ 
+                                buyPrice: buyPrice, 
+                                sellPrice: sellPrice, 
+                                direction: isYes ? 'YES' : 'NO' 
+                              });
+                              setShowSpreadExplainer(true);
+                            }}
+                            className="inline-flex items-center p-0.5 rounded-full hover:bg-white/10 transition-colors"
+                            data-testid="button-why-loss"
+                          >
+                            <HelpCircle size={14} className="text-rose-400/70 hover:text-rose-300" />
+                          </button>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         Cost: ${costBasis.toFixed(2)}
