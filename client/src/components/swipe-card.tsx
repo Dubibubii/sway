@@ -154,6 +154,9 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // This prevents the "jump" when the back card becomes the front card
   useEffect(() => {
     if (active) {
+      // Reset motion values to clear any leftover overlay state from previous card
+      x.set(0);
+      y.set(0);
       // Animate TO the active state (full size, no offset)
       controls.start({ 
         scale: 1, 
@@ -162,7 +165,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
         transition: { duration: 0.2, ease: "easeOut" }
       });
     }
-  }, [active, controls]);
+  }, [active, controls, x, y]);
 
   // Opacity of overlays
   const yesOpacity = useTransform(x, [50, 150], [0, 1]);
