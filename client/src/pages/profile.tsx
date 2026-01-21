@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
 import { useSolanaBalance } from '@/hooks/use-solana-balance';
-import { useAutoSwap } from '@/hooks/use-auto-swap';
+import { useAutoSwap, setGasOnlyDepositMode } from '@/hooks/use-auto-swap';
 import { useToast } from '@/hooks/use-toast';
 import { WithdrawModal } from '@/components/withdraw-modal';
 import { usePageView } from '@/hooks/use-analytics';
@@ -242,12 +242,21 @@ function ProfileContent() {
                   <span className="text-white/70">Positions</span>
                   <span className="font-medium">${positionsValue.toFixed(2)}</span>
                 </div>
-                {solBalance > 0 && (
-                  <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5">
-                    <span className="text-amber-400">⛽</span>
+                {solBalance >= 0 && (
+                  <button 
+                    onClick={() => {
+                      if (embeddedWallet?.address) {
+                        setGasOnlyDepositMode(true, solBalance);
+                        fundWallet(embeddedWallet.address);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 bg-black/20 rounded-full px-3 py-1.5 cursor-pointer hover:bg-black/40 transition-all ${solBalance < 0.01 ? 'animate-pulse ring-2 ring-amber-400/50' : ''}`}
+                    data-testid="button-gas-deposit"
+                  >
+                    <span className={`text-amber-400 ${solBalance < 0.01 ? 'animate-bounce' : ''}`}>⛽</span>
                     <span className="text-white/70">Gas</span>
                     <span className="font-medium">{solBalance.toFixed(4)} SOL</span>
-                  </div>
+                  </button>
                 )}
               </div>
               

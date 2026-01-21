@@ -26,6 +26,7 @@ const DEPOSIT_DETECTION_THRESHOLD = 0.001;
 // Persistent swap state - survives app close/reopen
 const PENDING_SWAP_KEY = 'sway_pending_swap';
 const SWAP_RECOVERY_KEY = 'sway_swap_recovery_checked';
+const GAS_ONLY_DEPOSIT_KEY = 'sway_gas_only_deposit';
 
 interface PendingSwapState {
   walletAddress: string;
@@ -82,6 +83,67 @@ function shouldCheckRecovery(walletAddress: string): boolean {
   } catch (e) {
     return true;
   }
+}
+
+// Gas-only deposit mode - when enabled, auto-swap is bypassed for ONE deposit
+// Stores: { expiry: number, preDepositBalance: number }
+interface GasOnlyState {
+  expiry: number;
+  preDepositBalance: number;
+}
+
+export function setGasOnlyDepositMode(enabled: boolean, currentBalance?: number) {
+  try {
+    if (enabled) {
+      // Set flag with 10 minute expiry and record current balance
+      const state: GasOnlyState = {
+        expiry: Date.now() + 10 * 60 * 1000,
+        preDepositBalance: currentBalance ?? 0,
+      };
+      localStorage.setItem(GAS_ONLY_DEPOSIT_KEY, JSON.stringify(state));
+      console.log('[AutoSwap] Gas-only deposit mode enabled, pre-deposit balance:', currentBalance);
+    } else {
+      localStorage.removeItem(GAS_ONLY_DEPOSIT_KEY);
+      console.log('[AutoSwap] Gas-only deposit mode disabled');
+    }
+  } catch (e) {
+    console.warn('[AutoSwap] Failed to set gas-only deposit mode:', e);
+  }
+}
+
+function getGasOnlyState(): GasOnlyState | null {
+  try {
+    const stored = localStorage.getItem(GAS_ONLY_DEPOSIT_KEY);
+    if (!stored) return null;
+    const state = JSON.parse(stored) as GasOnlyState;
+    if (Date.now() > state.expiry) {
+      localStorage.removeItem(GAS_ONLY_DEPOSIT_KEY);
+      return null;
+    }
+    return state;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function isGasOnlyDepositMode(): boolean {
+  return getGasOnlyState() !== null;
+}
+
+// Check if we should skip swap AND clear the flag if balance increased (deposit received)
+function checkAndClearGasOnlyMode(currentBalance: number): boolean {
+  const state = getGasOnlyState();
+  if (!state) return false;
+  
+  // If balance has increased since gas-only mode was enabled, deposit arrived
+  // Use same threshold as DEPOSIT_DETECTION_THRESHOLD for consistency
+  if (currentBalance > state.preDepositBalance + DEPOSIT_DETECTION_THRESHOLD) {
+    console.log('[AutoSwap] Gas deposit detected, clearing gas-only mode. New balance:', currentBalance);
+    localStorage.removeItem(GAS_ONLY_DEPOSIT_KEY);
+    return true; // Still skip THIS swap since it's the gas deposit
+  }
+  
+  return true; // Gas-only mode still active, skip swap
 }
 
 function logError(context: string, err: unknown) {
@@ -270,6 +332,14 @@ export function useAutoSwap() {
       return false;
     }
     
+    // Skip auto-swap if user is in gas-only deposit mode (depositing for gas, not USDC)
+    // This also clears the flag after the gas deposit is detected
+    if (checkAndClearGasOnlyMode(currentSolBalance) && !forceSwap) {
+      console.log('[AutoSwap] Skipping - gas-only deposit mode is active');
+      previousBalanceRef.current = currentSolBalance;
+      return false;
+    }
+    
     if (swapAmount <= MIN_SWAP_THRESHOLD) {
       previousBalanceRef.current = currentSolBalance;
       swapAttemptedForDepositRef.current = false;
@@ -340,6 +410,12 @@ export function useAutoSwap() {
     onComplete?: (result: AutoSwapResult) => void
   ): Promise<boolean> => {
     if (!embeddedWalletAddress || isSwapping) {
+      return false;
+    }
+    
+    // Skip recovery if user is in gas-only deposit mode
+    if (checkAndClearGasOnlyMode(currentSolBalance)) {
+      console.log('[AutoSwap] Skipping recovery - gas-only deposit mode is active');
       return false;
     }
     
