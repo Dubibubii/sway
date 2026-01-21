@@ -1344,7 +1344,7 @@ export default function Activity() {
           <h1 className="text-3xl font-display font-bold">Activity</h1>
           <div className="text-right">
              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Portfolio Value</div>
-             <div className="text-xl font-mono font-bold text-[#1ED78B]">${totalValue.toFixed(2)}</div>
+             <div className="text-xl font-mono font-bold text-white">${totalValue.toFixed(2)}</div>
           </div>
         </div>
 
