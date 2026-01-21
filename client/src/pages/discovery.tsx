@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, X, ChevronDown, ChevronUp, Info, ExternalLink, Loader2, Clock } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getMarkets, getEventMarkets, searchMarkets, getMarketHistory, createTrade, getBalancedPercentages, type Market, type PriceHistory } from "@/lib/api";
+import { getMarkets, getEventMarkets, searchMarkets, getShortTermMarkets, getMarketHistory, createTrade, getBalancedPercentages, type Market, type PriceHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageView, useMarketView, useBetPlaced } from "@/hooks/use-analytics";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -156,7 +156,16 @@ export default function Discovery() {
     refetchInterval: 30000, // Refresh every 30 seconds for live price updates
   });
 
+  // Dedicated query for short-term markets (daily crypto, ending soon)
+  const { data: shortTermData, isLoading: isLoadingShortTerm } = useQuery<{ markets: Market[]; total: number }>({
+    queryKey: ['/api/markets/short-term'],
+    queryFn: () => getShortTermMarkets(),
+    refetchInterval: 30000,
+    enabled: showEndingSoon, // Only fetch when filter is active
+  });
+
   const markets = marketsData?.markets || [];
+  const shortTermMarkets = shortTermData?.markets || [];
 
   // Client-side search for instant results (searches loaded markets)
   const localSearchResults = useMemo(() => {
@@ -263,35 +272,35 @@ export default function Discovery() {
 
   // Filter markets based on selected category and ending soon toggle
   const filteredMarkets = useMemo(() => {
-    let sourceMarkets = isActiveSearch ? searchResults : markets;
-    
-    // Apply "Short-term" filter if enabled - shows markets ending within 72 hours OR daily crypto markets
-    if (showEndingSoon) {
-      const now = new Date();
-      const in72Hours = new Date(now.getTime() + 72 * 60 * 60 * 1000); // Expanded to 72 hours
-      sourceMarkets = sourceMarkets.filter((market) => {
-        // First check if it's a known short-term market pattern
-        if (isShortTermMarket(market.id)) return true;
-        
-        // endDate can be either:
-        // 1. ISO date string (from API): "2026-01-21T23:59:59Z"
-        // 2. Unix timestamp in seconds (number or string)
-        let endDate: Date;
-        if (typeof market.endDate === 'string') {
-          // Check if it's an ISO date string (contains T or -)
-          if (market.endDate.includes('T') || market.endDate.includes('-')) {
-            endDate = new Date(market.endDate);
+    // When Short-term filter is active, use dedicated short-term API results
+    // This bypasses the volume-based ranking that hides daily crypto markets
+    let sourceMarkets: Market[];
+    if (showEndingSoon && !isActiveSearch) {
+      // Use short-term markets from dedicated API endpoint
+      sourceMarkets = shortTermMarkets;
+    } else if (isActiveSearch) {
+      // For search, filter search results by short-term criteria if filter is active
+      sourceMarkets = searchResults;
+      if (showEndingSoon) {
+        const now = new Date();
+        const in72Hours = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+        sourceMarkets = sourceMarkets.filter((market) => {
+          if (isShortTermMarket(market.id)) return true;
+          let endDate: Date;
+          if (typeof market.endDate === 'string') {
+            if (market.endDate.includes('T') || market.endDate.includes('-')) {
+              endDate = new Date(market.endDate);
+            } else {
+              endDate = new Date(parseInt(market.endDate, 10) * 1000);
+            }
           } else {
-            // It's a Unix timestamp as string
-            endDate = new Date(parseInt(market.endDate, 10) * 1000);
+            endDate = new Date(market.endDate * 1000);
           }
-        } else {
-          // It's a Unix timestamp number
-          endDate = new Date(market.endDate * 1000);
-        }
-        // Widened to 72 hours for better discovery of short-term markets
-        return !isNaN(endDate.getTime()) && endDate > now && endDate <= in72Hours;
-      });
+          return !isNaN(endDate.getTime()) && endDate > now && endDate <= in72Hours;
+        });
+      }
+    } else {
+      sourceMarkets = markets;
     }
     
     // If "All" is selected, return the source (possibly filtered by endingSoon)
@@ -342,23 +351,25 @@ export default function Discovery() {
     });
     
     return result;
-  }, [markets, searchResults, selectedCategory, isActiveSearch, showEndingSoon]);
+  }, [markets, searchResults, shortTermMarkets, selectedCategory, isActiveSearch, showEndingSoon]);
 
   // Debug logging to diagnose one-market-showing issue (dev only)
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Discovery Debug] Markets state:', {
         marketsCount: markets.length,
+        shortTermCount: shortTermMarkets.length,
         filteredCount: filteredMarkets.length,
         searchResultsCount: searchResults.length,
         isActiveSearch,
         selectedCategory,
         showEndingSoon,
         isLoading,
+        isLoadingShortTerm,
         marketsDataExists: !!marketsData,
       });
     }
-  }, [markets.length, filteredMarkets.length, searchResults.length, isActiveSearch, selectedCategory, showEndingSoon, isLoading, marketsData]);
+  }, [markets.length, shortTermMarkets.length, filteredMarkets.length, searchResults.length, isActiveSearch, selectedCategory, showEndingSoon, isLoading, isLoadingShortTerm, marketsData]);
 
   return (
     <Layout>
@@ -411,16 +422,16 @@ export default function Discovery() {
         </div>
         {(selectedCategory !== "All" || showEndingSoon) && (
           <p className="text-xs text-muted-foreground mb-2">
-            Showing {filteredMarkets.length} {showEndingSoon ? 'ending within 24h' : ''} {selectedCategory !== "All" ? selectedCategory : ''} markets
+            Showing {filteredMarkets.length} {showEndingSoon ? 'short-term' : ''} {selectedCategory !== "All" ? selectedCategory : ''} markets
           </p>
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {(isLoading || (isActiveSearch && isSearching && localSearchResults.length === 0)) ? (
+          {(isLoading || (showEndingSoon && isLoadingShortTerm) || (isActiveSearch && isSearching && localSearchResults.length === 0)) ? (
             <div className="flex flex-col items-center justify-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
               <p className="text-muted-foreground">
-                {isActiveSearch ? `Searching for "${debouncedSearch}"...` : 'Loading markets...'}
+                {isActiveSearch ? `Searching for "${debouncedSearch}"...` : showEndingSoon ? 'Loading short-term markets...' : 'Loading markets...'}
               </p>
             </div>
           ) : filteredMarkets.length === 0 ? (

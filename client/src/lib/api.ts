@@ -156,6 +156,10 @@ export async function searchMarkets(query: string): Promise<{ markets: Market[] 
   return fetchWithAuth(`/markets/search?q=${encodeURIComponent(query)}`);
 }
 
+export async function getShortTermMarkets(): Promise<{ markets: Market[]; total: number }> {
+  return fetchWithAuth('/markets/short-term');
+}
+
 export async function createOrGetUser(privyId: string, walletAddress?: string | null): Promise<{ user: User }> {
   return fetchWithAuth('/users', {
     method: 'POST',

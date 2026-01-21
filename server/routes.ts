@@ -219,6 +219,80 @@ export async function registerRoutes(
     }
   });
 
+  // Short-term markets endpoint - specifically returns daily crypto and soon-ending markets
+  app.get('/api/markets/short-term', async (_req: Request, res: Response) => {
+    try {
+      // Get all markets from cache
+      let markets: SimplifiedMarket[] = await getEvents(10000);
+      
+      // Get DFlow market info to check which markets are initialized
+      const marketInfo = await getDflowMarketInfo();
+      
+      if (marketInfo.size === 0) {
+        return res.json({ markets: [], total: 0, cacheTimestamp: getCacheTimestamp() });
+      }
+      
+      // Add isInitialized status
+      markets = markets.map(m => ({
+        ...m,
+        isInitialized: marketInfo.get(m.id) ?? false,
+      }));
+      
+      // Filter to only initialized markets first
+      const initializedMarkets = markets.filter(m => m.isInitialized);
+      
+      const now = Date.now();
+      const in72Hours = now + 72 * 60 * 60 * 1000;
+      
+      // Helper to check if market ID matches short-term patterns
+      const isShortTermPattern = (id: string): boolean => {
+        const upper = id.toUpperCase();
+        // Daily crypto: KXBTCD-, KXETHD-, KXSOLD-
+        if (/^KX(BTC|ETH|SOL)D-/.test(upper)) return true;
+        // 15-min or hourly patterns
+        if (/15MIN|5MIN|1H|HOURLY/i.test(upper)) return true;
+        return false;
+      };
+      
+      // Filter for short-term markets
+      const shortTermMarkets = initializedMarkets.filter(m => {
+        // Check ID pattern first
+        if (isShortTermPattern(m.id)) return true;
+        
+        // Check end date (within 72 hours)
+        const endTs = typeof m.endDate === 'number' ? m.endDate * 1000 : 
+                      typeof m.endDate === 'string' && !m.endDate.includes('-') ? parseInt(m.endDate, 10) * 1000 :
+                      new Date(m.endDate).getTime();
+        
+        if (!isNaN(endTs) && endTs > now && endTs <= in72Hours) return true;
+        
+        return false;
+      });
+      
+      // Sort by end date (soonest first)
+      shortTermMarkets.sort((a, b) => {
+        const aEnd = typeof a.endDate === 'number' ? a.endDate : 
+                     typeof a.endDate === 'string' && !a.endDate.includes('-') ? parseInt(a.endDate, 10) :
+                     new Date(a.endDate).getTime() / 1000;
+        const bEnd = typeof b.endDate === 'number' ? b.endDate :
+                     typeof b.endDate === 'string' && !b.endDate.includes('-') ? parseInt(b.endDate, 10) :
+                     new Date(b.endDate).getTime() / 1000;
+        return aEnd - bEnd;
+      });
+      
+      console.log(`[Short-term] Found ${shortTermMarkets.length} short-term markets`);
+      
+      res.json({
+        markets: shortTermMarkets,
+        total: shortTermMarkets.length,
+        cacheTimestamp: getCacheTimestamp()
+      });
+    } catch (error) {
+      console.error('Error getting short-term markets:', error);
+      res.status(500).json({ error: 'Failed to get short-term markets' });
+    }
+  });
+
   app.get('/api/markets', async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Parse pagination parameters with defaults for backward compatibility
