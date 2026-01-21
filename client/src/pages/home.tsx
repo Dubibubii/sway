@@ -595,6 +595,9 @@ export default function Home() {
     y.set(0);
     
     // Remove card from list - AnimatePresence handles exit animation
+    // CRITICAL: Also update the ref to keep it in sync with state
+    // This prevents the deck from being rebuilt incorrectly when ownedMarketIds changes
+    displayedMarketsRef.current = displayedMarketsRef.current.filter(m => m.id !== id);
     setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
     
     // Release swipe lock after a short delay
