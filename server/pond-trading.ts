@@ -69,6 +69,11 @@ export async function getPondQuote(
   queryParams.append('slippageBps', slippageBps.toString());
   queryParams.append('userPublicKey', userPublicKey);
   
+  // Add prediction market slippage for better fill rates on prediction markets
+  // Per DFlow docs: predictionMarketSlippageBps allows higher slippage for async PM trades
+  // Using 500 bps (5%) to give more room for prediction market orders to fill
+  queryParams.append('predictionMarketSlippageBps', '500');
+  
   // Add platform fee parameters if provided
   // For async prediction market trades, use platformFeeScale (not platformFeeBps)
   // See: https://pond.dflow.net/quickstart/platform-fees

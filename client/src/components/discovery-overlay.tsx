@@ -565,20 +565,20 @@ export function DiscoveryOverlay({ market, onClose, onSelectMarket, isTrading = 
               
               <div className="space-y-3 mb-6">
                 <p className="text-sm text-white/80">
-                  This market hasn't been traded on DFlow yet. Here's what to expect:
+                  This is a new market. Here's what to expect:
                 </p>
                 <ul className="text-sm text-white/70 space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="text-amber-400 mt-0.5">•</span>
-                    <span>A small initialization fee (~$0.01) will be charged to set up the market</span>
+                    <span>A small initialization fee (~$0.01) may be charged to set up the market on Solana</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-amber-400 mt-0.5">•</span>
-                    <span>If no one is selling the opposite side, your trade may fail - but you won't be charged</span>
+                    <span>If the market isn't ready for trading yet, you'll need to try again later - you won't be charged</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-amber-400 mt-0.5">•</span>
-                    <span>You're helping create liquidity for other traders!</span>
+                    <span>New markets are constantly being added - check back soon!</span>
                   </li>
                 </ul>
               </div>
