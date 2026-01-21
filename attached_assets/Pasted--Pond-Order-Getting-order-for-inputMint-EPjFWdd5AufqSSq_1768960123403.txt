@@ -1,0 +1,61 @@
+
+[Pond Order] Getting order for: {
+  inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  outputMint: '43wh6a2zAbTdCW5y2HVgESm3o7sZo9pUNvw38Ly4d3RC',
+  amountAtomic: 685506,
+  userPublicKey: 'CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61',
+  channel: 'discovery',
+  feeScale: 45,
+  feeBps: 225,
+  feeUSDC: '0.0154'
+}
+[Pond Order] Requesting order with fee: {
+  feeScale: 45,
+  feeBps: 225,
+  feeUSDC: '0.0154',
+  feeAccount: 'Csdoc9fHj4XBw6HcDq69SVx5dHQtubb9dCkXGGbus7Zy'
+}
+[Pond] Order request with fee params: {
+  inputMint: 'EPjFWdd5...',
+  outputMint: '43wh6a2z...',
+  amount: 685506,
+  platformFeeScale: 45,
+  platformFeeBps: 0,
+  feeAccount: 'Csdoc9fH...'
+}
+[Pond] Calling quote API: https://b.quote-api.dflow.net/order
+[Pond] Full query params: {
+  inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  outputMint: '43wh6a2zAbTdCW5y2HVgESm3o7sZo9pUNvw38Ly4d3RC',
+  amount: '685506',
+  slippageBps: '100',
+  userPublicKey: 'CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61',
+  predictionMarketSlippageBps: '500',
+  predictionMarketInitPayer: 'CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61',
+  platformFeeScale: '45',
+  feeAccount: 'Csdoc9fHj4XBw6HcDq69SVx5dHQtubb9dCkXGGbus7Zy',
+  referralAccount: '9DZEWwT47BKZnutbyJ4L5T8uEaVkwbQY8SeL3ehHHXGY'
+}
+[Pond] DFlow API error response: {
+  status: 400,
+  statusText: 'Bad Request',
+  errorText: '{"msg":"Route not found","code":"route_not_found"}',
+  inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  outputMint: '43wh6a2zAbTdCW5y2HVgESm3o7sZo9pUNvw38Ly4d3RC',
+  amount: 685506,
+  feeParams: { platformFeeScale: 45, feeAccount: 'Csdoc9fHj4XBw6HcDq69...' }
+}
+Error getting Pond order: Error: DFlow API error: route_not_found - This market may not have liquidity in DFlow's routing network
+    at getPondQuote (/home/runner/workspace/server/pond-trading.ts:161:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:993:29)
+1:48:17 AM [express] POST /api/pond/order 500 in 350ms :: {"error":"DFlow API error: route_not_found - This market may not have liquidity in DFlow's routing network"}
+[Helius] Balance for CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61: 0.019963163 SOL, 3.018485 USDC
+1:48:21 AM [express] GET /api/solana/balance/CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61 304 in 237ms :: {"solBalance":0.019963163,"usdcBalance":3.018485}
+1:48:21 AM [express] GET /api/price/sol 304 in 1ms :: {"solana":{"usd":127.45}}
+[Helius] Balance for CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61: 0.019963163 SOL, 3.018485 USDC
+1:48:26 AM [express] GET /api/solana/balance/CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61 304 in 152ms :: {"solBalance":0.019963163,"usdcBalance":3.018485}
+1:48:26 AM [express] GET /api/price/sol 304 in 0ms :: {"solana":{"usd":127.45}}
+[Helius] Balance for CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61: 0.019963163 SOL, 3.018485 USDC
+1:48:31 AM [express] GET /api/solana/balance/CiuPnNAjdcNM6LkgYfsAVGW95NPdjHn4bzciDTLsce61 304 in 140ms :: {"solBalance":0.019963163,"usdcBalance":3.018485}
+1:48:31 AM [express] GET /api/price/sol 304 in 0ms :: {"solana":{"usd":127.45}}

@@ -157,8 +157,16 @@ export async function getPondQuote(
     }
     
     // Include route_not_found in error message so client can detect it
-    if (errorText.includes('route_not_found') || errorData.error?.includes('route_not_found')) {
-      throw new Error(`DFlow API error: route_not_found - This market may not have liquidity in DFlow's routing network`);
+    if (errorText.includes('route_not_found') || errorData.code === 'route_not_found') {
+      // Log detailed info for debugging
+      console.error('[Pond] Route not found - debug info:', {
+        inputMint,
+        outputMint,
+        amount,
+        hasFeeParams: !!feeParams,
+        feeScale: feeParams?.platformFeeScale,
+      });
+      throw new Error(`DFlow API error: route_not_found - No liquidity provider is currently quoting this market. Try again later or try a different market.`);
     }
     
     throw new Error(`DFlow API error: ${response.status} - ${errorText}`);

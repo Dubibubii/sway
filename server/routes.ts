@@ -990,19 +990,49 @@ export async function registerRoutes(
       // Fee is collected in USDC (settlement mint) and sent to our fee account
       console.log('[Pond Order] Requesting order with fee:', { feeScale, feeBps, feeUSDC: feeUSDC.toFixed(4), feeAccount: FEE_CONFIG.FEE_RECIPIENT });
       
-      const orderResponse = await getPondQuote(
-        inputMint,
-        outputMint,
-        amountAtomic,
-        userPublicKey,
-        slippageBps,
-        DFLOW_API_KEY || undefined,
-        feeScale > 0 ? {
-          platformFeeScale: feeScale,  // Use feeScale for async prediction market trades
-          feeAccount: FEE_CONFIG.FEE_RECIPIENT,
-          referralAccount: FEE_CONFIG.FEE_WALLET,
-        } : undefined
-      );
+      let orderResponse;
+      let usedFees = true;
+      
+      // First try with platform fees
+      try {
+        orderResponse = await getPondQuote(
+          inputMint,
+          outputMint,
+          amountAtomic,
+          userPublicKey,
+          slippageBps,
+          DFLOW_API_KEY || undefined,
+          feeScale > 0 ? {
+            platformFeeScale: feeScale,  // Use feeScale for async prediction market trades
+            feeAccount: FEE_CONFIG.FEE_RECIPIENT,
+            referralAccount: FEE_CONFIG.FEE_WALLET,
+          } : undefined
+        );
+      } catch (feeError: any) {
+        // If route_not_found, retry without fees to isolate if fees are the issue
+        if (feeError.message?.includes('route_not_found')) {
+          console.log('[Pond Order] Route not found with fees, retrying without platform fees...');
+          try {
+            orderResponse = await getPondQuote(
+              inputMint,
+              outputMint,
+              amountAtomic,
+              userPublicKey,
+              slippageBps,
+              DFLOW_API_KEY || undefined,
+              undefined  // No fees
+            );
+            usedFees = false;
+            console.log('[Pond Order] Success without fees - routing works, fee config may be the issue');
+          } catch (noFeeError: any) {
+            // Both failed - the market truly doesn't have liquidity
+            console.error('[Pond Order] Route not found even without fees - market has no liquidity');
+            throw noFeeError;
+          }
+        } else {
+          throw feeError;
+        }
+      }
 
       // Parse DFlow quote response for accurate numbers
       const dflowFeeInfo = (orderResponse as any).platformFee;
@@ -1014,7 +1044,10 @@ export async function registerRoutes(
       const priceImpactPct = quote?.priceImpactPct ? parseFloat(quote.priceImpactPct) : 0;
       
       // Get actual platform fee from DFlow response (in microUSDC)
-      const actualPlatformFeeUSDC = dflowFeeInfo?.amount ? parseInt(dflowFeeInfo.amount) / 1_000_000 : feeUSDC;
+      // If we retried without fees, set fee to 0
+      const actualPlatformFeeUSDC = usedFees 
+        ? (dflowFeeInfo?.amount ? parseInt(dflowFeeInfo.amount) / 1_000_000 : feeUSDC)
+        : 0;
       const actualFeeBps = dflowFeeInfo?.feeBps || feeBps;
       
       // Calculate effective price per share (what user actually pays per share)
