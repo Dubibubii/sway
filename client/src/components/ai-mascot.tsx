@@ -71,7 +71,7 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
   }, [marketTitle]);
 
   return (
-    <div className={`absolute top-3 left-3 z-50 ${className}`}>
+    <div className={`absolute top-3 left-3 z-[200] ${className}`}>
       <motion.button
         onClick={handleTap}
         whileTap={{ scale: 0.9 }}
