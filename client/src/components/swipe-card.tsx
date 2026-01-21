@@ -163,15 +163,15 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
     
     if (active) {
       // Immediate reset of position, then animate scale for bouncy "pop" effect
-      controls.set({ x: 0, y: 0, scale: 0.85 }); // Start smaller for more dramatic pop
+      controls.set({ x: 0, y: 0, scale: 0.8, opacity: 0.7 }); // Start smaller and slightly faded
       controls.start({ 
         scale: 1, 
         opacity: 1,
         transition: { 
           type: "spring", 
-          stiffness: 400,  // Higher = faster initial movement
-          damping: 15,     // Lower = more bounce
-          mass: 0.8,       // Lower = snappier response
+          stiffness: 500,  // Higher = faster initial burst
+          damping: 12,     // Lower = more pronounced bounce
+          mass: 0.6,       // Lower = snappier, more elastic
         }
       });
     } else {
