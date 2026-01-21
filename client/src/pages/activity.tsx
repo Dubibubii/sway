@@ -1626,12 +1626,12 @@ export default function Activity() {
                                     {position.direction}{position.optionLabel ? `: ${position.optionLabel}` : ''}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground whitespace-nowrap">{shares.toFixed(0)} shares</span>
-                                  <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">• {formatDate(position.createdAt)}</span>
                                 </div>
-                                {/* Minimal cost/value info */}
+                                {/* Cost/value info with date */}
                                 <div className="flex items-center gap-3 mt-1.5 text-[10px]">
                                   <span className="text-muted-foreground">Cost: <span className="text-white font-medium">${costBasis.toFixed(2)}</span></span>
                                   <span className="text-muted-foreground">Now: <span className="text-white/70 font-medium">${currentValue.toFixed(2)}</span></span>
+                                  <span className="text-muted-foreground/60">{formatDate(position.createdAt)}</span>
                                 </div>
                              </div>
                              <div className="text-right shrink-0">
