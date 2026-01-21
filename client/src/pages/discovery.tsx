@@ -258,10 +258,23 @@ export default function Discovery() {
       const now = new Date();
       const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       sourceMarkets = sourceMarkets.filter((market) => {
-        // endDate is Unix timestamp in SECONDS (as string or number), convert to milliseconds
-        const endDateSeconds = typeof market.endDate === 'string' ? parseInt(market.endDate, 10) : market.endDate;
-        const endDate = new Date(endDateSeconds * 1000);
-        return endDate > now && endDate <= in24Hours;
+        // endDate can be either:
+        // 1. ISO date string (from API): "2026-01-21T23:59:59Z"
+        // 2. Unix timestamp in seconds (number or string)
+        let endDate: Date;
+        if (typeof market.endDate === 'string') {
+          // Check if it's an ISO date string (contains T or -)
+          if (market.endDate.includes('T') || market.endDate.includes('-')) {
+            endDate = new Date(market.endDate);
+          } else {
+            // It's a Unix timestamp as string
+            endDate = new Date(parseInt(market.endDate, 10) * 1000);
+          }
+        } else {
+          // It's a Unix timestamp number
+          endDate = new Date(market.endDate * 1000);
+        }
+        return !isNaN(endDate.getTime()) && endDate > now && endDate <= in24Hours;
       });
     }
     
