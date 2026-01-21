@@ -38,6 +38,7 @@ export function useSwipeHistory() {
   const [history, setHistory] = useState<SwipeHistory>(loadHistory);
   const historyRef = useRef(history);
   
+  // Keep ref in sync with state
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
@@ -47,50 +48,79 @@ export function useSwipeHistory() {
   }, [history]);
 
   const recordSwipe = useCallback((cardId: string) => {
+    // IMMEDIATELY update the ref for synchronous access
+    // This prevents race conditions where getVisibleCards runs before state updates
+    const currentRef = historyRef.current;
+    const newCounter = currentRef.swipeCounter + 1;
+    const newSwipedCards = { ...currentRef.swipedCards, [cardId]: newCounter };
+    
+    // Clean up old cards from ref
+    for (const [id, swipedAt] of Object.entries(newSwipedCards)) {
+      if (newCounter - swipedAt >= SWIPES_BEFORE_RETURN) {
+        delete newSwipedCards[id];
+      }
+    }
+    
+    // Update ref synchronously
+    historyRef.current = {
+      ...currentRef,
+      swipeCounter: newCounter,
+      swipedCards: newSwipedCards,
+    };
+    
+    // Also update state (for persistence and re-renders)
     setHistory(prev => {
-      const newCounter = prev.swipeCounter + 1;
-      const newSwipedCards = { ...prev.swipedCards, [cardId]: newCounter };
+      const counter = prev.swipeCounter + 1;
+      const cards = { ...prev.swipedCards, [cardId]: counter };
       
-      for (const [id, swipedAt] of Object.entries(newSwipedCards)) {
-        if (newCounter - swipedAt >= SWIPES_BEFORE_RETURN) {
-          delete newSwipedCards[id];
+      for (const [id, swipedAt] of Object.entries(cards)) {
+        if (counter - swipedAt >= SWIPES_BEFORE_RETURN) {
+          delete cards[id];
         }
       }
       
       return {
         ...prev,
-        swipeCounter: newCounter,
-        swipedCards: newSwipedCards,
+        swipeCounter: counter,
+        swipedCards: cards,
       };
     });
   }, []);
 
+  // Use ref for synchronous, always-current check
   const shouldShowCard = useCallback((cardId: string): boolean => {
-    const swipedAt = history.swipedCards[cardId];
+    const current = historyRef.current;
+    const swipedAt = current.swipedCards[cardId];
     if (swipedAt === undefined) {
       return true;
     }
-    return history.swipeCounter - swipedAt >= SWIPES_BEFORE_RETURN;
-  }, [history]);
+    return current.swipeCounter - swipedAt >= SWIPES_BEFORE_RETURN;
+  }, []);
 
   const getVisibleCards = useCallback(<T extends { id: string }>(cards: T[]): T[] => {
     return cards.filter(card => shouldShowCard(card.id));
   }, [shouldShowCard]);
 
   const resetHistory = useCallback(() => {
-    setHistory({ swipeCounter: 0, swipedCards: {}, cacheTimestamp: null });
+    const newHistory = { swipeCounter: 0, swipedCards: {}, cacheTimestamp: null };
+    historyRef.current = newHistory;
+    setHistory(newHistory);
   }, []);
   
   const updateCacheTimestamp = useCallback((newTimestamp: number): boolean => {
     const current = historyRef.current;
-    if (current.cacheTimestamp !== null && current.cacheTimestamp !== newTimestamp) {
-      setHistory({ swipeCounter: 0, swipedCards: {}, cacheTimestamp: newTimestamp });
-      return true;
-    }
-    if (current.cacheTimestamp === null) {
+    // Only return true if cache changed (for shuffled order reset)
+    // Do NOT reset swipe history - preserve swiped cards across cache updates
+    const cacheChanged = current.cacheTimestamp !== null && current.cacheTimestamp !== newTimestamp;
+    
+    if (current.cacheTimestamp !== newTimestamp) {
+      // Update timestamp but keep swipe history intact
+      const updated = { ...current, cacheTimestamp: newTimestamp };
+      historyRef.current = updated;
       setHistory(prev => ({ ...prev, cacheTimestamp: newTimestamp }));
     }
-    return false;
+    
+    return cacheChanged;
   }, []);
   
   const getSwipedIds = useCallback((): string[] => {
