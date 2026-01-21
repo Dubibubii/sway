@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-error-feedback';
 import { FEE_CONFIG } from '@shared/schema';
 import { calculateTradeFeesForBuy } from '@/utils/dflowFees';
 import { SpreadExplainerSheet } from '@/components/spread-explainer';
@@ -134,6 +135,7 @@ export default function Activity() {
   
   
   const { toast } = useToast();
+  const { showErrorWithReport } = useErrorToast();
   const { getAccessToken, authenticated, embeddedWallet } = usePrivySafe();
   const { sendSOLWithFee } = useSolanaTransaction();
   const { usdcBalance, solBalance, refetch: refetchBalance } = useSolanaBalance(embeddedWallet?.address || null);
@@ -721,7 +723,7 @@ export default function Activity() {
       
     } catch (error: any) {
       console.error('[Activity] Catch block error:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to add to position', variant: 'destructive' });
+      showErrorWithReport('Error', error.message || 'Failed to add to position', 'Add Position');
       setIsProcessing(false);
     }
   };
@@ -840,7 +842,7 @@ export default function Activity() {
           }
         }
         
-        toast({ title: isRedemption ? 'Redeem Failed' : 'Sell Failed', description: errorMsg, variant: 'destructive' });
+        showErrorWithReport(isRedemption ? 'Redeem Failed' : 'Sell Failed', errorMsg, 'Sell Position');
         setCloseModalOpen(false);
         setIsProcessing(false);
         return;
@@ -948,7 +950,7 @@ export default function Activity() {
       
     } catch (error: any) {
       console.error('[Activity] Close position error:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to close position', variant: 'destructive' });
+      showErrorWithReport('Error', error.message || 'Failed to close position', 'Close Position');
       setIsProcessing(false);
     }
   };

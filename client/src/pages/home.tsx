@@ -5,6 +5,7 @@ import { Layout } from '@/components/layout';
 import { AIMascot } from '@/components/ai-mascot';
 import { useSettings } from '@/hooks/use-settings';
 import { useToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-error-feedback';
 import { ToastAction } from '@/components/ui/toast';
 import { useSwipeHistory } from '@/hooks/use-swipe-history';
 import { usePondTrading } from '@/hooks/use-pond-trading';
@@ -471,6 +472,7 @@ export default function Home() {
     },
   });
   const { toast } = useToast();
+  const { showErrorWithReport } = useErrorToast();
   
   // Motion values for the active card to drive UI feedback
   const x = useMotionValue(0);
@@ -601,10 +603,7 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
-          toast({
-            title: "Trade Failed",
-            description: errorMsg,
-          });
+          showErrorWithReport("Trade Failed", errorMsg, "YES Trade");
         }
       } else {
         toast({
@@ -725,11 +724,7 @@ export default function Home() {
           const errorMsg = result.error?.includes('zero_out_amount') || result.error?.includes('Zero out amount')
             ? 'Trade amount too small. Try increasing your bet to at least $0.50'
             : (result.error || "Could not execute trade on-chain");
-          toast({
-            title: "Trade Failed",
-            description: errorMsg,
-            variant: "destructive",
-          });
+          showErrorWithReport("Trade Failed", errorMsg, "NO Trade");
         }
       } else {
         toast({
@@ -1035,11 +1030,7 @@ export default function Home() {
                     className: `bg-zinc-950/95 ${direction === 'yes' ? 'border-[#1ED78B]/20' : 'border-rose-500/20'} text-white backdrop-blur-xl shadow-xl p-3`
                   });
                 } else {
-                  toast({
-                    title: "Trade Failed",
-                    description: result.error || "Could not execute trade",
-                    variant: "destructive",
-                  });
+                  showErrorWithReport("Trade Failed", result.error || "Could not execute trade", "Overlay Trade");
                 }
               } else {
                 toast({
