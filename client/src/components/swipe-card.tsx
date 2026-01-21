@@ -65,9 +65,10 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
     }
   }, [market.imageUrl]);
 
-  // Use passed motion values if active, otherwise local (though inactive cards don't drag)
-  const x = dragX || localX;
-  const y = dragY || localY;
+  // Active card uses parent's motion values for shared drag state
+  // Inactive cards always use local values to avoid inheriting exit positions
+  const x = active && dragX ? dragX : localX;
+  const y = active && dragY ? dragY : localY;
   
   const handlePointerDown = useCallback(() => {
     if (!active || !onLongPress) return;
@@ -159,10 +160,11 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   
   // Smoothly transition the back card to become the front card
   useEffect(() => {
+    // Reset local motion values to 0 whenever component mounts or active state changes
+    localX.set(0);
+    localY.set(0);
+    
     if (active) {
-      // Reset motion values for fresh drag state
-      x.set(0);
-      y.set(0);
       // Animate to active state with spring physics
       controls.start({ 
         scale: 1, 
@@ -179,7 +181,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
         transition: { type: "spring", stiffness: 400, damping: 30 }
       });
     }
-  }, [active, controls, x, y]);
+  }, [active, controls, localX, localY]);
 
   // Opacity of overlays
   const yesOpacity = useTransform(x, [50, 150], [0, 1]);
@@ -239,9 +241,9 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       animate={controls}
-      initial={active ? { scale: 1, opacity: 1 } : { scale: 0.95, opacity: 0.7, y: 15 }}
+      initial={active ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.95, opacity: 0.7, y: 15 }}
       exit={getExitAnimation()}
-      style={{ x, y, rotate }}
+      style={active ? { x, y, rotate } : { x: localX, y: localY, rotate: 0 }}
       className={`absolute top-0 left-0 w-full h-full will-change-transform ${active ? 'z-[100] cursor-grab active:cursor-grabbing' : 'z-[50] pointer-events-none'}`}
       whileTap={active ? { scale: 1.02 } : undefined}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
