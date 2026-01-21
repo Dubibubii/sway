@@ -579,15 +579,16 @@ export default function Home() {
     
     recordSwipe(id);
 
-    // Immediately remove card and reset motion values
-    // AnimatePresence handles exit animation smoothly
+    // IMMEDIATELY reset motion values BEFORE removing the card
+    // This ensures the next card doesn't inherit the swipe position
+    x.set(0);
+    y.set(0);
+    
+    // Remove card from list - AnimatePresence handles exit animation
     setDisplayedMarkets(prev => prev.filter(m => m.id !== id));
-    // Reset motion values for the next card after a short delay
-    // This allows the exit animation to complete first
+    
+    // Release swipe lock after a short delay
     setTimeout(() => {
-      x.set(0);
-      y.set(0);
-      // Release swipe lock after card transition completes
       swipeInProgressRef.current = false;
     }, 300);
 

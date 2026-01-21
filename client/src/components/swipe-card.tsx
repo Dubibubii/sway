@@ -42,6 +42,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   const localX = useMotionValue(0);
   const localY = useMotionValue(0);
   const controls = useAnimation();
+  const exitDirectionRef = useRef<'left' | 'right' | 'down' | null>(null);
   
   // Long press detection
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -234,14 +235,17 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
 
     // Swipe Right (YES) - horizontal dominant AND positive X
     if (isHorizontalDominant && (currentX > SWIPE_THRESHOLD || (velocity.x > VELOCITY_THRESHOLD && horizontalVelocityDominant && currentX > MIN_POSITION_FOR_VELOCITY))) {
+      exitDirectionRef.current = 'right';
       onSwipe('right');
     } 
     // Swipe Left (NO) - horizontal dominant AND negative X
     else if (isHorizontalDominant && (currentX < -SWIPE_THRESHOLD || (velocity.x < -VELOCITY_THRESHOLD && horizontalVelocityDominant && currentX < -MIN_POSITION_FOR_VELOCITY))) {
+      exitDirectionRef.current = 'left';
       onSwipe('left');
     }
     // Swipe Down (SKIP) - vertical dominant AND positive Y
     else if (!isHorizontalDominant && (currentY > SWIPE_THRESHOLD || (velocity.y > VELOCITY_THRESHOLD && !horizontalVelocityDominant && currentY > MIN_POSITION_FOR_VELOCITY))) {
+      exitDirectionRef.current = 'down';
       onSwipe('down');
     }
     // Reset - snap back to center
@@ -256,14 +260,13 @@ export function SwipeCard({ market, onSwipe, onLongPress, active, dragX, dragY }
   // When dragging ends, controls takes over for the exit animation
   // This avoids conflicts between motion values and controls
   
-  // Determine exit direction based on current position
+  // Use stored exit direction (motion values may be reset before exit animation runs)
   const getExitAnimation = () => {
-    const currentX = x.get();
-    const currentY = y.get();
-    if (currentY > 50) return { y: 600, opacity: 0 };
-    if (currentX > 50) return { x: 600, opacity: 0 };
-    if (currentX < -50) return { x: -600, opacity: 0 };
-    return { opacity: 0, scale: 0.8 };
+    const dir = exitDirectionRef.current;
+    if (dir === 'down') return { y: 600, opacity: 0, transition: { duration: 0.3 } };
+    if (dir === 'right') return { x: 600, opacity: 0, transition: { duration: 0.3 } };
+    if (dir === 'left') return { x: -600, opacity: 0, transition: { duration: 0.3 } };
+    return { opacity: 0, scale: 0.8, transition: { duration: 0.2 } };
   };
 
   return (
