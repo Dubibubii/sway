@@ -158,6 +158,68 @@ function shuffleArray<T>(array: T[], seed: number): T[] {
   return shuffled;
 }
 
+// Round-robin category ordering: shows one market from each category before cycling
+// Within each category, markets are sorted by volume (highest first)
+function orderMarketsByCategory<T extends { category: string; volume: string }>(
+  markets: T[],
+  seed: number
+): T[] {
+  if (markets.length === 0) return [];
+  
+  // Parse volume string to number for sorting
+  const parseVolume = (vol: string): number => {
+    const cleaned = vol.replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned) || 0;
+    if (vol.includes('B')) return num * 1_000_000_000;
+    if (vol.includes('M')) return num * 1_000_000;
+    if (vol.includes('K')) return num * 1_000;
+    return num;
+  };
+  
+  // Group markets by category
+  const categoryMap = new Map<string, T[]>();
+  for (const market of markets) {
+    const cat = market.category || 'Other';
+    if (!categoryMap.has(cat)) {
+      categoryMap.set(cat, []);
+    }
+    categoryMap.get(cat)!.push(market);
+  }
+  
+  // Sort each category by volume (highest first)
+  categoryMap.forEach((catMarkets) => {
+    catMarkets.sort((a: T, b: T) => parseVolume(b.volume) - parseVolume(a.volume));
+  });
+  
+  // Get category names and shuffle them with session seed for variety
+  const categories = shuffleArray(Array.from(categoryMap.keys()), seed);
+  
+  // Round-robin: pick one from each category in order, cycling through
+  const result: T[] = [];
+  const categoryIndices = new Map<string, number>();
+  for (const cat of categories) {
+    categoryIndices.set(cat, 0);
+  }
+  
+  let hasMore = true;
+  while (hasMore) {
+    hasMore = false;
+    for (const cat of categories) {
+      const catMarkets = categoryMap.get(cat)!;
+      const idx = categoryIndices.get(cat)!;
+      if (idx < catMarkets.length) {
+        result.push(catMarkets[idx]);
+        categoryIndices.set(cat, idx + 1);
+        if (idx + 1 < catMarkets.length) {
+          hasMore = true;
+        }
+      }
+    }
+  }
+  
+  return result;
+}
+
 // Session seed - changes each time app is opened
 const SESSION_SEED = Date.now();
 
@@ -334,7 +396,7 @@ export default function Home() {
       
       const visibleMarkets = getVisibleCards(allMarkets);
       
-      // Separate already-shuffled markets from new ones
+      // Separate already-ordered markets from new ones
       const existingMarkets: DisplayMarket[] = [];
       const newMarkets: DisplayMarket[] = [];
       
@@ -347,8 +409,8 @@ export default function Home() {
         }
       }
       
-      // Only shuffle new markets, keep existing order stable
-      const shuffledNewMarkets = shuffleArray(newMarkets, SESSION_SEED + shuffledMarketIdsRef.current.size);
+      // Order new markets by category round-robin (one from each category, prioritize high volume)
+      const orderedNewMarkets = orderMarketsByCategory(newMarkets, SESSION_SEED);
       
       // Preserve existing displayed order for markets still visible
       const existingOrder = displayedMarketsRef.current.filter(m => 
@@ -361,8 +423,8 @@ export default function Home() {
         return fresh || m;
       });
       
-      // Append new shuffled markets at the end
-      const finalMarkets = [...updatedExisting, ...shuffledNewMarkets];
+      // Append new category-ordered markets at the end
+      const finalMarkets = [...updatedExisting, ...orderedNewMarkets];
       displayedMarketsRef.current = finalMarkets;
       setDisplayedMarkets(finalMarkets);
     }
