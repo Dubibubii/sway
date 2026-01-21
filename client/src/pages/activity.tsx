@@ -1418,7 +1418,7 @@ export default function Activity() {
                   </div>
                   {hasPositions && (
                     <div className={`text-xs font-medium ${actualPnL >= 0 ? 'text-[#1ED78B]/80' : 'text-rose-400/80'}`}>
-                      {actualPnL >= 0 ? '+$' : '-$'}{Math.abs(actualPnL).toFixed(2)}
+                      PnL: {actualPnL >= 0 ? '+$' : '-$'}{Math.abs(actualPnL).toFixed(2)}
                     </div>
                   )}
                 </div>
