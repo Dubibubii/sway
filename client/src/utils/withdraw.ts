@@ -8,10 +8,21 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js';
 import { USDC_MINT } from './jupiterSwap';
-import { getRpcUrl } from '@/lib/rpc-config';
+import { getRpcConfig, getRpcUrl } from '@/lib/rpc-config';
 
 export const MIN_SOL_RESERVE = 0.001;
 
+// Async version that ensures we have the proper config
+async function getWithdrawConnectionAsync(): Promise<Connection> {
+  const config = await getRpcConfig();
+  console.log('[Withdraw] Using RPC URL:', config.provider, config.rpcUrl.includes('helius') ? '(Helius)' : '');
+  return new Connection(config.rpcUrl, {
+    commitment: 'confirmed',
+    confirmTransactionInitialTimeout: 60000,
+  });
+}
+
+// Fallback sync version for confirmation checks
 function getWithdrawConnection(): Connection {
   const rpcUrl = getRpcUrl();
   console.log('[Withdraw] Using RPC URL:', rpcUrl.includes('helius') ? 'Helius RPC' : rpcUrl);
@@ -19,6 +30,31 @@ function getWithdrawConnection(): Connection {
     commitment: 'confirmed',
     confirmTransactionInitialTimeout: 60000,
   });
+}
+
+// Retry wrapper for network operations
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const errorMsg = error.message || '';
+      // Only retry on network/transient errors, not on validation errors
+      if (errorMsg.includes('403') || errorMsg.includes('blockhash') || errorMsg.includes('timeout') || errorMsg.includes('ECONNREFUSED')) {
+        console.log(`[Withdraw] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw error; // Don't retry non-transient errors
+    }
+  }
+  throw lastError;
 }
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
@@ -105,30 +141,33 @@ export async function buildSolWithdrawal(
   amountSol: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = getWithdrawConnection();
     const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
 
     if (lamports <= 0) {
       return { success: false, error: 'Amount must be greater than 0' };
     }
 
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    // Use async connection to ensure proper RPC config, with retry logic
+    const result = await withRetry(async () => {
+      const connection = await getWithdrawConnectionAsync();
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
-    const instruction = SystemProgram.transfer({
-      fromPubkey,
-      toPubkey,
-      lamports,
+      const instruction = SystemProgram.transfer({
+        fromPubkey,
+        toPubkey,
+        lamports,
+      });
+
+      const messageV0 = new TransactionMessage({
+        payerKey: fromPubkey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      return new VersionedTransaction(messageV0);
     });
 
-    const messageV0 = new TransactionMessage({
-      payerKey: fromPubkey,
-      recentBlockhash: blockhash,
-      instructions: [instruction],
-    }).compileToV0Message();
-
-    const transaction = new VersionedTransaction(messageV0);
-
-    return { success: true, transaction };
+    return { success: true, transaction: result };
   } catch (error: any) {
     console.error('[Withdraw] SOL withdrawal error:', error);
     let errorMessage = error.message || 'Failed to build SOL withdrawal';
@@ -149,7 +188,6 @@ export async function buildUsdcWithdrawal(
   amountUsdc: number
 ): Promise<WithdrawResult> {
   try {
-    const connection = getWithdrawConnection();
     const usdcMint = new PublicKey(USDC_MINT);
     
     const usdcAmount = BigInt(Math.floor(amountUsdc * 1_000_000));
@@ -161,48 +199,52 @@ export async function buildUsdcWithdrawal(
     const sourceAta = getAssociatedTokenAddress(usdcMint, fromPubkey);
     const destinationAta = getAssociatedTokenAddress(usdcMint, toPubkey);
 
-    const instructions: TransactionInstruction[] = [];
+    // Use async connection with retry logic
+    const result = await withRetry(async () => {
+      const connection = await getWithdrawConnectionAsync();
+      const instructions: TransactionInstruction[] = [];
 
-    let needsCreateAta = false;
-    try {
-      const destinationAccount = await connection.getAccountInfo(destinationAta);
-      needsCreateAta = !destinationAccount;
-    } catch (rpcError: any) {
-      console.log('[Withdraw] Could not check destination account, will include create ATA instruction:', rpcError.message);
-      needsCreateAta = true;
-    }
-    
-    if (needsCreateAta) {
+      let needsCreateAta = false;
+      try {
+        const destinationAccount = await connection.getAccountInfo(destinationAta);
+        needsCreateAta = !destinationAccount;
+      } catch (rpcError: any) {
+        console.log('[Withdraw] Could not check destination account, will include create ATA instruction:', rpcError.message);
+        needsCreateAta = true;
+      }
+      
+      if (needsCreateAta) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            fromPubkey,
+            destinationAta,
+            toPubkey,
+            usdcMint
+          )
+        );
+      }
+
       instructions.push(
-        createAssociatedTokenAccountInstruction(
-          fromPubkey,
+        createSplTransferInstruction(
+          sourceAta,
           destinationAta,
-          toPubkey,
-          usdcMint
+          fromPubkey,
+          usdcAmount
         )
       );
-    }
 
-    instructions.push(
-      createSplTransferInstruction(
-        sourceAta,
-        destinationAta,
-        fromPubkey,
-        usdcAmount
-      )
-    );
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      const messageV0 = new TransactionMessage({
+        payerKey: fromPubkey,
+        recentBlockhash: blockhash,
+        instructions,
+      }).compileToV0Message();
 
-    const messageV0 = new TransactionMessage({
-      payerKey: fromPubkey,
-      recentBlockhash: blockhash,
-      instructions,
-    }).compileToV0Message();
+      return new VersionedTransaction(messageV0);
+    });
 
-    const transaction = new VersionedTransaction(messageV0);
-
-    return { success: true, transaction };
+    return { success: true, transaction: result };
   } catch (error: any) {
     console.error('[Withdraw] USDC withdrawal error:', error);
     let errorMessage = error.message || 'Failed to build USDC withdrawal';
