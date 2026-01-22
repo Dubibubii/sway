@@ -7,22 +7,24 @@ export default function DocsPage() {
   return (
     <Layout>
       <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-lg mx-auto px-4 py-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-zinc-400 hover:text-white mb-6 -ml-2"
-            onClick={() => window.history.back()}
-            data-testid="button-back-from-docs"
-          >
-            <ArrowLeft size={18} className="mr-1" />
-            Back
-          </Button>
-
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+        <div className="max-w-lg mx-auto px-4 pt-20 pb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400 hover:text-white -ml-2"
+              onClick={() => window.location.href = '/profile'}
+              data-testid="button-back-from-docs"
+            >
+              <ArrowLeft size={18} className="mr-1" />
+              Back
+            </Button>
+            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
               SWAY Docs
             </h1>
+          </div>
+
+          <div className="text-center mb-8">
             <p className="text-zinc-500 mt-2 text-sm">
               Everything you need to know about prediction markets
             </p>
