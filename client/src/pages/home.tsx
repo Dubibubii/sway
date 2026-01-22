@@ -1062,35 +1062,35 @@ export default function Home() {
         </div>
         
         {/* Controls Area */}
-        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black to-transparent z-20 flex items-end justify-between px-6 pb-8">
+        <div className="absolute bottom-0 left-0 w-full h-24 sm:h-32 bg-gradient-to-t from-black to-transparent z-20 flex items-end justify-between px-4 sm:px-6 pb-4 sm:pb-8">
            {/* NO Button */}
            <motion.div 
              style={{ scale: noScale, backgroundColor: noColor, borderColor: noBorder }}
-             className="w-20 h-20 rounded-full border-2 border-destructive/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-destructive/30 active:scale-95"
+             className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border-2 border-destructive/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-destructive/30 active:scale-95"
              onClick={() => manualSwipe('left')}
              whileTap={{ scale: 0.9 }}
            >
-             <X size={32} className="text-white" />
+             <X size={24} className="text-white sm:w-8 sm:h-8" />
            </motion.div>
 
            {/* SKIP Button */}
            <motion.div 
              style={{ scale: skipScale, backgroundColor: skipColor, borderColor: skipBorder }}
-             className="w-16 h-16 rounded-full border-2 border-blue-500/30 flex items-center justify-center backdrop-blur-sm mb-2 cursor-pointer hover:bg-blue-500/30 active:scale-95"
+             className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-blue-500/30 flex items-center justify-center backdrop-blur-sm mb-1 sm:mb-2 cursor-pointer hover:bg-blue-500/30 active:scale-95"
              onClick={() => manualSwipe('down')}
              whileTap={{ scale: 0.9 }}
            >
-             <ChevronsDown size={28} className="text-white" />
+             <ChevronsDown size={22} className="text-white sm:w-7 sm:h-7" />
            </motion.div>
 
            {/* YES Button */}
            <motion.div 
              style={{ scale: yesScale, backgroundColor: yesColor, borderColor: yesBorder }}
-             className="w-20 h-20 rounded-full border-2 border-primary/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-primary/30 active:scale-95"
+             className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border-2 border-primary/30 flex items-center justify-center backdrop-blur-sm transition-shadow shadow-lg cursor-pointer hover:bg-primary/30 active:scale-95"
              onClick={() => manualSwipe('right')}
              whileTap={{ scale: 0.9 }}
            >
-             <Check size={32} className="text-white" />
+             <Check size={24} className="text-white sm:w-8 sm:h-8" />
            </motion.div>
         </div>
       </div>

@@ -16,7 +16,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       
       {/* Top Navigation */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-sm glass-panel rounded-full px-4 py-2 flex justify-between items-center z-50">
+      <nav className="fixed top-2 sm:top-4 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] max-w-sm glass-panel rounded-full px-3 py-1.5 sm:px-4 sm:py-2 flex justify-between items-center z-50">
         <Link href="/" data-testid="nav-home" className={`flex flex-col items-center gap-1 transition-all duration-200 ${isActive('/') ? 'opacity-100 scale-110' : 'opacity-70 hover:opacity-100 hover:scale-125'}`}>
           <img 
             src={mascotSmiley} 

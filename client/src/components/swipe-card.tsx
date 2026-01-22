@@ -326,34 +326,34 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
         </motion.div>
 
         {/* Content */}
-        <div className="absolute bottom-0 left-0 w-full p-6 z-30 flex flex-col gap-4">
-          <div className="flex gap-2">
-            <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0">
+        <div className="absolute bottom-0 left-0 w-full p-4 sm:p-6 z-30 flex flex-col gap-2 sm:gap-3">
+          <div className="flex gap-1.5 sm:gap-2">
+            <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0 text-[10px] sm:text-xs px-2 py-0.5">
               {market.category}
             </Badge>
-            <Badge variant="outline" className="text-white border-white/20 backdrop-blur-md">
+            <Badge variant="outline" className="text-white border-white/20 backdrop-blur-md text-[10px] sm:text-xs px-2 py-0.5">
               Ends {market.endDate}
             </Badge>
           </div>
 
-          <h2 className="text-xl font-display font-bold leading-tight text-white drop-shadow-md">
+          <h2 className="text-base sm:text-xl font-display font-bold leading-tight text-white drop-shadow-md">
             {market.question}
           </h2>
 
           {market.yesLabel && market.yesLabel !== 'Yes' && (
             <div className="text-center">
-              <span className="text-sm font-medium text-white bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/20">{market.yesLabel}</span>
+              <span className="text-xs sm:text-sm font-medium text-white bg-white/20 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full backdrop-blur-sm border border-white/20">{market.yesLabel}</span>
             </div>
           )}
           
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <div className="bg-destructive/20 backdrop-blur-md rounded-2xl p-3 border border-destructive/30 flex flex-col items-center gap-2">
-              <span className="text-lg font-bold text-white">No</span>
-              <div className="flex items-center gap-1">
-                <TrendingDown size={16} className="text-rose-400" />
-                <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).noPercent}%</span>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-1">
+            <div className="bg-destructive/20 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-destructive/30 flex flex-col items-center gap-1 sm:gap-2">
+              <span className="text-sm sm:text-lg font-bold text-white">No</span>
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <TrendingDown size={14} className="text-rose-400 sm:w-4 sm:h-4" />
+                <span className="text-lg sm:text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).noPercent}%</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1 text-[10px] sm:text-xs">
                 <span className="text-zinc-500">If No:</span>
                 <span className="text-zinc-400">${settings.noWager < 10 ? settings.noWager.toFixed(2) : settings.noWager}</span>
                 <span className="text-zinc-500">→</span>
@@ -363,13 +363,13 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
                 })()}</span>
               </div>
             </div>
-            <div className="bg-primary/20 backdrop-blur-md rounded-2xl p-3 border border-primary/30 flex flex-col items-center gap-2">
-              <span className="text-lg font-bold text-white">Yes</span>
-              <div className="flex items-center gap-1">
-                <TrendingUp size={16} className="text-[#1ED78B]" />
-                <span className="text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent}%</span>
+            <div className="bg-primary/20 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-primary/30 flex flex-col items-center gap-1 sm:gap-2">
+              <span className="text-sm sm:text-lg font-bold text-white">Yes</span>
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <TrendingUp size={14} className="text-[#1ED78B] sm:w-4 sm:h-4" />
+                <span className="text-lg sm:text-xl font-bold text-white tracking-tight">{getBalancedPercentages(market.yesPrice, market.noPrice).yesPercent}%</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1 text-[10px] sm:text-xs">
                 <span className="text-zinc-500">If Yes:</span>
                 <span className="text-zinc-400">${settings.yesWager < 10 ? settings.yesWager.toFixed(2) : settings.yesWager}</span>
                 <span className="text-zinc-500">→</span>
@@ -381,7 +381,7 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
             </div>
           </div>
           
-          <div className="flex justify-between items-center text-white/60 text-sm mt-2">
+          <div className="flex justify-between items-center text-white/60 text-xs sm:text-sm mt-1">
              <span>Vol: {market.volume}</span>
              <div className="relative">
                <button 
