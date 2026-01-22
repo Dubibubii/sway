@@ -870,7 +870,7 @@ export async function registerRoutes(
         
         // Also check if market end date has passed (for sports markets that resolve immediately)
         const now = Date.now() / 1000;
-        const endDate = cachedMarket?.endDate || 0;
+        const endDate = typeof cachedMarket?.endDate === 'number' ? cachedMarket.endDate : 0;
         const isPastEndDate = endDate > 0 && now > endDate;
         
         const enhancedPosition = {
