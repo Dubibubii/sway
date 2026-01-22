@@ -1188,12 +1188,12 @@ export default function Activity() {
                       <div className="text-4xl font-bold text-[#1ED78B]">
                         ${netAmount.toFixed(2)}
                       </div>
-                      {/* PnL display with spread explainer for losses */}
+                      {/* PnL display with spread explainer */}
                       <div className={`text-sm mt-2 font-medium flex items-center justify-center gap-1.5 ${isPositive ? 'text-[#1ED78B]' : 'text-rose-400'}`}>
                         <span>
                           {isPositive ? '+' : ''}{pnl >= 0 ? '$' : '-$'}{Math.abs(pnl).toFixed(2)} ({isPositive ? '+' : ''}{pnlPercent.toFixed(0)}%)
                         </span>
-                        {!isPositive && buyPrice && sellPrice && (
+                        {buyPrice && sellPrice && (
                           <button
                             onClick={() => {
                               setSpreadExplainerPrices({ 
@@ -1204,9 +1204,9 @@ export default function Activity() {
                               setShowSpreadExplainer(true);
                             }}
                             className="inline-flex items-center p-0.5 rounded-full hover:bg-white/10 transition-colors"
-                            data-testid="button-why-loss"
+                            data-testid="button-spread-info"
                           >
-                            <HelpCircle size={14} className="text-rose-400/70 hover:text-rose-300" />
+                            <HelpCircle size={14} className={isPositive ? 'text-[#1ED78B]/70 hover:text-[#1ED78B]' : 'text-rose-400/70 hover:text-rose-300'} />
                           </button>
                         )}
                       </div>
