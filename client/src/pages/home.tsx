@@ -1014,13 +1014,20 @@ export default function Home() {
                 />
               )}
 
-              {marketsWithLivePrices.length === 0 && !isFetchingNextPage && (
+              {marketsWithLivePrices.length === 0 && !isFetchingNextPage && !isLoading && marketsData?.pages && marketsData.pages.length > 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                   <div className="text-muted-foreground text-lg">No more markets for now.</div>
                   <Button onClick={resetDeck} variant="outline" className="gap-2">
                     <RefreshCw size={16} />
                     Refresh Deck
                   </Button>
+                </div>
+              )}
+              
+              {marketsWithLivePrices.length === 0 && !isFetchingNextPage && !isLoading && (!marketsData?.pages || marketsData.pages.length === 0) && (
+                <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <div className="text-muted-foreground">Preparing your deck...</div>
                 </div>
               )}
 
