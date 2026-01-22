@@ -108,7 +108,7 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            className={`absolute top-12 w-64 bg-zinc-900 rounded-2xl p-4 shadow-2xl border border-zinc-700 z-[300] ${alignRight ? 'right-0' : 'left-0'}`}
+            className={`absolute top-12 w-[calc(100vw-48px)] max-w-[340px] bg-zinc-900/95 backdrop-blur-sm rounded-2xl p-4 shadow-2xl border border-zinc-700 z-[300] ${alignRight ? 'right-0' : 'left-0'}`}
           >
             <div className={`absolute -top-2 w-4 h-4 bg-zinc-900 border-l border-t border-zinc-700 rotate-45 ${alignRight ? 'right-4' : 'left-4'}`} />
             
@@ -123,7 +123,7 @@ export function AIMascot({ marketTitle, category, yesPrice, noPrice, className =
               <X size={16} className="text-white" />
             </button>
             
-            <div className="pr-6">
+            <div className="pr-6 max-h-[180px] overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center gap-2 text-sm text-zinc-300">
                   <Loader2 size={14} className="animate-spin" />
