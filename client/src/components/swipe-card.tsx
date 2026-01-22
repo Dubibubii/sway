@@ -307,13 +307,13 @@ export function SwipeCard({ market, onSwipe, onLongPress, active }: SwipeCardPro
         </div>
 
         {/* Overlays */}
-        <motion.div style={{ opacity: yesOpacity }} className="absolute inset-0 bg-primary/40 z-20 flex items-center justify-center pointer-events-none">
+        <motion.div style={{ opacity: yesOpacity }} className="absolute inset-0 bg-primary/40 z-20 flex items-start justify-center pt-20 pointer-events-none">
           <div className="border-4 border-primary rounded-xl px-6 py-2 transform -rotate-12">
             <span className="text-4xl font-bold text-white tracking-widest uppercase">YES</span>
           </div>
         </motion.div>
 
-        <motion.div style={{ opacity: noOpacity }} className="absolute inset-0 bg-destructive/40 z-20 flex items-center justify-center pointer-events-none">
+        <motion.div style={{ opacity: noOpacity }} className="absolute inset-0 bg-destructive/40 z-20 flex items-start justify-center pt-20 pointer-events-none">
           <div className="border-4 border-destructive rounded-xl px-6 py-2 transform rotate-12">
             <span className="text-4xl font-bold text-white tracking-widest uppercase">NO</span>
           </div>
