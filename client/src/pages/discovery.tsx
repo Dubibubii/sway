@@ -228,11 +228,10 @@ export default function Discovery() {
         trackMarketView(market.id, market.title);
         setPendingMarketId(null);
       } else if (!isLoading) {
-        // Market not found in any list - show toast and clear pending
+        // Market not found - likely resolved or expired
         toast({ 
-          title: 'Market not found', 
-          description: 'This market may no longer be available',
-          variant: 'destructive'
+          title: 'Market Resolved', 
+          description: 'This market has settled and is no longer tradable. Check your Activity → Resolved tab for details.',
         });
         setPendingMarketId(null);
       }
