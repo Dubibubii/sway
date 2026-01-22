@@ -364,10 +364,10 @@ export function usePondTrading() {
           // Solana RPC error -32002: Transaction simulation failed
           // If market requires initialization, it might be a SOL balance issue
           if (initCostSOL && initCostSOL > 0) {
-            throw new Error(`This market requires initialization (${initCostSOL.toFixed(4)} SOL). Make sure you have at least ${(initCostSOL + 0.005).toFixed(3)} SOL for gas + init fee.`);
+            throw new Error(`This market requires initialization (~${initCostSOL.toFixed(4)} SOL). Make sure you have at least ${(initCostSOL + 0.001).toFixed(4)} SOL.`);
           }
-          // Otherwise generic message
-          throw new Error('Transaction failed. Make sure you have enough SOL for gas fees (~0.01 SOL) and try again.');
+          // Otherwise generic message - typical gas is very low on Solana (~0.000005 SOL)
+          throw new Error('Transaction failed. Make sure you have enough SOL for gas fees and try again.');
         }
         if (errorMsg.includes('0x1')) {
           throw new Error('Transaction failed - insufficient balance or token account issue.');
