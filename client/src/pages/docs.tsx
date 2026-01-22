@@ -2,8 +2,11 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, ArrowDown, ChevronRight, Shield } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 export default function DocsPage() {
+  const [, setLocation] = useLocation();
+  
   return (
     <Layout>
       <div className="min-h-screen bg-background pb-24">
@@ -13,7 +16,7 @@ export default function DocsPage() {
               variant="ghost"
               size="sm"
               className="text-zinc-400 hover:text-white -ml-2"
-              onClick={() => window.location.href = '/profile'}
+              onClick={() => setLocation('/profile')}
               data-testid="button-back-from-docs"
             >
               <ArrowLeft size={18} className="mr-1" />

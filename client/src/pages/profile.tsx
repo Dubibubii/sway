@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'wouter';
 import { Layout } from '@/components/layout';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -31,6 +32,7 @@ interface LeaderboardEntry {
 
 function ProfileContent() {
   usePageView('profile');
+  const [, setLocation] = useLocation();
   
   const { settings, updateWager, connectWallet, disconnectWallet } = useSettings();
   const { login, logout, authenticated, user, getAccessToken, ready, embeddedWallet, externalWalletAddress, createWallet, fundWallet, exportWallet } = usePrivySafe();
@@ -644,7 +646,7 @@ function ProfileContent() {
             variant="ghost"
             size="sm"
             className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 gap-2"
-            onClick={() => window.location.href = '/docs'}
+            onClick={() => setLocation('/docs')}
           >
             <BookOpen size={16} />
             Read Docs
