@@ -14,6 +14,7 @@ import Profile from "@/pages/profile";
 import Activity from "@/pages/activity";
 import Discovery from "@/pages/discovery";
 import Developer from "@/pages/developer";
+import Docs from "@/pages/docs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/activity" component={Activity} />
       <Route path="/developer" component={Developer} />
+      <Route path="/docs" component={Docs} />
       <Route component={NotFound} />
     </Switch>
   );

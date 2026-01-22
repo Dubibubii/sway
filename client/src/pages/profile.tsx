@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle, MessageSquare, Send, Trophy, Medal } from 'lucide-react';
+import { Wallet, LogOut, Settings as SettingsIcon, Shield, CreditCard, ArrowDown, ArrowUp, TrendingUp, Link, Copy, Check, RefreshCw, X, Loader2, BarChart3, Fuel, DollarSign, PieChart, HelpCircle, MessageSquare, Send, Trophy, Medal, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { usePrivySafe, PRIVY_ENABLED } from '@/hooks/use-privy-safe';
@@ -637,8 +637,22 @@ function ProfileContent() {
           </div>
         )}
 
+        {/* Read Docs Button */}
+        <div className="mt-8 flex justify-center">
+          <Button
+            data-testid="button-read-docs"
+            variant="ghost"
+            size="sm"
+            className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 gap-2"
+            onClick={() => window.location.href = '/docs'}
+          >
+            <BookOpen size={16} />
+            Read Docs
+          </Button>
+        </div>
+
         {/* Feedback Section */}
-        <Card className="bg-zinc-900 border-zinc-800 mt-8">
+        <Card className="bg-zinc-900 border-zinc-800 mt-4">
           <CardHeader className="pb-3">
             <CardTitle className="text-white text-base flex items-center gap-2">
               <MessageSquare size={18} className="text-primary" />
