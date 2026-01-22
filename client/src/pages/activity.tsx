@@ -51,6 +51,9 @@ export default function Activity() {
   const [addAmount, setAddAmount] = useState('5');
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Active vs Resolved toggle
+  const [viewMode, setViewMode] = useState<'active' | 'resolved'>('active');
+  
   // Bulk sell state
   const [bulkSellMode, setBulkSellMode] = useState<BulkSellMode>(null);
   const [bulkSellModalOpen, setBulkSellModalOpen] = useState(false);
@@ -1370,14 +1373,44 @@ export default function Activity() {
       </Dialog>
 
       <div className="min-h-screen bg-background px-6 pb-24 pt-28 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-display font-bold">Activity</h1>
           <div className="text-right">
              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Portfolio Value</div>
              <div className="text-xl font-mono font-bold text-white">${totalValue.toFixed(2)}</div>
           </div>
         </div>
+        
+        {/* Active/Resolved Toggle */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="bg-zinc-900/80 p-1 rounded-xl border border-zinc-800/50 flex">
+            <button
+              onClick={() => setViewMode('active')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'active' 
+                  ? 'bg-[#1ED78B] text-black' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              data-testid="toggle-active-positions"
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setViewMode('resolved')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'resolved' 
+                  ? 'bg-[#1ED78B] text-black' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              data-testid="toggle-resolved-positions"
+            >
+              Resolved
+            </button>
+          </div>
+        </div>
 
+        {viewMode === 'active' && (
+        <>
         {/* Cost vs Resolution Chart Section */}
         {(() => {
           // Calculate total cost (what user spent) and total resolution value (what they'll get if they win)
@@ -1711,11 +1744,35 @@ export default function Activity() {
                  </div>
                )}
              </div>
+          </div>
+        )}
+        </>
+        )}
 
+        {/* Resolved View - Shows trade history for settled markets */}
+        {viewMode === 'resolved' && (
+          <div className="space-y-4">
+             {/* Info about redemptions */}
+             <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
+               <div className="flex items-start gap-3">
+                 <div className="w-8 h-8 rounded-full bg-[#1ED78B]/20 flex items-center justify-center shrink-0 mt-0.5">
+                   <Clock size={16} className="text-[#1ED78B]" />
+                 </div>
+                 <div>
+                   <h3 className="font-medium text-white text-sm">How Redemptions Work</h3>
+                   <p className="text-xs text-muted-foreground mt-1">
+                     When a market resolves, your winnings are automatically redeemed and credited to your wallet. 
+                     If you bet correctly, you'll receive the full $1 per share minus fees. 
+                     Losing bets resolve to $0. This process can take a few minutes after the market settles.
+                   </p>
+                 </div>
+               </div>
+             </div>
+             
              {/* History */}
              <div className="flex flex-col">
                <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">History</h2>
+                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Settled Trades</h2>
                  {totalClosedTrades > 0 && (
                    <span className="text-xs text-muted-foreground">{closedTrades.length} of {totalClosedTrades}</span>
                  )}
