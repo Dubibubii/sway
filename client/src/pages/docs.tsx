@@ -100,6 +100,47 @@ export default function DocsPage() {
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-white text-lg">
+                  Understanding Spreads
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-zinc-400 text-sm space-y-3">
+                <p>
+                  Markets have a <span className="text-white font-medium">bid</span> (what buyers offer) and an <span className="text-white font-medium">ask</span> (what sellers want). The difference is called the <span className="text-emerald-400 font-medium">spread</span>.
+                </p>
+                <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
+                  <div className="text-zinc-300 font-medium mb-2">Example:</div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span>YES Bid (buyers offer)</span>
+                    <span className="text-emerald-400 font-medium">36¢</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span>YES Ask (sellers want)</span>
+                    <span className="text-rose-400 font-medium">38¢</span>
+                  </div>
+                  <div className="border-t border-zinc-700 pt-2 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span>Spread</span>
+                      <span className="text-amber-400 font-medium">2¢</span>
+                    </div>
+                  </div>
+                </div>
+                <p>
+                  When you buy, you pay the <span className="text-rose-400">ask price</span> (38¢). If you sell immediately, you get the <span className="text-emerald-400">bid price</span> (36¢). That 2¢ spread means you'd start at a small loss.
+                </p>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <p className="text-amber-400 text-xs">
+                    <span className="font-medium">Why it matters:</span> A tight spread (1-2¢) is good. A wide spread (5¢+) means you're paying more to enter and might start "in the red" until the market moves in your favor.
+                  </p>
+                </div>
+                <p className="text-zinc-500 text-xs">
+                  SWAY filters for markets with tight spreads so you get fair prices.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white text-lg">
                   Payouts
                 </CardTitle>
               </CardHeader>

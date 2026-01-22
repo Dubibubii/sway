@@ -639,20 +639,6 @@ function ProfileContent() {
           </div>
         )}
 
-        {/* Read Docs Button */}
-        <div className="mt-8 flex justify-center">
-          <Button
-            data-testid="button-read-docs"
-            variant="ghost"
-            size="sm"
-            className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 gap-2"
-            onClick={() => setLocation('/docs')}
-          >
-            <BookOpen size={16} />
-            Read Docs
-          </Button>
-        </div>
-
         {/* Feedback Section */}
         <Card className="bg-zinc-900 border-zinc-800 mt-4">
           <CardHeader className="pb-3">
@@ -708,6 +694,20 @@ function ProfileContent() {
                <Wallet className="mr-2" size={18} /> Connect Wallet
              </Button>
            )}
+           
+           {/* Read Docs Button */}
+           <div className="flex justify-center mt-4">
+             <Button
+               data-testid="button-read-docs"
+               variant="ghost"
+               size="sm"
+               className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 gap-2"
+               onClick={() => setLocation('/docs')}
+             >
+               <BookOpen size={16} />
+               Read Docs
+             </Button>
+           </div>
         </div>
         </>
         )}
