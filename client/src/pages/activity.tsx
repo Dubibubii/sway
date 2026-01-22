@@ -804,8 +804,39 @@ export default function Activity() {
         const errorMsg = result.error || 'Close failed';
         console.error('[Activity] Close error:', { rawError: result.error, marketId: selectedPosition.marketId, shares, isRedemption });
         
+        // If sell failed with route_not_found and we haven't tried redemption yet,
+        // automatically try redemption - the market may have just settled
+        if (!isRedemption && positionOutcomeMint && 
+            (errorMsg.includes('route_not_found') || errorMsg.includes('No liquidity provider'))) {
+          console.log('[Activity] Sell failed with no liquidity - trying redemption as fallback');
+          
+          const redemptionResult = await redeemPosition(
+            positionOutcomeMint,
+            shares,
+            embeddedWallet?.address
+          );
+          
+          if (redemptionResult.success) {
+            console.log('[Activity] Redemption fallback succeeded!');
+            // Continue with success flow using redemption result
+            result = redemptionResult;
+            // Re-check result.success will be true now, so it will fall through to success handling
+          } else {
+            // Redemption also failed - show helpful error explaining both were tried
+            console.log('[Activity] Redemption fallback also failed:', redemptionResult.error);
+            showErrorWithReport(
+              'Market Closed', 
+              'This market is no longer trading. If the event has settled, redemption will be available soon. Check back later.',
+              'Sell Position'
+            );
+            setCloseModalOpen(false);
+            setIsProcessing(false);
+            return;
+          }
+        }
+        
         // Check if this is a partial fill situation where we can sell available tokens
-        if (errorMsg.includes('only have') && errorMsg.includes('tokens available')) {
+        if (!result.success && errorMsg.includes('only have') && errorMsg.includes('tokens available')) {
           const match = errorMsg.match(/only have ([\d.]+) tokens/);
           if (match) {
             const availableTokens = parseFloat(match[1]);
@@ -1240,10 +1271,10 @@ export default function Activity() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => {
+                        onClick={(e) => {
                           if (selectedPosition) {
                             setIsLoadingSellQuote(true);
-                            handleSellClick(selectedPosition);
+                            handleCloseClick(e, selectedPosition);
                           }
                         }}
                       >
@@ -1806,7 +1837,7 @@ export default function Activity() {
                      <div 
                        key={pos.id} 
                        className="flex items-center justify-between bg-black/20 rounded-lg p-3 cursor-pointer hover:bg-black/30 transition-colors"
-                       onClick={() => handleSellClick(pos)}
+                       onClick={(e) => handleCloseClick(e, pos)}
                      >
                        <div>
                          <div className="text-sm font-medium text-white">{pos.marketTitle}</div>
