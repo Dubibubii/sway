@@ -34,7 +34,8 @@ export interface IStorage {
   getOpenPositions(userId: string): Promise<Trade[]>;
   getOpenTradeForUserMarketDirection(userId: string, marketId: string, direction: string): Promise<Trade | undefined>;
   updateTradePosition(tradeId: string, updates: { wagerAmount: number; shares: string; entryFee: string; estimatedPayout: string; price: string }): Promise<Trade>;
-  closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade>;
+  closeTrade(tradeId: string, pnl: number, exitFee?: number, closureReason?: 'user_sold' | 'market_resolved'): Promise<Trade>;
+  getResolvedTrades(userId: string, limit?: number, offset?: number): Promise<{ trades: Trade[]; total: number }>;
   
   logAnalyticsEvent(event: InsertAnalyticsEvent): Promise<void>;
   getAnalyticsSummary(): Promise<AnalyticsSummary>;
@@ -132,17 +133,46 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async closeTrade(tradeId: string, pnl: number, exitFee?: number): Promise<Trade> {
+  async closeTrade(tradeId: string, pnl: number, exitFee?: number, closureReason?: 'user_sold' | 'market_resolved'): Promise<Trade> {
     const result = await db.update(trades)
       .set({ 
         isClosed: true, 
         closedAt: new Date(), 
         pnl: pnl.toString(),
         exitFee: exitFee ? exitFee.toFixed(4) : null,
+        closureReason: closureReason || 'user_sold', // Default to user_sold for backwards compatibility
       })
       .where(eq(trades.id, tradeId))
       .returning();
     return result[0];
+  }
+
+  async getResolvedTrades(userId: string, limit: number = 50, offset: number = 0): Promise<{ trades: Trade[]; total: number }> {
+    // Only show trades that were held until market resolution
+    // Trades with NULL or 'user_sold' closureReason are excluded (user exited before settlement)
+    const [tradesResult, countResult] = await Promise.all([
+      db.select().from(trades)
+        .where(and(
+          eq(trades.userId, userId), 
+          eq(trades.isClosed, true),
+          eq(trades.closureReason, 'market_resolved')
+        ))
+        .orderBy(desc(trades.closedAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(trades)
+        .where(and(
+          eq(trades.userId, userId), 
+          eq(trades.isClosed, true),
+          eq(trades.closureReason, 'market_resolved')
+        ))
+    ]);
+    
+    return {
+      trades: tradesResult,
+      total: Number(countResult[0]?.count || 0)
+    };
   }
 
   async logAnalyticsEvent(event: InsertAnalyticsEvent): Promise<void> {

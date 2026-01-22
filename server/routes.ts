@@ -784,7 +784,7 @@ export async function registerRoutes(
     }
   });
 
-  // Paginated closed trades (history) endpoint
+  // Paginated closed trades (history) endpoint - includes all closed trades (sold and resolved)
   app.get('/api/trades/history', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.userId) {
@@ -807,6 +807,32 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Error fetching trade history:', error);
       res.status(500).json({ error: 'Failed to fetch trade history' });
+    }
+  });
+
+  // Paginated resolved trades endpoint - only trades from markets that settled (not user-sold)
+  app.get('/api/trades/resolved', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.userId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const result = await storage.getResolvedTrades(req.userId, limit, offset);
+      const nextOffset = offset + result.trades.length;
+      const hasMore = nextOffset < result.total;
+      
+      res.json({ 
+        trades: result.trades, 
+        total: result.total,
+        hasMore,
+        nextOffset: hasMore ? nextOffset : null
+      });
+    } catch (error) {
+      console.error('Error fetching resolved trades:', error);
+      res.status(500).json({ error: 'Failed to fetch resolved trades' });
     }
   });
 
@@ -861,7 +887,7 @@ export async function registerRoutes(
 
       console.log(`Trade closed: DFlow handles fees via platformFeeScale=${FEE_CONFIG.PLATFORM_FEE_SCALE}. Recipient: ${FEE_CONFIG.FEE_RECIPIENT}`);
 
-      const trade = await storage.closeTrade(tradeId, adjustedPnl, exitFee);
+      const trade = await storage.closeTrade(tradeId, adjustedPnl, exitFee, 'user_sold');
       res.json({ trade, exitFee, feeRecipient: FEE_CONFIG.FEE_RECIPIENT });
     } catch (error) {
       console.error('Error closing trade:', error);

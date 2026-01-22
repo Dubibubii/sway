@@ -128,21 +128,21 @@ export default function Activity() {
     enabled: authenticated,
   });
 
-  // Paginated history with infinite scroll
+  // Paginated resolved trades (only markets that settled, not user-sold positions)
   const {
-    data: historyData,
-    isLoading: historyLoading,
+    data: resolvedData,
+    isLoading: resolvedLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['tradeHistory'],
+    queryKey: ['resolvedTrades'],
     queryFn: async ({ pageParam = 0 }) => {
       const token = await getAccessToken();
-      const res = await fetch(`/api/trades/history?limit=20&offset=${pageParam}`, {
+      const res = await fetch(`/api/trades/resolved?limit=20&offset=${pageParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to fetch trade history');
+      if (!res.ok) throw new Error('Failed to fetch resolved trades');
       return res.json() as Promise<{ trades: Trade[]; total: number; hasMore: boolean; nextOffset: number | null }>;
     },
     getNextPageParam: (lastPage) => {
@@ -154,8 +154,8 @@ export default function Activity() {
   });
 
   const activePositions = positionsData?.positions || [];
-  const closedTrades = historyData?.pages.flatMap(page => page.trades) || [];
-  const totalClosedTrades = historyData?.pages[0]?.total || 0;
+  const resolvedTrades = resolvedData?.pages.flatMap(page => page.trades) || [];
+  const totalResolvedTrades = resolvedData?.pages[0]?.total || 0;
   
   // History scroll container ref for infinite scroll
   const historyScrollRef = useRef<HTMLDivElement>(null);
@@ -1761,30 +1761,30 @@ export default function Activity() {
                  <div>
                    <h3 className="font-medium text-white text-sm">How Redemptions Work</h3>
                    <p className="text-xs text-muted-foreground mt-1">
-                     When a market resolves, your winnings are automatically redeemed and credited to your wallet. 
-                     If you bet correctly, you'll receive the full $1 per share minus fees. 
-                     Losing bets resolve to $0. This process can take a few minutes after the market settles.
+                     This shows positions you were still holding when markets settled. 
+                     Winners receive $1 per share (minus fees), losers receive $0.
+                     Positions you sold before settlement appear in your USDC balance from the sale.
                    </p>
                  </div>
                </div>
              </div>
              
-             {/* History */}
+             {/* Resolved Markets */}
              <div className="flex flex-col">
                <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Settled Trades</h2>
-                 {totalClosedTrades > 0 && (
-                   <span className="text-xs text-muted-foreground">{closedTrades.length} of {totalClosedTrades}</span>
+                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Settled Markets</h2>
+                 {totalResolvedTrades > 0 && (
+                   <span className="text-xs text-muted-foreground">{resolvedTrades.length} of {totalResolvedTrades}</span>
                  )}
                </div>
                
-               {historyLoading ? (
+               {resolvedLoading ? (
                  <div className="flex items-center justify-center py-8">
                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                  </div>
-               ) : closedTrades.length === 0 ? (
+               ) : resolvedTrades.length === 0 ? (
                  <div className="text-center py-8 text-muted-foreground text-sm">
-                   No trade history yet
+                   No resolved markets yet. Markets you're still holding when they settle will appear here.
                  </div>
                ) : (
                  <div 
@@ -1797,12 +1797,12 @@ export default function Activity() {
                      maxHeight: '500px',
                      WebkitOverflowScrolling: 'touch' 
                    }}
-                   data-testid="history-scroll-container"
+                   data-testid="resolved-scroll-container"
                  >
-                    {closedTrades.map((trade) => {
+                    {resolvedTrades.map((trade: Trade) => {
                       const pnl = parseFloat(trade.pnl || '0');
                       return (
-                        <div key={trade.id} className="flex items-center justify-between border-b border-white/5 pb-4" data-testid={`history-trade-${trade.id}`}>
+                        <div key={trade.id} className="flex items-center justify-between border-b border-white/5 pb-4" data-testid={`resolved-trade-${trade.id}`}>
                            <div className="flex items-center gap-3">
                               <div className="p-2 rounded-full bg-white/5">
                                  <Clock size={16} className="text-muted-foreground" />
@@ -1835,10 +1835,10 @@ export default function Activity() {
                         variant="ghost" 
                         className="w-full text-muted-foreground hover:text-white"
                         onClick={() => fetchNextPage()}
-                        data-testid="load-more-history"
+                        data-testid="load-more-resolved"
                       >
                         <ChevronDown className="w-4 h-4 mr-2" />
-                        Load more ({totalClosedTrades - closedTrades.length} remaining)
+                        Load more ({totalResolvedTrades - resolvedTrades.length} remaining)
                       </Button>
                     )}
                  </div>

@@ -33,6 +33,7 @@ export const trades = pgTable("trades", {
   exitFee: decimal("exit_fee", { precision: 10, scale: 4 }),
   isClosed: boolean("is_closed").notNull().default(false),
   closedAt: timestamp("closed_at"),
+  closureReason: text("closure_reason"), // 'user_sold' = user exited position, 'market_resolved' = market settled
   pnl: decimal("pnl", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
