@@ -559,6 +559,26 @@ export default function Home() {
   const { toast } = useToast();
   const { showErrorWithReport } = useErrorToast();
   
+  // Low gas warning - show friendly reminder when SOL drops below 0.008
+  const lowGasWarningShownRef = useRef(false);
+  useEffect(() => {
+    if (
+      solBalance !== undefined && 
+      solBalance > 0 && 
+      solBalance < 0.008 && 
+      !lowGasWarningShownRef.current &&
+      authenticated
+    ) {
+      lowGasWarningShownRef.current = true;
+      toast({
+        title: "Low on gas",
+        description: "Consider topping up your SOL - you're running low on gas for transactions.",
+        className: "bg-emerald-950/95 border-emerald-500/30 text-white",
+        duration: 6000,
+      });
+    }
+  }, [solBalance, authenticated, toast]);
+  
   // Motion values for the active card to drive UI feedback
   const x = useMotionValue(0);
   const y = useMotionValue(0);
