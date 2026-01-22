@@ -32,11 +32,38 @@ function Router() {
 }
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const { authenticated } = usePrivySafe();
-  const { settings, completeGeoCheck, completeOnboarding, completeGasDeposit } = useSettings();
+  const { authenticated, ready, user, getAccessToken } = usePrivySafe();
+  const { settings, completeGeoCheck, completeOnboarding, completeGasDeposit, connectWallet } = useSettings();
   const [showGeoCheck, setShowGeoCheck] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showGasDeposit, setShowGasDeposit] = useState(false);
+  const [userSynced, setUserSynced] = useState(false);
+
+  // CRITICAL: Sync user to database immediately when authenticated
+  // This ensures all users are registered regardless of which page they visit
+  useEffect(() => {
+    const syncUserToDatabase = async () => {
+      if (ready && authenticated && user && !userSynced) {
+        try {
+          const walletAddress = user.wallet?.address || user.email?.address || 'Unknown';
+          const token = await getAccessToken();
+          await connectWallet(user.id, walletAddress, token || undefined);
+          setUserSynced(true);
+          console.log('[App] User synced to database:', walletAddress);
+        } catch (error) {
+          console.error('[App] Failed to sync user to database:', error);
+        }
+      }
+    };
+    syncUserToDatabase();
+  }, [ready, authenticated, user, userSynced, connectWallet, getAccessToken]);
+
+  // Reset sync state when user logs out
+  useEffect(() => {
+    if (!authenticated) {
+      setUserSynced(false);
+    }
+  }, [authenticated]);
 
   // Show geo check first for new users (before onboarding)
   useEffect(() => {
