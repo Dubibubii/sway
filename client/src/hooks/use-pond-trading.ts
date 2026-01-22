@@ -353,7 +353,12 @@ export function usePondTrading() {
         console.error('[PondTrading] Transaction error details:', signError);
         console.error('[PondTrading] Extracted error message:', errorMsg);
         
-        // Check for specific error types
+        // Check for specific error types - order matters, most specific first
+        if (errorMsg.includes('-32002')) {
+          // Solana RPC error -32002: Transaction simulation failed
+          // Common causes: insufficient funds, invalid account state, program error
+          throw new Error('Transaction failed - the market may have insufficient liquidity or your balance is too low. Try a smaller amount or different market.');
+        }
         if (errorMsg.includes('0x1')) {
           throw new Error('Transaction failed - insufficient balance or token account issue.');
         }
@@ -361,13 +366,17 @@ export function usePondTrading() {
           throw new Error('Not enough SOL for transaction fees. Please deposit more SOL.');
         }
         if (errorMsg.toLowerCase().includes('simulation')) {
-          throw new Error(`Transaction simulation failed: ${errorMsg.slice(0, 100)}`);
+          throw new Error('Transaction simulation failed. Try a smaller amount or different market.');
         }
         if (errorMsg.toLowerCase().includes('blockhash')) {
           throw new Error('Transaction expired. Please try again.');
         }
-        // Show the actual error for debugging
-        throw new Error(`Trade failed: ${errorMsg.slice(0, 150)}`);
+        if (errorMsg.toLowerCase().includes('user rejected') || errorMsg.toLowerCase().includes('cancelled')) {
+          throw new Error('Transaction cancelled.');
+        }
+        // Show the actual error for debugging - but truncate encoded strings
+        const cleanError = errorMsg.replace(/[A-Za-z0-9+/=]{50,}/g, '[encoded]').slice(0, 100);
+        throw new Error(`Trade failed: ${cleanError}`);
       }
 
       let signature: string;
@@ -621,7 +630,11 @@ export function usePondTrading() {
         console.error('[PondTrading] Sell transaction error details:', signError);
         console.error('[PondTrading] Extracted error message:', errorMsg);
         
-        // Check for specific error types
+        // Check for specific error types - order matters, most specific first
+        if (errorMsg.includes('-32002')) {
+          // Solana RPC error -32002: Transaction simulation failed
+          throw new Error('Sell failed - tokens may still be settling or market has insufficient liquidity. Try again in a moment.');
+        }
         if (errorMsg.includes('0x1')) {
           // Solana error 0x1 = insufficient funds or missing tokens
           throw new Error('Cannot sell - tokens may not be in your wallet yet. DFlow async trades take time to settle.');
@@ -630,13 +643,17 @@ export function usePondTrading() {
           throw new Error('Not enough SOL for transaction fees. Please deposit more SOL.');
         }
         if (errorMsg.toLowerCase().includes('simulation')) {
-          throw new Error(`Transaction simulation failed: ${errorMsg.slice(0, 100)}`);
+          throw new Error('Transaction simulation failed. Tokens may still be settling.');
         }
         if (errorMsg.toLowerCase().includes('blockhash')) {
           throw new Error('Transaction expired. Please try again.');
         }
-        // Show the actual error for debugging
-        throw new Error(`Sell failed: ${errorMsg.slice(0, 150)}`);
+        if (errorMsg.toLowerCase().includes('user rejected') || errorMsg.toLowerCase().includes('cancelled')) {
+          throw new Error('Transaction cancelled.');
+        }
+        // Show the actual error for debugging - but truncate encoded strings
+        const cleanError = errorMsg.replace(/[A-Za-z0-9+/=]{50,}/g, '[encoded]').slice(0, 100);
+        throw new Error(`Sell failed: ${cleanError}`);
       }
 
       let signature: string;
