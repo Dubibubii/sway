@@ -1,7 +1,7 @@
 import { Layout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Zap, TrendingUp, Wallet, RefreshCw, Trophy, Sparkles, ArrowRight, ArrowDown, ChevronRight, DollarSign, Shield, Clock, BarChart3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowDown, ChevronRight, Shield } from 'lucide-react';
 
 export default function DocsPage() {
   return (
@@ -31,10 +31,7 @@ export default function DocsPage() {
           <div className="space-y-6">
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center border border-emerald-500/20">
-                    <Zap size={20} className="text-emerald-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Swipe to Trade
                 </CardTitle>
               </CardHeader>
@@ -67,10 +64,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center border border-blue-500/20">
-                    <TrendingUp size={20} className="text-blue-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   How Markets Work
                 </CardTitle>
               </CardHeader>
@@ -100,10 +94,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/20">
-                    <DollarSign size={20} className="text-amber-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Payouts
                 </CardTitle>
               </CardHeader>
@@ -131,10 +122,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center border border-purple-500/20">
-                    <Wallet size={20} className="text-purple-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Your Wallet
                 </CardTitle>
               </CardHeader>
@@ -167,10 +155,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center border border-cyan-500/20">
-                    <RefreshCw size={20} className="text-cyan-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Depositing Funds
                 </CardTitle>
               </CardHeader>
@@ -203,10 +188,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 flex items-center justify-center border border-pink-500/20">
-                    <Sparkles size={20} className="text-pink-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   AI Insights
                 </CardTitle>
               </CardHeader>
@@ -233,10 +215,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-600/10 flex items-center justify-center border border-orange-500/20">
-                    <BarChart3 size={20} className="text-orange-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Discovery Tab
                 </CardTitle>
               </CardHeader>
@@ -256,10 +235,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 flex items-center justify-center border border-yellow-500/20">
-                    <Trophy size={20} className="text-yellow-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Leaderboard
                 </CardTitle>
               </CardHeader>
@@ -282,10 +258,7 @@ export default function DocsPage() {
 
             <Card className="bg-zinc-900/80 border-zinc-800/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-lg flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center border border-teal-500/20">
-                    <Clock size={20} className="text-teal-400" />
-                  </div>
+                <CardTitle className="text-white text-lg">
                   Market Resolution
                 </CardTitle>
               </CardHeader>
