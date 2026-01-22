@@ -1004,7 +1004,7 @@ export default function Home() {
       <div className="h-[100dvh] flex flex-col items-center p-0 relative bg-background overflow-hidden">
         
         {/* Deck */}
-        <div className="flex-1 w-full max-w-md relative mt-20 mb-32 z-10 px-4">
+        <div className="flex-1 w-full max-w-md relative mt-14 sm:mt-20 mb-20 sm:mb-32 z-10 px-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-4">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
