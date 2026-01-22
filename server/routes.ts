@@ -1280,20 +1280,30 @@ export async function registerRoutes(
       const estimatedGasUSD = 0.02; // Rough estimate for Solana gas
       const totalCostUSDC = actualInAmount + estimatedGasUSD;
       
+      // Get market initialization cost if present (for uninitialized markets)
+      const initPredictionMarketCost = (orderResponse as any).initPredictionMarketCost;
+      const initCostSOL = initPredictionMarketCost ? initPredictionMarketCost / 1_000_000_000 : 0;
+      
       console.log('[Pond Order] Response received, has transaction:', !!orderResponse.transaction);
       console.log('[Pond Order] DFlow platformFee response:', dflowFeeInfo || 'not included in response');
+      if (initCostSOL > 0) {
+        console.log('[Pond Order] Market initialization cost:', initCostSOL.toFixed(6), 'SOL');
+      }
       console.log('[Pond Order] Accurate quote data:', {
         actualInAmount,
         actualOutAmount,
         actualPlatformFeeUSDC,
         priceImpactPct,
-        effectivePricePerShare: effectivePricePerShare.toFixed(4)
+        effectivePricePerShare: effectivePricePerShare.toFixed(4),
+        initCostSOL: initCostSOL > 0 ? initCostSOL.toFixed(6) : 'none'
       });
 
       res.json({
         transaction: orderResponse.transaction,
         quote: orderResponse.quote,
         executionMode: orderResponse.executionMode,
+        // Market initialization cost in SOL (if market needs to be initialized)
+        initCostSOL: initCostSOL > 0 ? initCostSOL : undefined,
         // Accurate cost breakdown for UI
         costBreakdown: {
           inputUSDC: actualInAmount,           // Actual USDC being spent
@@ -1303,6 +1313,7 @@ export async function registerRoutes(
           effectivePricePerShare,              // True cost per share
           estimatedGasUSD,                     // Est. gas in USD
           totalCostUSDC,                       // Total all-in cost
+          initCostSOL: initCostSOL > 0 ? initCostSOL : undefined, // Market init cost in SOL
         },
         platformFee: {
           channel: validChannel,

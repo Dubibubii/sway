@@ -309,7 +309,13 @@ export function usePondTrading() {
       const orderData = await quoteResponse.json();
       console.log('[PondTrading] Order received:', JSON.stringify(orderData).slice(0, 300));
       
-      const { transaction, executionMode, quote } = orderData;
+      const { transaction, executionMode, quote, initCostSOL } = orderData;
+
+      // Log if this trade requires market initialization
+      if (initCostSOL && initCostSOL > 0) {
+        console.log('[PondTrading] Market requires initialization, cost:', initCostSOL, 'SOL');
+        console.log('[PondTrading] User is paying for market initialization (one-time fee)');
+      }
 
       if (!transaction) {
         throw new Error('No transaction returned from DFlow API');
@@ -356,8 +362,12 @@ export function usePondTrading() {
         // Check for specific error types - order matters, most specific first
         if (errorMsg.includes('-32002')) {
           // Solana RPC error -32002: Transaction simulation failed
-          // Common causes: insufficient funds, invalid account state, program error
-          throw new Error('Transaction failed - the market may have insufficient liquidity or your balance is too low. Try a smaller amount or different market.');
+          // If market requires initialization, it might be a SOL balance issue
+          if (initCostSOL && initCostSOL > 0) {
+            throw new Error(`This market requires initialization (${initCostSOL.toFixed(4)} SOL). Make sure you have at least ${(initCostSOL + 0.005).toFixed(3)} SOL for gas + init fee.`);
+          }
+          // Otherwise generic message
+          throw new Error('Transaction failed. Make sure you have enough SOL for gas fees (~0.01 SOL) and try again.');
         }
         if (errorMsg.includes('0x1')) {
           throw new Error('Transaction failed - insufficient balance or token account issue.');
@@ -366,7 +376,7 @@ export function usePondTrading() {
           throw new Error('Not enough SOL for transaction fees. Please deposit more SOL.');
         }
         if (errorMsg.toLowerCase().includes('simulation')) {
-          throw new Error('Transaction simulation failed. Try a smaller amount or different market.');
+          throw new Error('Transaction simulation failed. Make sure you have enough SOL for gas.');
         }
         if (errorMsg.toLowerCase().includes('blockhash')) {
           throw new Error('Transaction expired. Please try again.');
