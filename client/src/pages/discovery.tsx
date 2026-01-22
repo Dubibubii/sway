@@ -37,6 +37,7 @@ export default function Discovery() {
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
   const [showEndingSoon, setShowEndingSoon] = useState(false);
   const [pendingMarketId, setPendingMarketId] = useState<string | null>(null);
+  const [isFetchingMarket, setIsFetchingMarket] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
   
@@ -219,24 +220,54 @@ export default function Discovery() {
   
   // Auto-open market when navigated from Activity with pending market ID
   useEffect(() => {
-    if (pendingMarketId && markets.length > 0) {
+    const lookupMarket = async () => {
+      if (!pendingMarketId || markets.length === 0 || isFetchingMarket) return;
+      
       // Search in all available markets (main list and search results)
       const allMarkets = [...markets, ...searchResults];
       const market = allMarkets.find(m => m.id === pendingMarketId);
+      
       if (market) {
         setSelectedMarket(market);
         trackMarketView(market.id, market.title);
         setPendingMarketId(null);
-      } else if (!isLoading) {
-        // Market not found - likely resolved or expired
+        return;
+      }
+      
+      if (!isLoading) {
+        // Market not in cache - try fetching from API
+        setIsFetchingMarket(true);
+        try {
+          console.log('[Discovery] Market not in cache, fetching from API:', pendingMarketId);
+          const response = await fetch(`/api/markets/${encodeURIComponent(pendingMarketId)}/lookup`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.found && data.market) {
+              console.log('[Discovery] Successfully fetched market from API:', data.market.title);
+              setSelectedMarket(data.market);
+              trackMarketView(data.market.id, data.market.title);
+              setPendingMarketId(null);
+              setIsFetchingMarket(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('[Discovery] Error fetching market:', error);
+        }
+        
+        // Market truly not found - show informational message
+        setIsFetchingMarket(false);
         toast({ 
           title: 'Market Resolved', 
           description: 'This market has settled and is no longer tradable. Check your Activity → Resolved tab for details.',
         });
         setPendingMarketId(null);
       }
-    }
-  }, [pendingMarketId, markets, searchResults, isLoading, trackMarketView, toast]);
+    };
+    
+    lookupMarket();
+  }, [pendingMarketId, markets, searchResults, isLoading, isFetchingMarket, trackMarketView, toast]);
   
   const isActiveSearch = debouncedSearch.length >= 2;
 

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, setMarketCacheReadyCallback, getMarketCache, type SimplifiedMarket } from "./pond";
+import { getEvents, getMarkets, getMockMarkets, diversifyMarketFeed, getEventMarkets, searchAllMarkets, startBackgroundCacheRefresh, getCacheTimestamp, setMarketCacheReadyCallback, getMarketCache, fetchSingleMarketById, type SimplifiedMarket } from "./pond";
 import { z } from "zod";
 import { PrivyClient } from "@privy-io/server-auth";
 import { FEE_CONFIG, DEV_WALLET, insertAnalyticsEventSchema, calculateSwayFee, type FeeChannel } from "@shared/schema";
@@ -415,6 +415,36 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Error searching markets:', error);
       res.status(500).json({ error: 'Failed to search markets' });
+    }
+  });
+
+  // Fetch a single market by ID (for markets not in current cache)
+  app.get('/api/markets/:marketId/lookup', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { marketId } = req.params;
+      
+      if (!marketId) {
+        return res.status(400).json({ error: 'Market ID required' });
+      }
+      
+      console.log(`[API] Looking up market: ${marketId}`);
+      const market = await fetchSingleMarketById(marketId);
+      
+      if (market) {
+        // Add DFlow initialization status
+        const marketInfo = await getDflowMarketInfo();
+        const enhancedMarket = {
+          ...market,
+          isInitialized: marketInfo.has(market.id) ? marketInfo.get(market.id) : false,
+        };
+        
+        res.json({ market: enhancedMarket, found: true });
+      } else {
+        res.json({ market: null, found: false });
+      }
+    } catch (error) {
+      console.error('Error looking up market:', error);
+      res.status(500).json({ error: 'Failed to lookup market' });
     }
   });
 

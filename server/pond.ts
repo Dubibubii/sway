@@ -368,6 +368,105 @@ async function fetchMarketsFromDFlow(): Promise<SimplifiedMarket[]> {
   }
 }
 
+// Fetch a single market by ticker from DFlow API (for markets not in cache)
+export async function fetchSingleMarketById(marketId: string): Promise<SimplifiedMarket | null> {
+  try {
+    // First check if it's in the cache
+    const cached = marketCache.find(m => m.id === marketId);
+    if (cached) {
+      console.log(`[fetchSingleMarket] Found ${marketId} in cache`);
+      return cached;
+    }
+    
+    // Build headers with API key if available
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (DFLOW_API_KEY) {
+      headers['x-api-key'] = DFLOW_API_KEY;
+    }
+    
+    console.log(`[fetchSingleMarket] Fetching ${marketId} from DFlow API...`);
+    
+    // Try DFlow's single market endpoint first
+    const url = `${DFLOW_METADATA_API}/api/v1/markets/${marketId}`;
+    const response = await fetch(url, { method: 'GET', headers });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const market = data.market || data;
+      
+      if (market && market.ticker) {
+        const simplified = transformDFlowMarketWithPrices(market);
+        console.log(`[fetchSingleMarket] Successfully fetched ${marketId} from DFlow`);
+        
+        // Add to cache so subsequent requests are fast
+        if (!marketCache.find(m => m.id === marketId)) {
+          marketCache.push(simplified);
+        }
+        
+        return simplified;
+      }
+    }
+    
+    // Fallback: Try Kalshi API directly for market info
+    console.log(`[fetchSingleMarket] DFlow failed, trying Kalshi API for ${marketId}...`);
+    const kalshiUrl = `https://api.elections.kalshi.com/trade-api/v2/markets/${marketId}`;
+    const kalshiResponse = await fetch(kalshiUrl, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (kalshiResponse.ok) {
+      const kalshiData = await kalshiResponse.json();
+      const kalshiMarket = kalshiData.market;
+      
+      if (kalshiMarket) {
+        // Transform Kalshi market format to our SimplifiedMarket
+        const seriesTicker = kalshiMarket.series_ticker || kalshiMarket.event_ticker?.split('-')[0] || '';
+        const category = detectCategoryFromTitle(kalshiMarket.title || '', seriesTicker);
+        const imageUrl = seriesTicker 
+          ? `https://kalshi-public-docs.s3.amazonaws.com/series-images-webp/${seriesTicker}.webp`
+          : undefined;
+        
+        const simplified: SimplifiedMarket = {
+          id: kalshiMarket.ticker,
+          title: kalshiMarket.title || '',
+          subtitle: kalshiMarket.subtitle || '',
+          category: category || 'General',
+          yesPrice: kalshiMarket.yes_bid ? kalshiMarket.yes_bid / 100 : 0.5,
+          noPrice: kalshiMarket.no_bid ? kalshiMarket.no_bid / 100 : 0.5,
+          yesAsk: kalshiMarket.yes_ask ? kalshiMarket.yes_ask / 100 : undefined,
+          yesBid: kalshiMarket.yes_bid ? kalshiMarket.yes_bid / 100 : undefined,
+          noAsk: kalshiMarket.no_ask ? kalshiMarket.no_ask / 100 : undefined,
+          noBid: kalshiMarket.no_bid ? kalshiMarket.no_bid / 100 : undefined,
+          yesLabel: kalshiMarket.yes_sub_title || 'Yes',
+          noLabel: kalshiMarket.no_sub_title || 'No',
+          volume: kalshiMarket.volume || 0,
+          volume24h: kalshiMarket.volume_24h || 0,
+          endDate: kalshiMarket.close_time || new Date().toISOString(),
+          status: kalshiMarket.status || 'active',
+          imageUrl,
+          eventTicker: kalshiMarket.event_ticker,
+        };
+        
+        console.log(`[fetchSingleMarket] Successfully fetched ${marketId} from Kalshi`);
+        
+        // Add to cache
+        if (!marketCache.find(m => m.id === marketId)) {
+          marketCache.push(simplified);
+        }
+        
+        return simplified;
+      }
+    }
+    
+    console.log(`[fetchSingleMarket] Could not find market ${marketId} in any API`);
+    return null;
+  } catch (error) {
+    console.error(`[fetchSingleMarket] Error fetching market ${marketId}:`, error);
+    return null;
+  }
+}
+
 // Transform DFlow /markets endpoint response (includes yesAsk, yesBid, noAsk, noBid)
 function transformDFlowMarketWithPrices(market: any): SimplifiedMarket {
   // DFlow /markets endpoint returns prices as strings like "0.85" (already in 0-1 range)
