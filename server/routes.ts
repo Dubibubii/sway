@@ -844,10 +844,14 @@ export async function registerRoutes(
 
       const positions = await storage.getOpenPositions(req.userId);
       
-      // Enhance positions with event tickers from market cache
+      // Enhance positions with event tickers and market status from market cache
       const marketCache = getMarketCache();
       const marketMap = new Map(marketCache.map(m => [m.id, m]));
-      const enhancedPositions = positions.map(position => {
+      
+      const activePositions: any[] = [];
+      const settledPositions: any[] = [];
+      
+      for (const position of positions) {
         const cachedMarket = marketMap.get(position.marketId);
         
         // Primary: use eventTicker from cache
@@ -860,13 +864,39 @@ export async function registerRoutes(
           }
         }
         
-        return {
+        // Check market status - detect settled/closed markets
+        const marketStatus = cachedMarket?.status || 'unknown';
+        const isSettled = marketStatus === 'settled' || marketStatus === 'closed' || marketStatus === 'finalized';
+        
+        // Also check if market end date has passed (for sports markets that resolve immediately)
+        const now = Date.now() / 1000;
+        const endDate = cachedMarket?.endDate || 0;
+        const isPastEndDate = endDate > 0 && now > endDate;
+        
+        const enhancedPosition = {
           ...position,
           eventTicker,
+          marketStatus,
+          isSettled: isSettled || isPastEndDate,
         };
-      });
+        
+        if (isSettled || isPastEndDate) {
+          settledPositions.push(enhancedPosition);
+        } else {
+          activePositions.push(enhancedPosition);
+        }
+      }
       
-      res.json({ positions: enhancedPositions });
+      // Log if we found settled positions for debugging
+      if (settledPositions.length > 0) {
+        console.log(`[Positions] Found ${settledPositions.length} settled positions for user ${req.userId}`);
+      }
+      
+      res.json({ 
+        positions: activePositions,
+        settledPositions: settledPositions,
+        totalSettled: settledPositions.length
+      });
     } catch (error) {
       console.error('Error fetching positions:', error);
       res.status(500).json({ error: 'Failed to fetch positions' });
@@ -1514,7 +1544,24 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       console.error('Error getting sell quote:', error);
-      res.status(500).json({ error: error.message || 'Failed to get sell quote' });
+      
+      // Provide more descriptive error messages
+      let userError = 'Failed to get sell quote';
+      if (error.message) {
+        if (error.message.includes('insufficient') || error.message.includes('liquidity')) {
+          userError = 'Market has insufficient liquidity';
+        } else if (error.message.includes('closed') || error.message.includes('expired') || error.message.includes('settled')) {
+          userError = 'Market is closed or already settled';
+        } else if (error.message.includes('not found') || error.message.includes('404')) {
+          userError = 'Market not found on DFlow';
+        } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
+          userError = 'DFlow API temporarily unavailable - try again';
+        } else {
+          userError = error.message;
+        }
+      }
+      
+      res.status(500).json({ error: userError });
     }
   });
 

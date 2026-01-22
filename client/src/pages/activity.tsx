@@ -123,7 +123,11 @@ export default function Activity() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch positions');
-      return res.json() as Promise<{ positions: Trade[] }>;
+      return res.json() as Promise<{ 
+        positions: Trade[]; 
+        settledPositions?: Trade[];
+        totalSettled?: number;
+      }>;
     },
     enabled: authenticated,
   });
@@ -154,8 +158,12 @@ export default function Activity() {
   });
 
   const activePositions = positionsData?.positions || [];
+  const settledPositions = positionsData?.settledPositions || [];
   const resolvedTrades = resolvedData?.pages.flatMap(page => page.trades) || [];
   const totalResolvedTrades = resolvedData?.pages[0]?.total || 0;
+  
+  // Combine settled positions (need redemption) with resolved trades (already closed)
+  const hasSettledPositions = settledPositions.length > 0;
   
   // History scroll container ref for infinite scroll
   const historyScrollRef = useRef<HTMLDivElement>(null);
@@ -1220,7 +1228,28 @@ export default function Activity() {
                       )}
                     </>
                   ) : (
-                    <div className="text-amber-400 py-4">Price unavailable - try again</div>
+                    <div className="text-center py-4 space-y-2">
+                      <div className="text-amber-400">
+                        {sellQuote?.error 
+                          ? sellQuote.error 
+                          : 'Price unavailable - market may be closed or have no liquidity'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Tip: Sports markets close immediately after the game ends
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          if (selectedPosition) {
+                            setIsLoadingSellQuote(true);
+                            handleSellClick(selectedPosition);
+                          }
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </div>
                   )}
                 </div>
                   );
@@ -1397,7 +1426,7 @@ export default function Activity() {
             </button>
             <button
               onClick={() => setViewMode('resolved')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 viewMode === 'resolved' 
                   ? 'bg-[#1ED78B] text-black' 
                   : 'text-zinc-400 hover:text-white'
@@ -1405,6 +1434,11 @@ export default function Activity() {
               data-testid="toggle-resolved-positions"
             >
               Resolved
+              {hasSettledPositions && viewMode !== 'resolved' && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[10px] font-bold flex items-center justify-center text-black">
+                  {settledPositions.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -1752,6 +1786,43 @@ export default function Activity() {
         {/* Resolved View - Shows trade history for settled markets */}
         {viewMode === 'resolved' && (
           <div className="space-y-4">
+             {/* Settled positions that need redemption */}
+             {hasSettledPositions && (
+               <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/30">
+                 <div className="flex items-start gap-3 mb-3">
+                   <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                     <Clock size={16} className="text-amber-400" />
+                   </div>
+                   <div>
+                     <h3 className="font-medium text-amber-400 text-sm">Pending Redemptions</h3>
+                     <p className="text-xs text-muted-foreground mt-1">
+                       {settledPositions.length} position{settledPositions.length > 1 ? 's have' : ' has'} settled and can be redeemed. 
+                       Tap to redeem your winnings.
+                     </p>
+                   </div>
+                 </div>
+                 <div className="space-y-2">
+                   {settledPositions.map((pos: Trade) => (
+                     <div 
+                       key={pos.id} 
+                       className="flex items-center justify-between bg-black/20 rounded-lg p-3 cursor-pointer hover:bg-black/30 transition-colors"
+                       onClick={() => handleSellClick(pos)}
+                     >
+                       <div>
+                         <div className="text-sm font-medium text-white">{pos.marketTitle}</div>
+                         <div className="text-xs text-muted-foreground">
+                           {pos.shares} {pos.direction} shares @ ${parseFloat(pos.price).toFixed(2)}
+                         </div>
+                       </div>
+                       <Button size="sm" variant="outline" className="border-amber-500/50 text-amber-400 hover:bg-amber-500/20">
+                         Redeem
+                       </Button>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
+             
              {/* Info about redemptions */}
              <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
                <div className="flex items-start gap-3">
