@@ -15,6 +15,9 @@ import Activity from "@/pages/activity";
 import Discovery from "@/pages/discovery";
 import Developer from "@/pages/developer";
 import Docs from "@/pages/docs";
+import License from "@/pages/license";
+import Copyright from "@/pages/copyright";
+import Privacy from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +29,9 @@ function Router() {
       <Route path="/activity" component={Activity} />
       <Route path="/developer" component={Developer} />
       <Route path="/docs" component={Docs} />
+      <Route path="/license" component={License} />
+      <Route path="/copyright" component={Copyright} />
+      <Route path="/privacy" component={Privacy} />
       <Route component={NotFound} />
     </Switch>
   );
