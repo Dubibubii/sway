@@ -384,7 +384,7 @@ export async function registerRoutes(
     }
   });
 
-  // Search endpoint - uses cached markets for comprehensive search
+  // Search endpoint - uses cached markets for comprehensive search (FAST, non-blocking)
   app.get('/api/markets/search', async (req: AuthenticatedRequest, res: Response) => {
     try {
       const query = (req.query.q as string || '').trim();
@@ -393,24 +393,30 @@ export async function registerRoutes(
         return res.json({ markets: [] });
       }
       
+      // Search through cached markets only (non-blocking)
       let matchingMarkets = await searchAllMarkets(query);
       
-      // Filter to only DFlow-available markets and add isInitialized status
-      const dflowMarkets = await getAvailableDflowMarkets();
+      // Use ONLY cached market info - never trigger slow API fetches during search
+      // getDflowMarketInfo returns cached data immediately (non-blocking)
       const marketInfo = await getDflowMarketInfo();
       
-      if (dflowMarkets.size > 0) {
-        matchingMarkets = matchingMarkets.filter(m => dflowMarkets.has(m.id));
+      // If we have market info, filter to only initialized markets for tradability
+      // If no cache yet, still return results (user can see them while cache loads)
+      if (marketInfo.size > 0) {
+        matchingMarkets = matchingMarkets.filter(m => marketInfo.has(m.id));
+        matchingMarkets = matchingMarkets.map(m => ({
+          ...m,
+          isInitialized: marketInfo.get(m.id) ?? false,
+        }));
+      } else {
+        // No market info cache yet - mark all as unknown/false for safety
+        matchingMarkets = matchingMarkets.map(m => ({
+          ...m,
+          isInitialized: false,
+        }));
       }
       
-      // Add isInitialized status
-      // Default to false (NOT initialized) if metadata is unavailable - prevents showing uninitialized markets
-      matchingMarkets = matchingMarkets.map(m => ({
-        ...m,
-        isInitialized: marketInfo.has(m.id) ? marketInfo.get(m.id) : false,
-      }));
-      
-      // Return all matching markets for comprehensive search
+      console.log(`[Search] Query "${query}": ${matchingMarkets.length} results`);
       res.json({ markets: matchingMarkets });
     } catch (error) {
       console.error('Error searching markets:', error);
